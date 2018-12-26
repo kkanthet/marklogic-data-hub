@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+<!-- Begin Jekyll SEO tag v2.3.0 -->
+<title>Release Notes for DHF 4.1.0 | marklogic-data-hub</title>
+<meta property="og:title" content="Release Notes for DHF 4.1.0" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="A data hub framework for MarkLogic. Start here =&gt;" />
+<meta property="og:description" content="A data hub framework for MarkLogic. Start here =&gt;" />
+<meta property="og:site_name" content="marklogic-data-hub" />
+<script type="application/ld+json">
+{"name":null,"description":"A data hub framework for MarkLogic. Start here =&gt;","author":null,"@type":"WebPage","url":"/marklogic-data-hub/_pages/release-notes/release-notes-4_1_x-core","image":null,"publisher":null,"headline":"Release Notes for DHF 4.1.0","dateModified":null,"datePublished":null,"sameAs":null,"mainEntityOfPage":null,"@context":"http://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+    <link href="/marklogic-data-hub/assets/css/style.css?v=fb0d003988f8f51e1d15691809306dbafd3be1d8" rel="stylesheet">
+  </head>
+  <body>
+    <div class="container-lg px-3 my-5 markdown-body">
+      
+        <h1><a href="/marklogic-data-hub/">marklogic-data-hub</a></h1>
+      
+
+      <h1 id="release-notes-for-dhf-410">Release Notes for DHF 4.1.0</h1>
+
+<details open=""><summary class="relnote-summary">The DHF project now aligns more closely with standard ml-gradle applications.</summary>
+  <div>
+
+    <ul>
+      <li>
+        <p>The directory structure and locations of configuration files remain the same as in DHF 4.0.x.</p>
+      </li>
+      <li>
+        <p>See <a href="/marklogic-data-hub/refs/project-structure/">Project Directory Structure</a> for information on the <code class="highlighter-rouge">ml-config</code> and <code class="highlighter-rouge">hub-internal-config</code> directories.</p>
+      </li>
+      <li>
+        <p>See <a href="/marklogic-data-hub/refs/gradle-tasks/">Gradle tasks</a> for information about ml-gradle tasks specific to DHF.</p>
+      </li>
+      <li>
+        <p>Java deployment commands specific to the data hub were changed as follows:</p>
+
+        <ul>
+          <li>Added:
+            <ul>
+              <li><code class="highlighter-rouge">DeployHubOtherServersCommand.java</code></li>
+              <li><code class="highlighter-rouge">HubDeployDatabaseCommandFactory.java</code></li>
+              <li><code class="highlighter-rouge">LoadHubSchemasCommand.java</code></li>
+            </ul>
+          </li>
+          <li>Renamed:
+            <ul>
+              <li>from <code class="highlighter-rouge">LoadUserStagingModulesCommand.java</code> to <code class="highlighter-rouge">LoadUserModulesCommand.java</code></li>
+            </ul>
+          </li>
+          <li>Removed:
+            <ul>
+              <li><code class="highlighter-rouge">DeployHubDatabasesCommand.java</code></li>
+              <li><code class="highlighter-rouge">DeployHubFinalSchemasDatabaseCommand.java</code></li>
+              <li><code class="highlighter-rouge">DeployHubFinalTriggersDatabaseCommand.java</code></li>
+              <li><code class="highlighter-rouge">DeployHubOtherDatabasesCommand.java</code></li>
+              <li><code class="highlighter-rouge">DeployHubRolesCommand.java</code></li>
+              <li><code class="highlighter-rouge">DeployHubSchemasDatabaseCommand.java</code></li>
+              <li><code class="highlighter-rouge">DeployHubServersCommand.java</code></li>
+              <li><code class="highlighter-rouge">DeployHubStagingSchemasDatabaseCommand.java</code></li>
+              <li><code class="highlighter-rouge">DeployHubStagingTriggersDatabaseCommand.java</code></li>
+              <li><code class="highlighter-rouge">DeployHubTriggersDatabaseCommand.java</code></li>
+              <li><code class="highlighter-rouge">DeployHubUsersCommand.java</code></li>
+              <li><code class="highlighter-rouge">DeployUserRolesCommand.java</code></li>
+              <li><code class="highlighter-rouge">DeployUserServersCommand.java</code></li>
+              <li><code class="highlighter-rouge">DeployUserUsersCommand.java</code></li>
+            </ul>
+          </li>
+        </ul>
+      </li>
+      <li>
+        <p>Custom triggers must now be added to <code class="highlighter-rouge">ml-config/databases/(database name)/triggers</code>. (In previous releases, triggers were added to <code class="highlighter-rouge">hub-internal-config/triggers</code> or <code class="highlighter-rouge">ml-config/triggers</code>.) See <a href="https://github.com/marklogic-community/ml-gradle/wiki/Project-layout#database-specific-resources">ml-grade Project Layout</a> for more information on triggers.</p>
+      </li>
+    </ul>
+  </div>
+</details>
+
+<details open=""><summary class="relnote-summary">DHF Java API changed to allow DHF to use the Spring Framework.</summary>
+  <div>
+    <ul>
+      <li>The Java <code class="highlighter-rouge">HubConfig</code> class now has a singleton scope.</li>
+      <li>See <a href="https://marklogic.github.io/marklogic-data-hub/javadocs/4.1.0/">DHF Java Library</a> for more information.</li>
+    </ul>
+  </div>
+</details>
+
+<!--
+<details open><summary class="relnote-summary">...</summary>
+  <div markdown="1">
+  ...
+  </div>
+</details>
+-->
+
+<!--
+## Changes and Incompatibilities
+
+### DHF 4.1.0 Changes and Incompatibilities
+-->
+
+<!--
+<details><summary>...</summary>
+  <div markdown="1">
+  ...
+  </div>
+</details>
+-->
+
+
+      
+      <div class="footer border-top border-gray-light mt-5 pt-3 text-right text-gray">
+        This site is open source. <a href="http://github.com/marklogic/marklogic-data-hub/edit/gh-pages/_pages/release-notes/release-notes-4_1_x-core.md">Improve this page</a>.
+      </div>
+      
+    </div>
+    <script src="/marklogic-data-hub/assets/javascript/anchor-js/anchor.min.js"></script>
+    <script>anchors.add();</script>
+  </body>
+</html>
