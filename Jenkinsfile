@@ -48,7 +48,9 @@ pipeline{
 		}
 		stage('code-review'){
 		when {
-  			changeRequest()
+  			 allOf {
+    changeRequest author: '', authorDisplayName: '', authorEmail: '', branch: '', fork: '', id: '', target: '', title: '', url: ''
+  }
   			beforeAgent true
 		}
 		agent none;
@@ -123,7 +125,7 @@ pipeline{
                   }
                   }
 		}
-		stage('End-End Tests'){
+		stage('Integration Tests'){
 			agent { label 'dhfLinuxAgent'}
 			steps{
 				copyRPM 'Latest'
@@ -147,27 +149,74 @@ pipeline{
                   }
                   }
 		}
-		stage('Create PR For Release Branch'){
+		stage('Create PR For Integration Branch'){
 		when {
-  			changeRequest()
+  			changeRequest target: 'FeatureBranch'
   			beforeAgent true
 		}
 		agent {label 'master'}
 		steps{
 		withCredentials([usernameColonPassword(credentialsId: 'a0ec09aa-f339-44de-87c4-1a4936df44f5', variable: 'Credentials')]) {
 		script{
-			sh "curl -u $Credentials  -X POST -H 'Content-Type:application/json' -d '{\"title\": \"new PR for Release Branch\" , \"head\": \"develop\" , \"base\": \"PR_DEV\" }' https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/pulls"
+			sh "curl -u $Credentials  -X POST -H 'Content-Type:application/json' -d '{\"title\": \"Automated PR for Integration Branch\" , \"head\": \"FeatureBranch\" , \"base\": \"IntegrationBranch\" }' https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/pulls"
 			}
 			}
 		}
 		post{
                   success {
-                    println("PR For Release branch created")
+                    println("Automated PR For Integration branch created")
+                    sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'Integration Tests for PR $CHANGE_ID Passed'
+                   }
+                   failure {
+                      println("Creation of Automated PR Failed")
+                     
+                  }
+                  }
+		}
+		stage('Upgrade Tests'){
+			agent { label 'dhfLinuxAgent'}
+			steps{
+				copyRPM 'Latest'
+				setUpML '$WORKSPACE/xdmp/src/Mark*.rpm'
+				sh 'echo '+JAVA_HOME+'export '+JAVA_HOME+' export $WORKSPACE/data-hub'+GRADLE_USER_HOME+'export '+MAVEN_HOME+'export PATH=$PATH:$MAVEN_HOME/bin; cd $WORKSPACE/data-hub;rm -rf $GRADLE_USER_HOME/caches;./gradlew clean;./gradlew clean;./gradlew :marklogic-data-hub:test --tests com.marklogic.hub.flow.* -Pskipui=true'
+				junit '**/TEST-*.xml'
+				script{
+				if(env.CHANGE_TITLE){
+				jiraAddComment comment: 'Jenkins Upgrade Test Results For PR Available', idOrKey: env.CHANGE_TITLE, site: 'JIRA'
+				}
+				}
+			}
+			post{
+                  success {
+                    println("Upgrade Tests Completed")
                     sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'End-End Tests for PR $CHANGE_ID Passed'
                    }
                    failure {
-                      println("End-End Tests Failed")
+                      println("Upgrade Tests Failed")
                       sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'End-End Tests for PR $CHANGE_ID Failed'
+                  }
+                  }
+		}
+		stage('Create PR For Release Branch'){
+		when {
+  			  changeRequest comparator: 'REGEXP', target: 'Integration*'
+  			beforeAgent true
+		}
+		agent {label 'master'}
+		steps{
+		withCredentials([usernameColonPassword(credentialsId: 'a0ec09aa-f339-44de-87c4-1a4936df44f5', variable: 'Credentials')]) {
+		script{
+			sh "curl -u $Credentials  -X POST -H 'Content-Type:application/json' -d '{\"title\": \"Automated PR for Release Branch\" , \"head\": \"IntegrationBranch\" , \"base\": \"ReleaseBranch\" }' https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/pulls"
+			}
+			}
+		}
+		post{
+                  success {
+                    println("Automated PR For Release branch created")
+                    sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'Integration Tests for PR $CHANGE_ID Passed'
+                   }
+                   failure {
+                      println("Creation of Automated PR Failed")
                   }
                   }
 		}
