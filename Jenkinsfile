@@ -4,6 +4,8 @@ def JAVA_HOME="~/java/jdk1.8.0_72"
 def GRADLE_USER_HOME="/.gradle"
 def MAVEN_HOME="/usr/local/maven"
 def JIRA_ID="";
+def userInput = true
+def didTimeout = false
 pipeline{
 	agent none;
 	options {
@@ -62,10 +64,22 @@ pipeline{
 			script{
 			try{
 			 timeout(time:5, unit:'MINUTES') {
-            input message:'Review Done?'
+            userInput = (input message:'Review Done?', parameters: [
+        [$class: 'BooleanParameterDefinition', defaultValue: true]
+        ])
         }
         }catch(err){
-        currentBuild.result = "SUCCESS"
+        script{
+        def user = err.getCauses()[0].getUser()
+    		if('SYSTEM' == user.toString()) { // SYSTEM means timeout.
+        		didTimeout = true
+        		currentBuild.result = "SUCCESS"
+    		} else {
+        		userInput = false
+        		echo "Aborted by: [${user}]"
+        		sh 'exit 1';
+    		}
+        }
         }
         }
 		}
@@ -195,11 +209,11 @@ pipeline{
 			post{
                   success {
                     println("Upgrade Tests Completed")
-                    sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'End-End Tests for $BRANCH_NAME Passed'
+                    sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'Upgrade Tests for $BRANCH_NAME Passed'
                    }
                    failure {
                       println("Upgrade Tests Failed")
-                      sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'End-End Tests for $BRANCH_NAME Failed'
+                      sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'Upgrade Tests for $BRANCH_NAME Failed'
                   }
                   }
 		}
