@@ -3,6 +3,7 @@ def gitDataHubRepo="https://github.com/SameeraPriyathamTadikonda/marklogic-data-
 def JAVA_HOME="~/java/jdk1.8.0_72"
 def GRADLE_USER_HOME="/.gradle"
 def MAVEN_HOME="/usr/local/maven"
+def JIRA_ID="";
 pipeline{
 	agent none;
 	options {
@@ -14,8 +15,9 @@ pipeline{
 			steps{
 				script{
 				if(env.CHANGE_TITLE){
+				JIRA_ID=env.CHANGE_TITLE.split(':')[0];
 				def transitionInput =[transition: [id: '41']]
-				jiraTransitionIssue idOrKey: env.CHANGE_TITLE, input: transitionInput, site: 'JIRA'
+				jiraTransitionIssue idOrKey: JIRA_ID, input: transitionInput, site: 'JIRA'
 				}
 				}
 				println(BRANCH_NAME)
@@ -31,29 +33,32 @@ pipeline{
 				junit '**/TEST-*.xml'
 				script{
 				if(env.CHANGE_TITLE){
-				jiraAddComment comment: 'Jenkins Unit Test Results For PR Available', idOrKey: env.CHANGE_TITLE, site: 'JIRA'
+				JIRA_ID=env.CHANGE_TITLE.split(':')[0]
+				jiraAddComment comment: 'Jenkins Unit Test Results For PR Available', idOrKey: JIRA_ID, site: 'JIRA'
 				}
 				}
 			}
 			post{
                   success {
                     println("Unit Tests Completed")
-                    sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'Unit Tests for PR $CHANGE_ID Passed'
+                    sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'Unit Tests for  $BRANCH_NAME Passed'
                    }
                    failure {
                       println("Unit Tests Failed")
-                      sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'Unit Tests for PR $CHANGE_ID Failed'
+                      sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'Unit Tests for $BRANCH_NAME Failed'
                   }
                   }
 		}
 		stage('code-review'){
 		when {
-  			changeRequest()
+  			 allOf {
+    changeRequest author: '', authorDisplayName: '', authorEmail: '', branch: '', fork: '', id: '', target: '', title: '', url: ''
+  }
   			beforeAgent true
 		}
 		agent none;
 		steps{
-		sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'Waiting for code review PR $CHANGE_ID '
+		sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'Waiting for code review $BRANCH_NAME '
 			script{
 			try{
 			 timeout(time:5, unit:'MINUTES') {
@@ -112,18 +117,19 @@ pipeline{
                     script{
                     if(env.CHANGE_TITLE){
 						def transitionInput =[transition: [id: '31']]
-						jiraTransitionIssue idOrKey: env.CHANGE_TITLE, input: transitionInput, site: 'JIRA'
+						JIRA_ID=env.CHANGE_TITLE.split(':')[0]
+						jiraTransitionIssue idOrKey: JIRA_ID, input: transitionInput, site: 'JIRA'
 					}
-					sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,' PR $CHANGE_ID is Merged'
+					sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'  $BRANCH_NAME is Merged'
 					}
                    }
                    failure {
                       println("Retried 5times")
-                      sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'PR $CHANGE_ID Cannot be Merged'
+                      sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,' $BRANCH_NAME Cannot be Merged'
                   }
                   }
 		}
-		stage('End-End Tests'){
+		stage('Integration Tests'){
 			agent { label 'dhfLinuxAgent'}
 			steps{
 				copyRPM 'Latest'
@@ -132,42 +138,91 @@ pipeline{
 				junit '**/TEST-*.xml'
 				script{
 				if(env.CHANGE_TITLE){
-				jiraAddComment comment: 'Jenkins End-End Unit Test Results For PR Available', idOrKey: env.CHANGE_TITLE, site: 'JIRA'
+				JIRA_ID=env.CHANGE_TITLE.split(':')[0]
+				jiraAddComment comment: 'Jenkins End-End Unit Test Results For PR Available', idOrKey: JIRA_ID, site: 'JIRA'
 				}
 				}
 			}
 			post{
                   success {
                     println("End-End Tests Completed")
-                    sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'End-End Tests for PR $CHANGE_ID Passed'
+                    sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'End-End Tests for $BRANCH_NAME Passed'
                    }
                    failure {
                       println("End-End Tests Failed")
-                      sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'End-End Tests for PR $CHANGE_ID Failed'
+                      sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'End-End Tests for  $BRANCH_NAME Failed'
                   }
                   }
 		}
-		stage('Create PR For Release Branch'){
+		stage('Create PR For Integration Branch'){
 		when {
-  			changeRequest()
+  			changeRequest target: 'FeatureBranch'
   			beforeAgent true
 		}
 		agent {label 'master'}
 		steps{
 		withCredentials([usernameColonPassword(credentialsId: 'a0ec09aa-f339-44de-87c4-1a4936df44f5', variable: 'Credentials')]) {
 		script{
-			sh "curl -u $Credentials  -X POST -H 'Content-Type:application/json' -d '{\"title\": \"new PR for Release Branch\" , \"head\": \"develop\" , \"base\": \"PR_DEV\" }' https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/pulls"
+			JIRA_ID=env.CHANGE_TITLE.split(':')[0]
+			sh "curl -u $Credentials  -X POST -H 'Content-Type:application/json' -d '{\"title\": \"${JIRA_ID}: Automated PR for Integration Branch\" , \"head\": \"FeatureBranch\" , \"base\": \"IntegrationBranch\" }' https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/pulls"
 			}
 			}
 		}
 		post{
                   success {
-                    println("PR For Release branch created")
-                    sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'End-End Tests for PR $CHANGE_ID Passed'
+                    println("Automated PR For Integration branch created")
                    }
                    failure {
-                      println("End-End Tests Failed")
-                      sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'End-End Tests for PR $CHANGE_ID Failed'
+                      println("Creation of Automated PR Failed")
+                     
+                  }
+                  }
+		}
+		stage('Upgrade Tests'){
+			agent { label 'dhfLinuxAgent'}
+			steps{
+				copyRPM 'Latest'
+				setUpML '$WORKSPACE/xdmp/src/Mark*.rpm'
+				sh 'echo '+JAVA_HOME+'export '+JAVA_HOME+' export $WORKSPACE/data-hub'+GRADLE_USER_HOME+'export '+MAVEN_HOME+'export PATH=$PATH:$MAVEN_HOME/bin; cd $WORKSPACE/data-hub;rm -rf $GRADLE_USER_HOME/caches;./gradlew clean;./gradlew clean;./gradlew :marklogic-data-hub:test --tests com.marklogic.hub.flow.* -Pskipui=true'
+				junit '**/TEST-*.xml'
+				script{
+				if(env.CHANGE_TITLE){
+				JIRA_ID=env.CHANGE_TITLE.split(':')[0]
+				jiraAddComment comment: 'Jenkins Upgrade Test Results For PR Available', idOrKey: JIRA_ID, site: 'JIRA'
+				}
+				}
+			}
+			post{
+                  success {
+                    println("Upgrade Tests Completed")
+                    sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'End-End Tests for $BRANCH_NAME Passed'
+                   }
+                   failure {
+                      println("Upgrade Tests Failed")
+                      sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'End-End Tests for $BRANCH_NAME Failed'
+                  }
+                  }
+		}
+		stage('Create PR For Release Branch'){
+		when {
+  			  changeRequest comparator: 'REGEXP', target: 'Integration*'
+  			beforeAgent true
+		}
+		agent {label 'master'}
+		steps{
+		withCredentials([usernameColonPassword(credentialsId: 'a0ec09aa-f339-44de-87c4-1a4936df44f5', variable: 'Credentials')]) {
+		script{
+			JIRA_ID=env.CHANGE_TITLE.split(':')[0]
+			sh "curl -u $Credentials  -X POST -H 'Content-Type:application/json' -d '{\"title\": \"${JIRA_ID}: Automated PR for Release Branch\" , \"head\": \"IntegrationBranch\" , \"base\": \"ReleaseBranch\" }' https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/pulls"
+			}
+			}
+		}
+		post{
+                  success {
+                    println("Automated PR For Release branch created")
+                   }
+                   failure {
+                      println("Creation of Automated PR Failed")
                   }
                   }
 		}
