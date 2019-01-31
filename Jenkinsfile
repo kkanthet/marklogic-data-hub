@@ -205,7 +205,7 @@ pipeline{
 		}
 		stage('Create PR For Release Branch'){
 		when {
-  			  changeRequest comparator: 'REGEXP', target: 'Integration*'
+  			  changeRequest comparator: 'REGEXP', target: 'Integration[*]'
   			beforeAgent true
 		}
 		agent {label 'master'}
