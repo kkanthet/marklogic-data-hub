@@ -64,7 +64,9 @@ pipeline{
 			script{
 			try{
 			 timeout(time:5, unit:'MINUTES') {
-            userInput = ( input message:'Review Done?', parameters: [$class: 'BooleanParameterDefinition', defaultValue: true])
+             input message:'Review Done?', parameters {
+			string(name:'username', defaultValue: 'user', description: 'Username of the user pressing Ok')
+		}
         }
         }catch(err){
         script{
