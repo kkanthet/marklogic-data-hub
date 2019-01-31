@@ -3,6 +3,7 @@ def gitDataHubRepo="https://github.com/SameeraPriyathamTadikonda/marklogic-data-
 def JAVA_HOME="~/java/jdk1.8.0_72"
 def GRADLE_USER_HOME="/.gradle"
 def MAVEN_HOME="/usr/local/maven"
+def JIRA_ID="";
 pipeline{
 	agent none;
 	options {
@@ -14,8 +15,9 @@ pipeline{
 			steps{
 				script{
 				if(env.CHANGE_TITLE){
+				JIRA_ID=env.CHANGE_TITLE.split(':')[0];
 				def transitionInput =[transition: [id: '41']]
-				jiraTransitionIssue idOrKey: env.CHANGE_TITLE, input: transitionInput, site: 'JIRA'
+				jiraTransitionIssue idOrKey: JIRA_ID, input: transitionInput, site: 'JIRA'
 				}
 				}
 				println(BRANCH_NAME)
@@ -31,7 +33,7 @@ pipeline{
 				junit '**/TEST-*.xml'
 				script{
 				if(env.CHANGE_TITLE){
-				jiraAddComment comment: 'Jenkins Unit Test Results For PR Available', idOrKey: env.CHANGE_TITLE, site: 'JIRA'
+				jiraAddComment comment: 'Jenkins Unit Test Results For PR Available', idOrKey: JIRA_ID, site: 'JIRA'
 				}
 				}
 			}
@@ -114,7 +116,7 @@ pipeline{
                     script{
                     if(env.CHANGE_TITLE){
 						def transitionInput =[transition: [id: '31']]
-						jiraTransitionIssue idOrKey: env.CHANGE_TITLE, input: transitionInput, site: 'JIRA'
+						jiraTransitionIssue idOrKey: JIRA_ID, input: transitionInput, site: 'JIRA'
 					}
 					sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,' PR $CHANGE_ID is Merged'
 					}
@@ -134,7 +136,7 @@ pipeline{
 				junit '**/TEST-*.xml'
 				script{
 				if(env.CHANGE_TITLE){
-				jiraAddComment comment: 'Jenkins End-End Unit Test Results For PR Available', idOrKey: env.CHANGE_TITLE, site: 'JIRA'
+				jiraAddComment comment: 'Jenkins End-End Unit Test Results For PR Available', idOrKey: JIRA_ID, site: 'JIRA'
 				}
 				}
 			}
@@ -158,7 +160,7 @@ pipeline{
 		steps{
 		withCredentials([usernameColonPassword(credentialsId: 'a0ec09aa-f339-44de-87c4-1a4936df44f5', variable: 'Credentials')]) {
 		script{
-			sh "curl -u $Credentials  -X POST -H 'Content-Type:application/json' -d '{\"title\": \"${CHANGE_TITLE} Automated PR for Integration Branch\" , \"head\": \"FeatureBranch\" , \"base\": \"IntegrationBranch\" }' https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/pulls"
+			sh "curl -u $Credentials  -X POST -H 'Content-Type:application/json' -d '{\"title\": \"${JIRA_ID}: Automated PR for Integration Branch\" , \"head\": \"FeatureBranch\" , \"base\": \"IntegrationBranch\" }' https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/pulls"
 			}
 			}
 		}
@@ -182,7 +184,7 @@ pipeline{
 				junit '**/TEST-*.xml'
 				script{
 				if(env.CHANGE_TITLE){
-				jiraAddComment comment: 'Jenkins Upgrade Test Results For PR Available', idOrKey: env.CHANGE_TITLE, site: 'JIRA'
+				jiraAddComment comment: 'Jenkins Upgrade Test Results For PR Available', idOrKey: JIRA_ID, site: 'JIRA'
 				}
 				}
 			}
@@ -206,7 +208,7 @@ pipeline{
 		steps{
 		withCredentials([usernameColonPassword(credentialsId: 'a0ec09aa-f339-44de-87c4-1a4936df44f5', variable: 'Credentials')]) {
 		script{
-			sh "curl -u $Credentials  -X POST -H 'Content-Type:application/json' -d '{\"title\": \"${CHANGE_TITLE} Automated PR for Release Branch\" , \"head\": \"IntegrationBranch\" , \"base\": \"ReleaseBranch\" }' https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/pulls"
+			sh "curl -u $Credentials  -X POST -H 'Content-Type:application/json' -d '{\"title\": \"${JIRA_ID}: Automated PR for Release Branch\" , \"head\": \"IntegrationBranch\" , \"base\": \"ReleaseBranch\" }' https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/pulls"
 			}
 			}
 		}
