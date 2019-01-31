@@ -4,8 +4,6 @@ def JAVA_HOME="~/java/jdk1.8.0_72"
 def GRADLE_USER_HOME="/.gradle"
 def MAVEN_HOME="/usr/local/maven"
 def JIRA_ID="";
-def userInput = true
-def didTimeout = false
 pipeline{
 	agent none;
 	options {
@@ -64,22 +62,10 @@ pipeline{
 			script{
 			try{
 			 timeout(time:5, unit:'MINUTES') {
-             input message:'Review Done?', parameters {
-			string(name:'username', defaultValue: 'user', description: 'Username of the user pressing Ok')
-		}
+            input message:'Review Done?'
         }
         }catch(err){
-        script{
-        def user = err.getCauses()[0].getUser()
-    		if('SYSTEM' == user.toString()) { // SYSTEM means timeout.
-        		didTimeout = true
-        		currentBuild.result = "SUCCESS"
-    		} else {
-        		userInput = false
-        		echo "Aborted by: [${user}]"
-        		sh 'exit 1';
-    		}
-        }
+        currentBuild.result = "SUCCESS"
         }
         }
 		}
@@ -234,6 +220,7 @@ pipeline{
 		post{
                   success {
                     println("Automated PR For Release branch created")
+           
                    }
                    failure {
                       println("Creation of Automated PR Failed")
