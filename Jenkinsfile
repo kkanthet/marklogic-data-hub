@@ -195,11 +195,11 @@ pipeline{
 			post{
                   success {
                     println("Upgrade Tests Completed")
-                    sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'End-End Tests for $BRANCH_NAME Passed'
+                    sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'Upgrade Tests for $BRANCH_NAME Passed'
                    }
                    failure {
                       println("Upgrade Tests Failed")
-                      sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'End-End Tests for $BRANCH_NAME Failed'
+                      sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'Upgrade Tests for $BRANCH_NAME Failed'
                   }
                   }
 		}
@@ -220,6 +220,7 @@ pipeline{
 		post{
                   success {
                     println("Automated PR For Release branch created")
+           
                    }
                    failure {
                       println("Creation of Automated PR Failed")
