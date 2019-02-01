@@ -62,16 +62,16 @@ pipeline{
 			if(env.CHANGE_TITLE.split(':')[1].contains("Automated PR")){
 				println("Automated PR")
 				sh 'exit 0'
-			}
-		}
+			}else{
+		
 		sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'Waiting for code review $BRANCH_NAME '
-			script{
 			try{
 			 timeout(time:5, unit:'MINUTES') {
             input message:'Review Done?'
         }
         }catch(err){
         currentBuild.result = "SUCCESS"
+        }
         }
         }
 		}
@@ -170,9 +170,16 @@ pipeline{
 		withCredentials([usernameColonPassword(credentialsId: 'a0ec09aa-f339-44de-87c4-1a4936df44f5', variable: 'Credentials')]) {
 		script{
 			JIRA_ID=env.CHANGE_TITLE.split(':')[0]
-			sh "curl -u $Credentials  -X POST -H 'Content-Type:application/json' -d '{\"title\": \"${JIRA_ID}: Automated PR for Integration Branch\" , \"head\": \"FeatureBranch\" , \"base\": \"IntegrationBranch\" }' https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/pulls"
+			def prResponse = sh (returnStdout: true, script:'''
+			curl -u $Credentials  -X POST -H 'Content-Type:application/json' -d '{\"title\": \"${JIRA_ID}: Automated PR for Integration Branch\" , \"head\": \"FeatureBranch\" , \"base\": \"IntegrationBranch\" }' https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/pulls ''')
+			def prNumber=sh (returnStdout: true, script:''' $prResponse | grep '"number":' | cut -d ':' -f2 ''')
+
 			}
 			}
+			withCredentials([usernameColonPassword(credentialsId: 'rahul-git', variable: 'Credentials')]) {
+                    sh "curl -u $Credentials  -X POST  -d '{\"event\": \"APPROVE\"}' https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/pulls/$prNumber/reviews"
+                }
+
 		}
 		post{
                   success {
