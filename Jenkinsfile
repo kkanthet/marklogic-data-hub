@@ -231,9 +231,19 @@ pipeline{
 		withCredentials([usernameColonPassword(credentialsId: 'a0ec09aa-f339-44de-87c4-1a4936df44f5', variable: 'Credentials')]) {
 		script{
 			JIRA_ID=env.CHANGE_TITLE.split(':')[0]
-			sh "curl -u $Credentials  -X POST -H 'Content-Type:application/json' -d '{\"title\": \"${JIRA_ID}: Automated PR for Release Branch\" , \"head\": \"IntegrationBranch\" , \"base\": \"ReleaseBranch\" }' https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/pulls"
+			prResponse = sh (returnStdout: true, script:'''
+			sh "curl -u $Credentials  -X POST -H 'Content-Type:application/json' -d '{\"title\": \"'''+JIRA_ID+''': Automated PR for Release Branch\" , \"head\": \"IntegrationBranch\" , \"base\": \"ReleaseBranch\" }' https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/pulls"''')
+			println(prResponse)
+			def slurper = new JsonSlurper().parseText(prResponse)
+			println(slurper.number)
+			prNumber=slurper.number;
 			}
 			}
+			withCredentials([usernameColonPassword(credentialsId: 'rahul-git', variable: 'Credentials')]) {
+                    sh "curl -u $Credentials  -X POST  -d '{\"event\": \"APPROVE\"}' https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/pulls/${prNumber}/reviews"
+                }
+
+		}
 		}
 		post{
                   success {
