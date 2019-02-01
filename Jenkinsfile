@@ -56,7 +56,7 @@ pipeline{
   }
   			beforeAgent true
 		}
-		agent none;
+		agent {label 'master'};
 		steps{
 		script{
 			if(env.CHANGE_TITLE.split(':')[1].contains("Automated PR")){
