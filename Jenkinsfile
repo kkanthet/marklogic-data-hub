@@ -171,7 +171,8 @@ pipeline{
 		script{
 			JIRA_ID=env.CHANGE_TITLE.split(':')[0]
 			def prResponse = sh (returnStdout: true, script:'''
-			curl -u $Credentials  -X POST -H 'Content-Type:application/json' -d '{\"title\": \"${JIRA_ID}: Automated PR for Integration Branch\" , \"head\": \"FeatureBranch\" , \"base\": \"IntegrationBranch\" }' https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/pulls ''')
+			curl -u $Credentials  -X POST -H 'Content-Type:application/json' -d '{\"title\": \"'''+JIRA_ID+''': Automated PR for Integration Branch\" , \"head\": \"FeatureBranch\" , \"base\": \"IntegrationBranch\" }' https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/pulls ''')
+			println(prResponse)
 			def prNumber=sh (returnStdout: true, script:''' $prResponse | grep '"number":' | cut -d ':' -f2 ''')
 			println(prNumber)
 
