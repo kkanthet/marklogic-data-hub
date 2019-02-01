@@ -254,6 +254,5 @@ pipeline{
                       println("Creation of Automated PR Failed")
                   }
                   }
-		}
 	}
 }
