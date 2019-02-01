@@ -1,4 +1,5 @@
 @Library('shared-libraries') _
+import groovy.json.JsonSlurper
 def gitDataHubRepo="https://github.com/SameeraPriyathamTadikonda/marklogic-data-hub.git"
 def JAVA_HOME="~/java/jdk1.8.0_72"
 def GRADLE_USER_HOME="/.gradle"
@@ -175,9 +176,9 @@ pipeline{
 			prResponse = sh (returnStdout: true, script:'''
 			curl -u $Credentials  -X POST -H 'Content-Type:application/json' -d '{\"title\": \"'''+JIRA_ID+''': Automated PR for Integration Branch\" , \"head\": \"FeatureBranch\" , \"base\": \"IntegrationBranch\" }' https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/pulls ''')
 			println(prResponse)
-			prNumber=sh (returnStdout: true, script:''' echo '''+prResponse +'''| grep '"number":' | cut -d ':' -f2 | cut -d ',' -f1 | tr -d ''')
-			println(prNumber)
-
+			def slurper = new JsonSlurper().parseText(prResponse)
+			println(slurper.number)
+			prNumber=slurper.number;
 			}
 			}
 			withCredentials([usernameColonPassword(credentialsId: 'rahul-git', variable: 'Credentials')]) {
