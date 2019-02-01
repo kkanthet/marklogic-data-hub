@@ -244,7 +244,6 @@ pipeline{
                 }
 
 		}
-		}
 		post{
                   success {
                     println("Automated PR For Release branch created")
@@ -254,5 +253,6 @@ pipeline{
                       println("Creation of Automated PR Failed")
                   }
                   }
+		}
 	}
 }
