@@ -58,6 +58,12 @@ pipeline{
 		}
 		agent none;
 		steps{
+		script{
+			if(env.CHANGE_TITLE.split(':')[1].contains("Automated PR")){
+				println("Automated PR")
+				sh 'exit 0'
+			}
+		}
 		sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'Waiting for code review $BRANCH_NAME '
 			script{
 			try{
