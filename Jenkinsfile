@@ -4,6 +4,8 @@ def JAVA_HOME="~/java/jdk1.8.0_72"
 def GRADLE_USER_HOME="/.gradle"
 def MAVEN_HOME="/usr/local/maven"
 def JIRA_ID="";
+def prResponse="";
+def prNumber;
 pipeline{
 	agent none;
 	options {
@@ -170,10 +172,10 @@ pipeline{
 		withCredentials([usernameColonPassword(credentialsId: 'a0ec09aa-f339-44de-87c4-1a4936df44f5', variable: 'Credentials')]) {
 		script{
 			JIRA_ID=env.CHANGE_TITLE.split(':')[0]
-			def prResponse = sh (returnStdout: true, script:'''
+			prResponse = sh (returnStdout: true, script:'''
 			curl -u $Credentials  -X POST -H 'Content-Type:application/json' -d '{\"title\": \"'''+JIRA_ID+''': Automated PR for Integration Branch\" , \"head\": \"FeatureBranch\" , \"base\": \"IntegrationBranch\" }' https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/pulls ''')
 			println(prResponse)
-			def prNumber=sh (returnStdout: true, script:''' echo $prResponse | grep '"number":' | cut -d ':' -f2 ''')
+			prNumber=sh (returnStdout: true, script:''' echo $prResponse | grep '"number":' | cut -d ':' -f2 ''')
 			println(prNumber)
 
 			}
