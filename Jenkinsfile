@@ -173,11 +173,12 @@ pipeline{
 			def prResponse = sh (returnStdout: true, script:'''
 			curl -u $Credentials  -X POST -H 'Content-Type:application/json' -d '{\"title\": \"${JIRA_ID}: Automated PR for Integration Branch\" , \"head\": \"FeatureBranch\" , \"base\": \"IntegrationBranch\" }' https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/pulls ''')
 			def prNumber=sh (returnStdout: true, script:''' $prResponse | grep '"number":' | cut -d ':' -f2 ''')
+			println(prNumber)
 
 			}
 			}
 			withCredentials([usernameColonPassword(credentialsId: 'rahul-git', variable: 'Credentials')]) {
-                    sh "curl -u $Credentials  -X POST  -d '{\"event\": \"APPROVE\"}' https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/pulls/$prNumber/reviews"
+                    sh "curl -u $Credentials  -X POST  -d '{\"event\": \"APPROVE\"}' https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/pulls/${prNumber}/reviews"
                 }
 
 		}
