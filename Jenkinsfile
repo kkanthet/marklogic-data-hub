@@ -44,11 +44,11 @@ pipeline{
 			post{
                   success {
                     println("Unit Tests Completed")
-                    sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'Unit Tests for  $BRANCH_NAME Passed'
+                    sendMail 'kkanthet@marklogic.com','Check: ${BUILD_URL}/console',false,'Unit Tests for  $BRANCH_NAME Passed'
                    }
                    failure {
                       println("Unit Tests Failed")
-                      sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'Unit Tests for $BRANCH_NAME Failed'
+                      sendMail 'kkanthet@marklogic.com','Check: ${BUILD_URL}/console',false,'Unit Tests for $BRANCH_NAME Failed'
                   }
                   }
 		}
@@ -67,7 +67,7 @@ pipeline{
 				sh 'exit 0'
 			}else{
 		
-		sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'Waiting for code review $BRANCH_NAME '
+		sendMail 'kkanthet@marklogic.com','Check: ${BUILD_URL}/console',false,'Waiting for code review $BRANCH_NAME '
 			try{
 			 timeout(time:5, unit:'MINUTES') {
             input message:'Review Done?'
@@ -129,12 +129,12 @@ pipeline{
 						JIRA_ID=env.CHANGE_TITLE.split(':')[0]
 						jiraTransitionIssue idOrKey: JIRA_ID, input: transitionInput, site: 'JIRA'
 					}
-					sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'  $BRANCH_NAME is Merged'
+					sendMail 'kkanthet@marklogic.com','Check: ${BUILD_URL}/console',false,'  $BRANCH_NAME is Merged'
 					}
                    }
                    failure {
                       println("Retried 5times")
-                      sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,' $BRANCH_NAME Cannot be Merged'
+                      sendMail 'kkanthet@marklogic.com','Check: ${BUILD_URL}/console',false,' $BRANCH_NAME Cannot be Merged'
                   }
                   }
 		}
@@ -155,11 +155,11 @@ pipeline{
 			post{
                   success {
                     println("End-End Tests Completed")
-                    sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'End-End Tests for $BRANCH_NAME Passed'
+                    sendMail 'kkanthet@marklogic.com','Check: ${BUILD_URL}/console',false,'End-End Tests for $BRANCH_NAME Passed'
                    }
                    failure {
                       println("End-End Tests Failed")
-                      sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'End-End Tests for  $BRANCH_NAME Failed'
+                      sendMail 'kkanthet@marklogic.com','Check: ${BUILD_URL}/console',false,'End-End Tests for  $BRANCH_NAME Failed'
                   }
                   }
 		}
@@ -213,11 +213,11 @@ pipeline{
 			post{
                   success {
                     println("Upgrade Tests Completed")
-                    sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'Upgrade Tests for $BRANCH_NAME Passed'
+                    sendMail 'kkanthet@marklogic.com','Check: ${BUILD_URL}/console',false,'Upgrade Tests for $BRANCH_NAME Passed'
                    }
                    failure {
                       println("Upgrade Tests Failed")
-                      sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'Upgrade Tests for $BRANCH_NAME Failed'
+                      sendMail 'kkanthet@marklogic.com','Check: ${BUILD_URL}/console',false,'Upgrade Tests for $BRANCH_NAME Failed'
                   }
                   }
 		}
