@@ -210,7 +210,7 @@ pipeline{
 				script{
 				if(env.CHANGE_TITLE){
 				JIRA_ID=env.CHANGE_TITLE.split(':')[0]
-				jiraAddComment comment: 'Jenkins Upgrade Test Results For PR Available', idOrKey: JIRA_ID, site: 'JIRA'
+				jiraAddComment comment: 'Jenkins Upgrade Test Results For PR Available', idOrKey: JIRA_ID, site: 'JIRA'  
 				}
 				}
 			}
