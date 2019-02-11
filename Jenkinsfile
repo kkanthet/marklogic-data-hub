@@ -226,7 +226,7 @@ pipeline{
                   }
 		}
 		stage('Create PR For Release Branch'){
-		when {
+		when { 
   			  changeRequest  target: 'IntegrationBranch'
   			beforeAgent true
 		}
