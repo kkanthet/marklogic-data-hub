@@ -156,6 +156,7 @@ pipeline{
                   success {
                     println("End-End Tests Completed")
                     sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'End-End Tests for $BRANCH_NAME Passed'
+                    // sh './gradlew publish'
                    }
                    failure {
                       println("End-End Tests Failed")
@@ -251,6 +252,31 @@ pipeline{
                    }
                    failure {
                       println("Creation of Automated PR Failed")
+                  }
+                  }
+		}
+		stage('Sanity Tests'){
+			agent { label 'dhfLinuxAgent'}
+			steps{
+				copyRPM 'Latest'
+				setUpML '$WORKSPACE/xdmp/src/Mark*.rpm'
+				sh 'echo '+JAVA_HOME+'export '+JAVA_HOME+' export $WORKSPACE/data-hub'+GRADLE_USER_HOME+'export '+MAVEN_HOME+'export PATH=$PATH:$MAVEN_HOME/bin; cd $WORKSPACE/data-hub;rm -rf $GRADLE_USER_HOME/caches;./gradlew clean;./gradlew clean;./gradlew :marklogic-data-hub:test --tests com.marklogic.hub.flow.* -Pskipui=true'
+				junit '**/TEST-*.xml'
+				script{
+				if(env.CHANGE_TITLE){
+				JIRA_ID=env.CHANGE_TITLE.split(':')[0]
+				jiraAddComment comment: 'Jenkins Sanity Test Results For PR Available', idOrKey: JIRA_ID, site: 'JIRA'
+				}
+				}
+			}
+			post{
+                  success {
+                    println("Sanity Tests Completed")
+                    sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'Sanity Tests for $BRANCH_NAME Passed'
+                   }
+                   failure {
+                      println("Sanity Tests Failed")
+                      sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'Sanity Tests for $BRANCH_NAME Failed'
                   }
                   }
 		}
