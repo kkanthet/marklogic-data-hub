@@ -155,9 +155,10 @@ pipeline{
 				def commitMessage = sh (returnStdout: true, script:'''
 			curl -u $Credentials -X GET "https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/git/commits/${GIT_COMMIT}" ''')
 			def slurper = new JsonSlurper().parseText(commitMessage)
-			println(slurper.message)
+			//println(slurper.message)
 				def commit=slurper.message.toString().trim();
-				JIRA_ID=commit.split(':')[0]
+				JIRA_ID=commit.split(("\\n"))[1].split(':')[0]
+				println(JIRA_ID)
 				jiraAddComment comment: 'Jenkins End-End Unit Test Results For PR Available', idOrKey: JIRA_ID, site: 'JIRA'
 				}
 			}
