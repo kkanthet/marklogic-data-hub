@@ -155,7 +155,7 @@ pipeline{
 				script{
 				 commitMessage = sh (returnStdout: true, script:'''
 			curl -u $Credentials -X GET "https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/git/commits/${GIT_COMMIT}" ''')
-			def slurper = new JsonSlurper().parseText(commitMessage)
+			def slurper = new JsonSlurper().parseText(commitMessage.toString().trim())
 			//println(slurper.message)
 				def commit=slurper.message.toString().trim();
 				JIRA_ID=commit.split(("\\n"))[0].split(':')[0].trim();
