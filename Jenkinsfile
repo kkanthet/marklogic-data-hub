@@ -255,7 +255,7 @@ pipeline{
   			branch 'IntegrationBranch'
   			beforeAgent true
 		}
-			agent { label 'dhfLinuxAgent'}
+			agent { label 'dhfWindowsAgent'}
 			steps{ 
 				copyRPM 'Latest'
 				//setUpML '$WORKSPACE/xdmp/src/Mark*.rpm'
