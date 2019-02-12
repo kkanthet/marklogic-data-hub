@@ -191,6 +191,7 @@ pipeline{
                     sh "curl -u $Credentials  -X POST  -d '{\"event\": \"APPROVE\"}' https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/pulls/${prNumber}/reviews"
                 }
              withCredentials([usernameColonPassword(credentialsId: 'a0ec09aa-f339-44de-87c4-1a4936df44f5', variable: 'Credentials')]) {
+             script{
              sh "curl -o - -s -w \"\n%{http_code}\n\" -X PUT -d '{\"commit_title\": \"Merge pull request\"}' -u $Credentials  https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/pulls/${prNumber}/merge | tail -1 > mergeResult.txt"
     					def mergeResult = readFile('mergeResult.txt').trim()
     					if(mergeResult==200){
@@ -198,6 +199,7 @@ pipeline{
     					}else{
     						println("Merge Failed")
     					}
+    			}
              }
 
 		}
@@ -242,7 +244,7 @@ pipeline{
                   }
                   }
 		}
-		stage('Create PR For Release Branch'){
+		stage('Merge PR to Release Branch'){
 		when {
   			branch 'IntegrationBranch'
   			beforeAgent true
@@ -264,6 +266,7 @@ pipeline{
                     sh "curl -u $Credentials  -X POST  -d '{\"event\": \"APPROVE\"}' https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/pulls/${prNumber}/reviews"
                 }
                 withCredentials([usernameColonPassword(credentialsId: 'a0ec09aa-f339-44de-87c4-1a4936df44f5', variable: 'Credentials')]) {
+              script{
              sh "curl -o - -s -w \"\n%{http_code}\n\" -X PUT -d '{\"commit_title\": \"Merge pull request\"}' -u $Credentials  https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/pulls/${prNumber}/merge | tail -1 > mergeResult.txt"
     					def mergeResult = readFile('mergeResult.txt').trim()
     					if(mergeResult==200){
@@ -271,6 +274,7 @@ pipeline{
     					}else{
     						println("Merge Failed")
     					}
+    			}
              }
 
 		}
