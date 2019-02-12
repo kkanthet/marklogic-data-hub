@@ -96,7 +96,7 @@ pipeline{
     				println(response)
     				if(response.equals("clean")){
     					println("merging can be done")
-    					sh "curl -o - -s -w \"\n%{http_code}\n\" -X PUT -d '{\"commit_title\": \$JIRA_ID":Merge Pull Request\"}' -u $Credentials  https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/pulls/$CHANGE_ID/merge | tail -1 > mergeResult.txt"
+    					sh "curl -o - -s -w \"\n%{http_code}\n\" -X PUT -d '{\"commit_title\": \"$JIRA_ID:Merge Pull Request\"}' -u $Credentials  https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/pulls/$CHANGE_ID/merge | tail -1 > mergeResult.txt"
     					def mergeResult = readFile('mergeResult.txt').trim()
     					if(mergeResult==200){
     						println("Merge successful")
