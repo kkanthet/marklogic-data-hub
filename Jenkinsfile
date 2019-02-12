@@ -158,6 +158,7 @@ pipeline{
 			//println(slurper.message)
 				def commit=slurper.message.toString().trim();
 				JIRA_ID=commit.split(("\\n"))[0].split(':')[0].trim();
+				JIRA_ID=JIRA_ID.split(" ")[1];
 				println(JIRA_ID)
 				jiraAddComment comment: 'Jenkins End-End Unit Test Results For PR Available', idOrKey: JIRA_ID, site: 'JIRA'
 				}
