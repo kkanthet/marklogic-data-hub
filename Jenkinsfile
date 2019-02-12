@@ -320,9 +320,11 @@ pipeline{
                   success {
                     println("Sanity Tests Completed")
                     sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'Sanity Tests for $BRANCH_NAME Passed'
+                    script{
 						def transitionInput =[transition: [id: '31']]
 						//JIRA_ID=env.CHANGE_TITLE.split(':')[0]
 						jiraTransitionIssue idOrKey: JIRA_ID, input: transitionInput, site: 'JIRA'
+						}
                     sendMail 'stadikon@marklogic.com','Click approve to release',false,'Datahub is ready for Release'
 
                    }
