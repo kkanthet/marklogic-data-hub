@@ -182,9 +182,9 @@ pipeline{
 		steps{
 		withCredentials([usernameColonPassword(credentialsId: 'a0ec09aa-f339-44de-87c4-1a4936df44f5', variable: 'Credentials')]) {
 		script{
-			JIRA_ID=env.CHANGE_TITLE.split(':')[0]
+			//JIRA_ID=env.CHANGE_TITLE.split(':')[0]
 			prResponse = sh (returnStdout: true, script:'''
-			curl -u $Credentials  -X POST -H 'Content-Type:application/json' -d '{\"title\": \"'''+JIRA_ID+''': Automated PR for Integration Branch\" , \"head\": \"FeatureBranch\" , \"base\": \"IntegrationBranch\" }' https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/pulls ''')
+			curl -u $Credentials  -X POST -H 'Content-Type:application/json' -d '{\"title\": \"Automated PR for Integration Branch\" , \"head\": \"FeatureBranch\" , \"base\": \"IntegrationBranch\" }' https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/pulls ''')
 			println(prResponse)
 			def slurper = new JsonSlurper().parseText(prResponse)
 			println(slurper.number)
@@ -209,7 +209,7 @@ pipeline{
 		}
 		post{
                   success {
-                    println("Automated PR For Integration branch created")
+                    println("Automated PR For Integration branch Completed")
                    }
                    failure {
                       println("Creation of Automated PR Failed")
