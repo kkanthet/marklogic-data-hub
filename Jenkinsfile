@@ -152,10 +152,12 @@ pipeline{
 				junit '**/TEST-*.xml'
 				sh 'printenv'
 				script{
-				if(env.CHANGE_TITLE){
-				JIRA_ID=env.CHANGE_TITLE.split(':')[0]
+				def commitMessage = sh (returnStdout: true, script:'''
+			curl -u $Credentials https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/git/commits/$GIT_COMMIT ''')
+			def slurper = new JsonSlurper().parseText(prResponse)
+			println(slurper.message)
+				JIRA_ID=slurper.message.split(':')[0]
 				jiraAddComment comment: 'Jenkins End-End Unit Test Results For PR Available', idOrKey: JIRA_ID, site: 'JIRA'
-				}
 				}
 			}
 			post{
