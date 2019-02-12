@@ -139,7 +139,10 @@ pipeline{
                   }
                   }
 		}
-		stage('Integration Tests'){
+		stage('E2E Single Tests'){
+		when {
+  			branch 'FeatureBranch'
+			}
 			agent { label 'dhfLinuxAgent'}
 			steps{
 				copyRPM 'Latest'
@@ -158,7 +161,7 @@ pipeline{
                   success {
                     println("End-End Tests Completed")
                     sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'End-End Tests for $BRANCH_NAME Passed'
-                    // sh './gradlew publish'
+                    
                    }
                    failure {
                       println("End-End Tests Failed")
@@ -166,9 +169,9 @@ pipeline{
                   }
                   }
 		}
-		stage('Create PR For Integration Branch'){
+		stage('Merge PR to Integration Branch'){
 		when {
-  			changeRequest target: 'FeatureBranch'
+  			branch 'FeatureBranch'
   			beforeAgent true
 		}
 		agent {label 'master'}
@@ -187,6 +190,15 @@ pipeline{
 			withCredentials([usernameColonPassword(credentialsId: 'rahul-git', variable: 'Credentials')]) {
                     sh "curl -u $Credentials  -X POST  -d '{\"event\": \"APPROVE\"}' https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/pulls/${prNumber}/reviews"
                 }
+             withCredentials([usernameColonPassword(credentialsId: 'a0ec09aa-f339-44de-87c4-1a4936df44f5', variable: 'Credentials')]) {
+             sh "curl -o - -s -w \"\n%{http_code}\n\" -X PUT -d '{\"commit_title\": \"Merge pull request\"}' -u $Credentials  https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/pulls/${prNumber}/merge | tail -1 > mergeResult.txt"
+    					def mergeResult = readFile('mergeResult.txt').trim()
+    					if(mergeResult==200){
+    						println("Merge successful")
+    					}else{
+    						println("Merge Failed")
+    					}
+             }
 
 		}
 		post{
@@ -200,6 +212,10 @@ pipeline{
                   }
 		}
 		stage('Upgrade Tests'){
+		when {
+  			branch 'IntegrationBranch'
+  			beforeAgent true
+		}
 			agent { label 'dhfLinuxAgent'}
 			steps{
 				copyRPM 'Latest'
@@ -218,6 +234,7 @@ pipeline{
                   success {
                     println("Upgrade Tests Completed")
                     sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'Upgrade Tests for $BRANCH_NAME Passed'
+                    // sh './gradlew publish'
                    }
                    failure {
                       println("Upgrade Tests Failed")
@@ -226,8 +243,8 @@ pipeline{
                   }
 		}
 		stage('Create PR For Release Branch'){
-		when { 
-  			  changeRequest  target: 'IntegrationBranch'
+		when {
+  			branch 'IntegrationBranch'
   			beforeAgent true
 		}
 		agent {label 'master'}
@@ -246,6 +263,15 @@ pipeline{
 			withCredentials([usernameColonPassword(credentialsId: 'rahul-git', variable: 'Credentials')]) {
                     sh "curl -u $Credentials  -X POST  -d '{\"event\": \"APPROVE\"}' https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/pulls/${prNumber}/reviews"
                 }
+                withCredentials([usernameColonPassword(credentialsId: 'a0ec09aa-f339-44de-87c4-1a4936df44f5', variable: 'Credentials')]) {
+             sh "curl -o - -s -w \"\n%{http_code}\n\" -X PUT -d '{\"commit_title\": \"Merge pull request\"}' -u $Credentials  https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/pulls/${prNumber}/merge | tail -1 > mergeResult.txt"
+    					def mergeResult = readFile('mergeResult.txt').trim()
+    					if(mergeResult==200){
+    						println("Merge successful")
+    					}else{
+    						println("Merge Failed")
+    					}
+             }
 
 		}
 		post{
@@ -259,6 +285,10 @@ pipeline{
                   }
 		}
 		stage('Sanity Tests'){
+			when {
+  			branch 'ReleaseBranch'
+  			beforeAgent true
+		}
 			agent { label 'dhfLinuxAgent'}
 			steps{
 				copyRPM 'Latest'
@@ -277,6 +307,8 @@ pipeline{
                   success {
                     println("Sanity Tests Completed")
                     sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'Sanity Tests for $BRANCH_NAME Passed'
+                    sendMail 'stadikon@marklogic.com','Click approve to release',false,'Datahub is ready for Release'
+
                    }
                    failure {
                       println("Sanity Tests Failed")
