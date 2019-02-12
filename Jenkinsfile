@@ -265,7 +265,7 @@ pipeline{
 		script{
 			//JIRA_ID=env.CHANGE_TITLE.split(':')[0]
 			prResponse = sh (returnStdout: true, script:'''
-			sh "curl -u $Credentials  -X POST -H 'Content-Type:application/json' -d '{\"title\": \": Automated PR for Release Branch\" , \"head\": \"IntegrationBranch\" , \"base\": \"ReleaseBranch\" }' https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/pulls"''')
+			curl -u $Credentials  -X POST -H 'Content-Type:application/json' -d '{\"title\": \"Automated PR for Integration Branch\" , \"head\": \"IntegrationBranch\" , \"base\": \"ReleaseBranch\" }' https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/pulls ''')
 			println(prResponse)
 			def slurper = new JsonSlurper().parseText(prResponse)
 			println(slurper.number)
