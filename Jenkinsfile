@@ -157,7 +157,7 @@ pipeline{
 			def slurper = new JsonSlurper().parseText(commitMessage)
 			//println(slurper.message)
 				def commit=slurper.message.toString().trim();
-				JIRA_ID=commit.split(("\\n"))[0].split(':')[0].split('')[1].trim();
+				JIRA_ID=commit.split(("\\n"))[0].split(':')[0].split(' ')[1].trim();
 				println(JIRA_ID)
 				jiraAddComment comment: 'Jenkins End-End Unit Test Results For PR Available', idOrKey: JIRA_ID, site: 'JIRA'
 				}
