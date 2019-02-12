@@ -5,6 +5,7 @@ def JAVA_HOME="~/java/jdk1.8.0_72"
 def GRADLE_USER_HOME="/.gradle"
 def MAVEN_HOME="/usr/local/maven"
 def JIRA_ID="";
+def commitMessage="";
 def prResponse="";
 def prNumber;
 pipeline{
@@ -152,7 +153,7 @@ pipeline{
 				junit '**/TEST-*.xml'
 				sh 'printenv'
 				script{
-				def commitMessage = sh (returnStdout: true, script:'''
+				 commitMessage = sh (returnStdout: true, script:'''
 			curl -u $Credentials -X GET "https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/git/commits/${GIT_COMMIT}" ''')
 			def slurper = new JsonSlurper().parseText(commitMessage)
 			//println(slurper.message)
