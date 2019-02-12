@@ -214,6 +214,7 @@ pipeline{
                   }
                   }
 		}
+		stage('Parallel Execution'){
 		parallel{
 		stage('Upgrade Tests'){
 		when {
@@ -284,6 +285,7 @@ pipeline{
                       sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'End-End All Tests for $BRANCH_NAME Failed'
                   }
                   }
+		}
 		}
 		}
 		stage('Merge PR to Release Branch'){
