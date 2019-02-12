@@ -90,13 +90,13 @@ pipeline{
 			retry(5){
 				withCredentials([usernameColonPassword(credentialsId: 'a0ec09aa-f339-44de-87c4-1a4936df44f5', variable: 'Credentials')]) {
 				script{
-				
+					JIRA_ID=env.CHANGE_TITLE.split(':')[0]
     				def response = sh (returnStdout: true, script:'''curl -u $Credentials  --header "application/vnd.github.merge-info-preview+json" "https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/pulls/$CHANGE_ID" | grep '"mergeable_state":' | cut -d ':' -f2 | cut -d ',' -f1 | tr -d '"' ''')
     				response=response.trim();
     				println(response)
     				if(response.equals("clean")){
     					println("merging can be done")
-    					sh "curl -o - -s -w \"\n%{http_code}\n\" -X PUT -d '{\"commit_title\": \"Merge pull request\"}' -u $Credentials  https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/pulls/$CHANGE_ID/merge | tail -1 > mergeResult.txt"
+    					sh "curl -o - -s -w \"\n%{http_code}\n\" -X PUT -d '{\"commit_title\": \$JIRA_ID":Merge Pull Request\"}' -u $Credentials  https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/pulls/$CHANGE_ID/merge | tail -1 > mergeResult.txt"
     					def mergeResult = readFile('mergeResult.txt').trim()
     					if(mergeResult==200){
     						println("Merge successful")
@@ -150,6 +150,8 @@ pipeline{
 				setUpML '/space/Mark*.rpm'
 				sh 'echo '+JAVA_HOME+'export '+JAVA_HOME+' export $WORKSPACE/data-hub'+GRADLE_USER_HOME+'export '+MAVEN_HOME+'export PATH=$PATH:$MAVEN_HOME/bin; cd $WORKSPACE/data-hub;rm -rf $GRADLE_USER_HOME/caches;./gradlew clean;./gradlew clean;./gradlew :marklogic-data-hub:test --tests com.marklogic.hub.processes.ProcessManagerTest -Pskipui=true'
 				junit '**/TEST-*.xml'
+				printenv
+				sh 'printenv'
 				script{
 				if(env.CHANGE_TITLE){
 				JIRA_ID=env.CHANGE_TITLE.split(':')[0]
