@@ -1,5 +1,6 @@
 @Library('shared-libraries') _
 import groovy.json.JsonSlurper
+import groovy.json.JsonSlurperClassic
 def gitDataHubRepo="https://github.com/SameeraPriyathamTadikonda/marklogic-data-hub.git"
 def JAVA_HOME="~/java/jdk1.8.0_72"
 def GRADLE_USER_HOME="/.gradle"
