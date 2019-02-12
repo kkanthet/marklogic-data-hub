@@ -214,6 +214,7 @@ pipeline{
                   }
                   }
 		}
+		parallel{
 		stage('Upgrade Tests'){
 		when {
   			branch 'IntegrationBranch'
@@ -248,6 +249,42 @@ pipeline{
                       sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'Upgrade Tests for $BRANCH_NAME Failed'
                   }
                   }
+		}
+		stage('End2End all Tests'){
+		when {
+  			branch 'IntegrationBranch'
+  			beforeAgent true
+		}
+			agent { label 'dhfLinuxAgent'}
+			steps{ 
+				copyRPM 'Latest'
+				//setUpML '$WORKSPACE/xdmp/src/Mark*.rpm'
+				setUpML '/space/Mark*.rpm'
+				sh 'echo '+JAVA_HOME+'export '+JAVA_HOME+' export $WORKSPACE/data-hub'+GRADLE_USER_HOME+'export '+MAVEN_HOME+'export PATH=$PATH:$MAVEN_HOME/bin; cd $WORKSPACE/data-hub;rm -rf $GRADLE_USER_HOME/caches;./gradlew clean;./gradlew clean;./gradlew :marklogic-data-hub:test --tests com.marklogic.hub.processes.ProcessManagerTest -Pskipui=true'
+				junit '**/TEST-*.xml'
+					script{
+				 commitMessage = sh (returnStdout: true, script:'''
+			curl -u $Credentials -X GET "https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/git/commits/${GIT_COMMIT}" ''')
+			def slurper = new JsonSlurperClassic().parseText(commitMessage.toString().trim())
+				def commit=slurper.message.toString().trim();
+				JIRA_ID=commit.split(("\\n"))[0].split(':')[0].trim();
+				JIRA_ID=JIRA_ID.split(" ")[0];
+				commitMessage=null;
+				jiraAddComment comment: 'Jenkins End-End All Test Results For PR Available', idOrKey: JIRA_ID, site: 'JIRA'
+				}
+			}
+			post{
+                  success {
+                    println("Upgrade Tests Completed")
+                    sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'End-End all Tests for $BRANCH_NAME Passed'
+                    // sh './gradlew publish'
+                   }
+                   failure {
+                      println("Upgrade Tests Failed")
+                      sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'End-End All Tests for $BRANCH_NAME Failed'
+                  }
+                  }
+		}
 		}
 		stage('Merge PR to Release Branch'){
 		when {
