@@ -153,7 +153,7 @@ pipeline{
 				sh 'printenv'
 				script{
 				def commitMessage = sh (returnStdout: true, script:'''
-			curl -u $Credentials "https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/git/commits/${GIT_COMMIT}" ''')
+			curl -u $Credentials -X GET "https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/git/commits/${GIT_COMMIT}" ''')
 			def slurper = new JsonSlurper().parseText(prResponse)
 			println(slurper.message)
 				JIRA_ID=slurper.message.split(':')[0]
