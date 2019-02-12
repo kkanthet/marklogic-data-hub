@@ -152,7 +152,6 @@ pipeline{
 				setUpML '/space/Mark*.rpm'
 				sh 'echo '+JAVA_HOME+'export '+JAVA_HOME+' export $WORKSPACE/data-hub'+GRADLE_USER_HOME+'export '+MAVEN_HOME+'export PATH=$PATH:$MAVEN_HOME/bin; cd $WORKSPACE/data-hub;rm -rf $GRADLE_USER_HOME/caches;./gradlew clean;./gradlew clean;./gradlew :marklogic-data-hub:test --tests com.marklogic.hub.processes.ProcessManagerTest -Pskipui=true'
 				junit '**/TEST-*.xml'
-				sh 'printenv'
 				script{
 				 commitMessage = sh (returnStdout: true, script:'''
 			curl -u $Credentials -X GET "https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/git/commits/${GIT_COMMIT}" ''')
@@ -199,7 +198,7 @@ pipeline{
                 }
              withCredentials([usernameColonPassword(credentialsId: 'a0ec09aa-f339-44de-87c4-1a4936df44f5', variable: 'Credentials')]) {
              script{
-             sh "curl -o - -s -w \"\n%{http_code}\n\" -X PUT -d '{\"commit_title\": \"Merge pull request\"}' -u $Credentials  https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/pulls/${prNumber}/merge | tail -1 > mergeResult.txt"
+             sh "curl -o - -s -w \"\n%{http_code}\n\" -X PUT -d '{\"commit_title\": \"$JIRA_ID: Merge pull request\"}' -u $Credentials  https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/pulls/${prNumber}/merge | tail -1 > mergeResult.txt"
     					def mergeResult = readFile('mergeResult.txt').trim()
     					if(mergeResult==200){
     						println("Merge successful")
@@ -232,12 +231,12 @@ pipeline{
 				setUpML '/space/Mark*.rpm'
 				sh 'echo '+JAVA_HOME+'export '+JAVA_HOME+' export $WORKSPACE/data-hub'+GRADLE_USER_HOME+'export '+MAVEN_HOME+'export PATH=$PATH:$MAVEN_HOME/bin; cd $WORKSPACE/data-hub;rm -rf $GRADLE_USER_HOME/caches;./gradlew clean;./gradlew clean;./gradlew :marklogic-data-hub:test --tests com.marklogic.hub.processes.ProcessManagerTest -Pskipui=true'
 				junit '**/TEST-*.xml'
-				script{
+					script{
 				 commitMessage = sh (returnStdout: true, script:'''
 			curl -u $Credentials -X GET "https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/git/commits/${GIT_COMMIT}" ''')
 			def slurper = new JsonSlurperClassic().parseText(commitMessage.toString().trim())
 				def commit=slurper.message.toString().trim();
-				JIRA_ID=commit.split(("\\n"))[2].split(':')[0].trim();
+				JIRA_ID=commit.split(("\\n"))[0].split(':')[0].trim();
 				JIRA_ID=JIRA_ID.split(" ")[0];
 				commitMessage=null;
 				jiraAddComment comment: 'Jenkins Upgrade Test Results For PR Available', idOrKey: JIRA_ID, site: 'JIRA'
