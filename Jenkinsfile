@@ -157,11 +157,9 @@ pipeline{
 				 commitMessage = sh (returnStdout: true, script:'''
 			curl -u $Credentials -X GET "https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/git/commits/${GIT_COMMIT}" ''')
 			def slurper = new JsonSlurperClassic().parseText(commitMessage.toString().trim())
-			//println(slurper.message)
 				def commit=slurper.message.toString().trim();
 				JIRA_ID=commit.split(("\\n"))[0].split(':')[0].trim();
 				JIRA_ID=JIRA_ID.split(" ")[0];
-				println(JIRA_ID)
 				commitMessage=null;
 				jiraAddComment comment: 'Jenkins End-End Unit Test Results For PR Available', idOrKey: JIRA_ID, site: 'JIRA'
 				}
@@ -235,10 +233,14 @@ pipeline{
 				sh 'echo '+JAVA_HOME+'export '+JAVA_HOME+' export $WORKSPACE/data-hub'+GRADLE_USER_HOME+'export '+MAVEN_HOME+'export PATH=$PATH:$MAVEN_HOME/bin; cd $WORKSPACE/data-hub;rm -rf $GRADLE_USER_HOME/caches;./gradlew clean;./gradlew clean;./gradlew :marklogic-data-hub:test --tests com.marklogic.hub.processes.ProcessManagerTest -Pskipui=true'
 				junit '**/TEST-*.xml'
 				script{
-				if(env.CHANGE_TITLE){
-				JIRA_ID=env.CHANGE_TITLE.split(':')[0]
-				jiraAddComment comment: 'Jenkins Upgrade Test Results For PR Available', idOrKey: JIRA_ID, site: 'JIRA'  
-				}
+				 commitMessage = sh (returnStdout: true, script:'''
+			curl -u $Credentials -X GET "https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/git/commits/${GIT_COMMIT}" ''')
+			def slurper = new JsonSlurperClassic().parseText(commitMessage.toString().trim())
+				def commit=slurper.message.toString().trim();
+				JIRA_ID=commit.split(("\\n"))[0].split(':')[0].trim();
+				JIRA_ID=JIRA_ID.split(" ")[0];
+				commitMessage=null;
+				jiraAddComment comment: 'Jenkins Upgrade Test Results For PR Available', idOrKey: JIRA_ID, site: 'JIRA'
 				}
 			}
 			post{
