@@ -2,7 +2,7 @@
 import groovy.json.JsonSlurper
 import groovy.json.JsonSlurperClassic
 def gitDataHubRepo="https://github.com/kkanthet/marklogic-data-hub.git"
-//def JAVA_HOME="~/java/jdk1.8.0_72"
+def JAVA_HOME="/opt/jdk1.8.0_201/"
 def GRADLE_USER_HOME="/.gradle"
 def MAVEN_HOME="/usr/local/maven"
 def JIRA_ID="";
