@@ -56,10 +56,10 @@ pipeline{
                   }
 		}
 		stage('code-review'){
-		when {
-  			 allOf {
-    changeRequest author: '', authorDisplayName: '', authorEmail: '', branch: '', fork: '', id: '', target: '', title: '', url: ''
-  }
+	//	when {
+  //			 allOf {
+ //   changeRequest author: '', authorDisplayName: '', authorEmail: '', branch: '', fork: '', id: '', target: '', title: '', url: ''
+ // }
   			beforeAgent true
 		}
 		agent {label 'master'};
