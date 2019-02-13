@@ -14,3 +14,4 @@ services:
       - "8000-8020:8000-8020"
     volumes:
       - .:/marklogic-data-hub
+      
