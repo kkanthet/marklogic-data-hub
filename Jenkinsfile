@@ -1,8 +1,8 @@
 @Library('shared-libraries') _
 import groovy.json.JsonSlurper
 import groovy.json.JsonSlurperClassic
-def gitDataHubRepo="https://github.com/SameeraPriyathamTadikonda/marklogic-data-hub.git"
-def JAVA_HOME="~/java/jdk1.8.0_72"
+def gitDataHubRepo="https://github.com/kkanthet/marklogic-data-hub.git"
+//def JAVA_HOME="~/java/jdk1.8.0_72"
 def GRADLE_USER_HOME="/.gradle"
 def MAVEN_HOME="/usr/local/maven"
 def JIRA_ID="";
@@ -32,10 +32,10 @@ pipeline{
 		stage('Unit-Tests'){
 		agent { label 'dhfLinuxAgent'}
 			steps{
-				copyRPM 'Latest'
+				//copyRPM 'Latest'
 				//setUpML '$WORKSPACE/xdmp/src/Mark*.rpm'
-				setUpML '/space/Mark*.rpm'
-				sh 'echo '+JAVA_HOME+'export '+JAVA_HOME+' export $WORKSPACE/data-hub'+GRADLE_USER_HOME+'export '+MAVEN_HOME+'export PATH=$PATH:$MAVEN_HOME/bin; cd $WORKSPACE/data-hub;rm -rf $GRADLE_USER_HOME/caches;./gradlew clean;./gradlew clean;./gradlew :marklogic-data-hub:test --tests com.marklogic.hub.processes.ProcessManagerTest -Pskipui=true'
+				//setUpML '/space/Mark*.rpm'
+				sh 'echo '+JAVA_HOME+'export '+JAVA_HOME+' export $WORKSPACE/data-hub'+GRADLE_USER_HOME+'export '+MAVEN_HOME+'export PATH=$PATH:$MAVEN_HOME/bin; cd $WORKSPACE/data-hub;rm -rf $GRADLE_USER_HOME/caches;./gradlew clean;./gradlew clean'
 				junit '**/TEST-*.xml'
 				script{
 				if(env.CHANGE_TITLE){
@@ -47,11 +47,11 @@ pipeline{
 			post{
                   success {
                     println("Unit Tests Completed")
-                    sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'Unit Tests for  $BRANCH_NAME Passed'
+                    sendMail 'kkanthet@marklogic.com','Check: ${BUILD_URL}/console',false,'Unit Tests for  $BRANCH_NAME Passed'
                    }
                    failure {
                       println("Unit Tests Failed")
-                      sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'Unit Tests for $BRANCH_NAME Failed'
+                      sendMail 'kkanthet@marklogic.com','Check: ${BUILD_URL}/console',false,'Unit Tests for $BRANCH_NAME Failed'
                   }
                   }
 		}
@@ -70,7 +70,7 @@ pipeline{
 				sh 'exit 0'
 			}else{
 		
-		sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'Waiting for code review $BRANCH_NAME '
+		sendMail 'kkanthet@marklogic.com','Check: ${BUILD_URL}/console',false,'Waiting for code review $BRANCH_NAME '
 			try{
 			 timeout(time:5, unit:'MINUTES') {
             input message:'Review Done?'
@@ -93,12 +93,12 @@ pipeline{
 				withCredentials([usernameColonPassword(credentialsId: 'a0ec09aa-f339-44de-87c4-1a4936df44f5', variable: 'Credentials')]) {
 				script{
 					JIRA_ID=env.CHANGE_TITLE.split(':')[0]
-    				def response = sh (returnStdout: true, script:'''curl -u $Credentials  --header "application/vnd.github.merge-info-preview+json" "https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/pulls/$CHANGE_ID" | grep '"mergeable_state":' | cut -d ':' -f2 | cut -d ',' -f1 | tr -d '"' ''')
+    				def response = sh (returnStdout: true, script:'''curl -u $Credentials  --header "application/vnd.github.merge-info-preview+json" "https://api.github.com/repos/kkanthet/marklogic-data-hub/pulls/$CHANGE_ID" | grep '"mergeable_state":' | cut -d ':' -f2 | cut -d ',' -f1 | tr -d '"' ''')
     				response=response.trim();
     				println(response)
     				if(response.equals("clean")){
     					println("merging can be done")
-    					sh "curl -o - -s -w \"\n%{http_code}\n\" -X PUT -d '{\"commit_title\": \"$JIRA_ID: merging PR\"}' -u $Credentials  https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/pulls/$CHANGE_ID/merge | tail -1 > mergeResult.txt"
+    					sh "curl -o - -s -w \"\n%{http_code}\n\" -X PUT -d '{\"commit_title\": \"$JIRA_ID: merging PR\"}' -u $Credentials  https://api.github.com/repos/kkanthet/marklogic-data-hub/pulls/$CHANGE_ID/merge | tail -1 > mergeResult.txt"
     					def mergeResult = readFile('mergeResult.txt').trim()
     					if(mergeResult==200){
     						println("Merge successful")
@@ -111,7 +111,7 @@ pipeline{
     					throw new Exception("Waiting for all the status checks to pass");
     				}else if(response.equals("unstable")){
     					println("retry unstable")
-    					sh "curl -o - -s -w \"\n%{http_code}\n\" -X PUT -d '{\"commit_title\": \"$JIRA_ID: merging PR\"}' -u $Credentials  https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/pulls/$CHANGE_ID/merge | tail -1 > mergeResult.txt"
+    					sh "curl -o - -s -w \"\n%{http_code}\n\" -X PUT -d '{\"commit_title\": \"$JIRA_ID: merging PR\"}' -u $Credentials  https://api.github.com/repos/kkanthet/marklogic-data-hub/pulls/$CHANGE_ID/merge | tail -1 > mergeResult.txt"
     					def mergeResult = readFile('mergeResult.txt').trim()
     					println("Result is"+ mergeResult)
     				}else{
@@ -127,7 +127,7 @@ pipeline{
                   success {
                     println("Merge Successful")
                     script{
-					sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'  $BRANCH_NAME is Merged'
+					sendMail 'kkanthet@marklogic.com','Check: ${BUILD_URL}/console',false,'  $BRANCH_NAME is Merged'
 					}
                    }
                    failure {
@@ -142,14 +142,14 @@ pipeline{
 			}
 			agent { label 'dhfLinuxAgent'}
 			steps{
-				copyRPM 'Latest'
+				//copyRPM 'Latest'
 				//setUpML '$WORKSPACE/xdmp/src/Mark*.rpm'
-				setUpML '/space/Mark*.rpm'
-				sh 'echo '+JAVA_HOME+'export '+JAVA_HOME+' export $WORKSPACE/data-hub'+GRADLE_USER_HOME+'export '+MAVEN_HOME+'export PATH=$PATH:$MAVEN_HOME/bin; cd $WORKSPACE/data-hub;rm -rf $GRADLE_USER_HOME/caches;./gradlew clean;./gradlew clean;./gradlew :marklogic-data-hub:test --tests com.marklogic.hub.processes.ProcessManagerTest -Pskipui=true'
-				junit '**/TEST-*.xml'
+				//setUpML '/space/Mark*.rpm'
+				sh 'echo '+JAVA_HOME+'export '+JAVA_HOME+' export $WORKSPACE/data-hub'+GRADLE_USER_HOME+'export '+MAVEN_HOME+'export PATH=$PATH:$MAVEN_HOME/bin; cd $WORKSPACE/data-hub;rm -rf $GRADLE_USER_HOME/caches;./gradlew clean;./gradlew clean'
+				//junit '**/TEST-*.xml'
 				script{
 				 commitMessage = sh (returnStdout: true, script:'''
-			curl -u $Credentials -X GET "https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/git/commits/${GIT_COMMIT}" ''')
+			curl -u $Credentials -X GET "https://api.github.com/repos/kkanthet/marklogic-data-hub/git/commits/${GIT_COMMIT}" ''')
 			def slurper = new JsonSlurperClassic().parseText(commitMessage.toString().trim())
 				def commit=slurper.message.toString().trim();
 				JIRA_ID=commit.split(("\\n"))[0].split(':')[0].trim();
@@ -181,7 +181,7 @@ pipeline{
 		script{
 			//JIRA_ID=env.CHANGE_TITLE.split(':')[0]
 			prResponse = sh (returnStdout: true, script:'''
-			curl -u $Credentials  -X POST -H 'Content-Type:application/json' -d '{\"title\": \"Automated PR for Integration Branch\" , \"head\": \"FeatureBranch\" , \"base\": \"IntegrationBranch\" }' https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/pulls ''')
+			curl -u $Credentials  -X POST -H 'Content-Type:application/json' -d '{\"title\": \"Automated PR for Integration Branch\" , \"head\": \"FeatureBranch\" , \"base\": \"IntegrationBranch\" }' https://api.github.com/repos/kkanthet/marklogic-data-hub/pulls ''')
 			println(prResponse)
 			def slurper = new JsonSlurper().parseText(prResponse)
 			println(slurper.number)
@@ -189,11 +189,11 @@ pipeline{
 			}
 			}
 			withCredentials([usernameColonPassword(credentialsId: 'rahul-git', variable: 'Credentials')]) {
-                    sh "curl -u $Credentials  -X POST  -d '{\"event\": \"APPROVE\"}' https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/pulls/${prNumber}/reviews"
+                    sh "curl -u $Credentials  -X POST  -d '{\"event\": \"APPROVE\"}' https://api.github.com/repos/kkanthet/marklogic-data-hub/pulls/${prNumber}/reviews"
                 }
              withCredentials([usernameColonPassword(credentialsId: 'a0ec09aa-f339-44de-87c4-1a4936df44f5', variable: 'Credentials')]) {
              script{
-             sh "curl -o - -s -w \"\n%{http_code}\n\" -X PUT -d '{\"commit_title\": \"$JIRA_ID: Merge pull request\"}' -u $Credentials  https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/pulls/${prNumber}/merge | tail -1 > mergeResult.txt"
+             sh "curl -o - -s -w \"\n%{http_code}\n\" -X PUT -d '{\"commit_title\": \"$JIRA_ID: Merge pull request\"}' -u $Credentials  https://api.github.com/repos/kkanthet/marklogic-data-hub/pulls/${prNumber}/merge | tail -1 > mergeResult.txt"
     					def mergeResult = readFile('mergeResult.txt').trim()
     					if(mergeResult==200){
     						println("Merge successful")
@@ -223,14 +223,14 @@ pipeline{
 		}
 			agent { label 'dhfLinuxAgent'}
 			steps{ 
-				copyRPM 'Latest'
+				//copyRPM 'Latest'
 				//setUpML '$WORKSPACE/xdmp/src/Mark*.rpm'
-				setUpML '/space/Mark*.rpm'
-				sh 'echo '+JAVA_HOME+'export '+JAVA_HOME+' export $WORKSPACE/data-hub'+GRADLE_USER_HOME+'export '+MAVEN_HOME+'export PATH=$PATH:$MAVEN_HOME/bin; cd $WORKSPACE/data-hub;rm -rf $GRADLE_USER_HOME/caches;./gradlew clean;./gradlew clean;./gradlew :marklogic-data-hub:test --tests com.marklogic.hub.processes.ProcessManagerTest -Pskipui=true'
-				junit '**/TEST-*.xml'
+				//setUpML '/space/Mark*.rpm'
+				sh 'echo '+JAVA_HOME+'export '+JAVA_HOME+' export $WORKSPACE/data-hub'+GRADLE_USER_HOME+'export '+MAVEN_HOME+'export PATH=$PATH:$MAVEN_HOME/bin; cd $WORKSPACE/data-hub;rm -rf $GRADLE_USER_HOME/caches;./gradlew clean;./gradlew clean'
+				//junit '**/TEST-*.xml'
 					script{
 				 commitMessage = sh (returnStdout: true, script:'''
-			curl -u $Credentials -X GET "https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/git/commits/${GIT_COMMIT}" ''')
+			curl -u $Credentials -X GET "https://api.github.com/repos/kkanthet/marklogic-data-hub/git/commits/${GIT_COMMIT}" ''')
 			def slurper = new JsonSlurperClassic().parseText(commitMessage.toString().trim())
 				def commit=slurper.message.toString().trim();
 				JIRA_ID=commit.split(("\\n"))[0].split(':')[0].trim();
@@ -258,14 +258,14 @@ pipeline{
 		}
 			agent { label 'dhfWindowsAgent'}
 			steps{ 
-				copyRPM 'Latest'
+				//copyRPM 'Latest'
 				//setUpML '$WORKSPACE/xdmp/src/Mark*.rpm'
-				setUpML '/space/Mark*.rpm'
-				sh 'echo '+JAVA_HOME+'export '+JAVA_HOME+' export $WORKSPACE/data-hub'+GRADLE_USER_HOME+'export '+MAVEN_HOME+'export PATH=$PATH:$MAVEN_HOME/bin; cd $WORKSPACE/data-hub;rm -rf $GRADLE_USER_HOME/caches;./gradlew clean;./gradlew clean;./gradlew :marklogic-data-hub:test --tests com.marklogic.hub.processes.ProcessManagerTest -Pskipui=true'
-				junit '**/TEST-*.xml'
+				//setUpML '/space/Mark*.rpm'
+				sh 'echo '+JAVA_HOME+'export '+JAVA_HOME+' export $WORKSPACE/data-hub'+GRADLE_USER_HOME+'export '+MAVEN_HOME+'export PATH=$PATH:$MAVEN_HOME/bin; cd $WORKSPACE/data-hub;rm -rf $GRADLE_USER_HOME/caches;./gradlew clean;./gradlew clean; -Pskipui=true'
+				//junit '**/TEST-*.xml'
 					script{
 				 commitMessage = sh (returnStdout: true, script:'''
-			curl -u $Credentials -X GET "https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/git/commits/${GIT_COMMIT}" ''')
+			curl -u $Credentials -X GET "https://api.github.com/repos/kkanthet/marklogic-data-hub/git/commits/${GIT_COMMIT}" ''')
 			def slurper = new JsonSlurperClassic().parseText(commitMessage.toString().trim())
 				def commit=slurper.message.toString().trim();
 				JIRA_ID=commit.split(("\\n"))[0].split(':')[0].trim();
@@ -299,7 +299,7 @@ pipeline{
 		script{
 			//JIRA_ID=env.CHANGE_TITLE.split(':')[0]
 			prResponse = sh (returnStdout: true, script:'''
-			curl -u $Credentials  -X POST -H 'Content-Type:application/json' -d '{\"title\": \"Automated PR for Integration Branch\" , \"head\": \"IntegrationBranch\" , \"base\": \"ReleaseBranch\" }' https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/pulls ''')
+			curl -u $Credentials  -X POST -H 'Content-Type:application/json' -d '{\"title\": \"Automated PR for Integration Branch\" , \"head\": \"IntegrationBranch\" , \"base\": \"ReleaseBranch\" }' https://api.github.com/repos/kkanthet/marklogic-data-hub/pulls ''')
 			println(prResponse)
 			def slurper = new JsonSlurper().parseText(prResponse)
 			println(slurper.number)
@@ -307,11 +307,11 @@ pipeline{
 			}
 			}
 			withCredentials([usernameColonPassword(credentialsId: 'rahul-git', variable: 'Credentials')]) {
-                    sh "curl -u $Credentials  -X POST  -d '{\"event\": \"APPROVE\"}' https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/pulls/${prNumber}/reviews"
+                    sh "curl -u $Credentials  -X POST  -d '{\"event\": \"APPROVE\"}' https://api.github.com/repos/kkanthet/marklogic-data-hub/pulls/${prNumber}/reviews"
                 }
                 withCredentials([usernameColonPassword(credentialsId: 'a0ec09aa-f339-44de-87c4-1a4936df44f5', variable: 'Credentials')]) {
               script{
-             sh "curl -o - -s -w \"\n%{http_code}\n\" -X PUT -d '{\"commit_title\": \"$JIRA_ID: Merge pull request\"}' -u $Credentials  https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/pulls/${prNumber}/merge | tail -1 > mergeResult.txt"
+             sh "curl -o - -s -w \"\n%{http_code}\n\" -X PUT -d '{\"commit_title\": \"$JIRA_ID: Merge pull request\"}' -u $Credentials  https://api.github.com/repos/kkanthet/marklogic-data-hub/pulls/${prNumber}/merge | tail -1 > mergeResult.txt"
     					def mergeResult = readFile('mergeResult.txt').trim()
     					if(mergeResult==200){
     						println("Merge successful")
@@ -339,14 +339,14 @@ pipeline{
 		}
 			agent { label 'dhfLinuxAgent'}
 			steps{
-				copyRPM 'Latest'
+				//copyRPM 'Latest'
 				//setUpML '$WORKSPACE/xdmp/src/Mark*.rpm'
-				setUpML '/space/Mark*.rpm'
+				//setUpML '/space/Mark*.rpm'
 				sh 'echo '+JAVA_HOME+'export '+JAVA_HOME+' export $WORKSPACE/data-hub'+GRADLE_USER_HOME+'export '+MAVEN_HOME+'export PATH=$PATH:$MAVEN_HOME/bin; cd $WORKSPACE/data-hub;rm -rf $GRADLE_USER_HOME/caches;./gradlew clean;./gradlew clean;./gradlew :marklogic-data-hub:test --tests com.marklogic.hub.processes.ProcessManagerTest -Pskipui=true'
-				junit '**/TEST-*.xml'
+				//junit '**/TEST-*.xml'
 				script{
 				 commitMessage = sh (returnStdout: true, script:'''
-			curl -u $Credentials -X GET "https://api.github.com/repos/SameeraPriyathamTadikonda/marklogic-data-hub/git/commits/${GIT_COMMIT}" ''')
+			curl -u $Credentials -X GET "https://api.github.com/repos/kkanthet/marklogic-data-hub/git/commits/${GIT_COMMIT}" ''')
 			def slurper = new JsonSlurperClassic().parseText(commitMessage.toString().trim())
 				def commit=slurper.message.toString().trim();
 				JIRA_ID=commit.split(("\\n"))[0].split(':')[0].trim();
