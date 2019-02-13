@@ -60,8 +60,8 @@ pipeline{
   //			 allOf {
  //   changeRequest author: '', authorDisplayName: '', authorEmail: '', branch: '', fork: '', id: '', target: '', title: '', url: ''
  // }
-  			beforeAgent true
-		}
+  	//		beforeAgent true
+	//	}
 		agent {label 'master'};
 		steps{
 		script{
