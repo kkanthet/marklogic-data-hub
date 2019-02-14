@@ -287,7 +287,7 @@ pipeline{
                   }
 		}
 		}
-		}f
+		}
 		stage('Merge PR to Release Branch'){
 		when {
   			branch 'IntegrationBranch'
