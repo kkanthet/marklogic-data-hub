@@ -19,6 +19,7 @@ pipeline{
 		agent { label 'dhfLinuxAgent'}
 			steps{
 				script{
+				sh 'printenv'
 				if(env.CHANGE_TITLE){
 				JIRA_ID=env.CHANGE_TITLE.split(':')[0];
 				def transitionInput =[transition: [id: '41']]
