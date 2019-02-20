@@ -189,7 +189,7 @@ public class UpgradeProjectTest {
         assertTrue(jobFile.exists());
         ObjectNode jobServer = readFile(jobFile);
         assertEquals("%%mlJobAppserverName%%", jobServer.get("server-name").asText());
-        assertEquals("/data-hub/4/tracing/tracing-rewriter.xml", jobServer.get("url-rewriter").asText());
+        assertEquals("/data-hub/5/tracing/tracing-rewriter.xml", jobServer.get("url-rewriter").asText());
         assertEquals("%%mlModulesDbName%%", jobServer.get("modules-database").asText());
         assertEquals("%%mlJobDbName%%", jobServer.get("content-database").asText());
 
@@ -197,8 +197,8 @@ public class UpgradeProjectTest {
         assertTrue(stagingFile.exists());
         ObjectNode stagingServer = readFile(stagingFile);
         assertEquals("%%mlStagingAppserverName%%", stagingServer.get("server-name").asText());
-        assertEquals("/data-hub/4/rest-api/rewriter.xml", stagingServer.get("url-rewriter").asText());
-        assertEquals("/data-hub/4/rest-api/error-handler.xqy", stagingServer.get("error-handler").asText());
+        assertEquals("/data-hub/5/rest-api/rewriter.xml", stagingServer.get("url-rewriter").asText());
+        assertEquals("/data-hub/5/rest-api/error-handler.xqy", stagingServer.get("error-handler").asText());
         assertEquals("%%mlModulesDbName%%", stagingServer.get("modules-database").asText());
         assertEquals("%%mlStagingDbName%%", stagingServer.get("content-database").asText());
 

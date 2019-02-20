@@ -1,9 +1,0 @@
-{
-  "name": "myTestCustomProcess",
-  "type": "CUSTOM",
-  "version": 1,
-  "options": {
-    "key": "val",
-    "key2": "val2"
-  }
-}

@@ -21,7 +21,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.marklogic.hub.HubProject;
 import com.marklogic.hub.error.DataHubProjectException;
-import com.marklogic.hub.processes.Process;
+import com.marklogic.hub.step.Step;
 import com.marklogic.hub.util.FileUtil;
 import com.marklogic.rest.util.JsonNodeUtil;
 import org.apache.commons.io.FileUtils;
@@ -60,7 +60,7 @@ public class HubProjectImpl implements HubProject {
     private String projectDirString;
     private Path projectDir;
     private Path pluginsDir;
-    private Path processesDir;
+    private Path stepsDir;
     private String userModulesDeployTimestampFile = USER_MODULES_DEPLOY_TIMESTAMPS_PROPERTIES;
 
     protected final Logger logger = LoggerFactory.getLogger(this.getClass());
@@ -76,7 +76,7 @@ public class HubProjectImpl implements HubProject {
         this.projectDirString = projectDirString;
         this.projectDir = Paths.get(projectDirString).toAbsolutePath();
         this.pluginsDir = this.projectDir.resolve("plugins");
-        this.processesDir = this.projectDir.resolve("processes");
+        this.stepsDir = this.projectDir.resolve("steps");
     }
 
     @Override public Path getHubPluginsDir() {
@@ -84,30 +84,30 @@ public class HubProjectImpl implements HubProject {
     }
 
     @Override
-    public Path getProcessesDir() {
-        return this.processesDir;
+    public Path getStepsDir() {
+        return this.stepsDir;
     }
 
     @Override
-    public Path getProcessDir(Process.ProcessType type) {
+    public Path getStepsDirByType(Step.StepType type) {
         Path path;
 
         if (type == null) {
-            throw new DataHubProjectException("Invalid Process type");
+            throw new DataHubProjectException("Invalid Step type");
         }
         else {
             switch (type) {
                 case CUSTOM:
-                    path = this.processesDir.resolve("custom");
+                    path = this.stepsDir.resolve("custom");
                     break;
                 case INGEST:
-                    path = this.processesDir.resolve("ingest");
+                    path = this.stepsDir.resolve("ingest");
                     break;
                 case MAPPING:
-                    path = this.processesDir.resolve("mapping");
+                    path = this.stepsDir.resolve("mapping");
                     break;
                 default:
-                    throw new DataHubProjectException("Invalid Process type");
+                    throw new DataHubProjectException("Invalid Step type");
             }
         }
 
@@ -217,7 +217,7 @@ public class HubProjectImpl implements HubProject {
 
     @Override public void init(Map<String, String> customTokens) {
         this.pluginsDir.toFile().mkdirs();
-        this.processesDir.toFile().mkdirs();
+        this.stepsDir.toFile().mkdirs();
 
         Path userModules = this.projectDir.resolve(MODULES_DIR);
         userModules.toFile().mkdirs();
@@ -513,14 +513,14 @@ public class HubProjectImpl implements HubProject {
                         rootNode = mapper.readTree(jsonFile);
                         //set the url-rewriter and error-handler
                         if(path.toLowerCase().equals("staging-server.json")) {
-                            logger.info("Setting \"url-rewriter\" to \"/data-hub/4/rest-api/rewriter.xml\"");
-                            ((ObjectNode) rootNode).put("url-rewriter", "/data-hub/4/rest-api/rewriter.xml");
-                            logger.info("Setting \"error-handler\" to \"/data-hub/4/rest-api/error-handler.xqy\"");
-                            ((ObjectNode) rootNode).put("error-handler", "/data-hub/4/rest-api/error-handler.xqy");
+                            logger.info("Setting \"url-rewriter\" to \"/data-hub/5/rest-api/rewriter.xml\"");
+                            ((ObjectNode) rootNode).put("url-rewriter", "/data-hub/5/rest-api/rewriter.xml");
+                            logger.info("Setting \"error-handler\" to \"/data-hub/5/rest-api/error-handler.xqy\"");
+                            ((ObjectNode) rootNode).put("error-handler", "/data-hub/5/rest-api/error-handler.xqy");
                         }
                         else {
-                            logger.info("Setting \"url-rewriter\" to \"/data-hub/4/tracing/tracing-rewriter.xml\"");
-                            ((ObjectNode) rootNode).put("url-rewriter", "/data-hub/4/tracing/tracing-rewriter.xml");                            
+                            logger.info("Setting \"url-rewriter\" to \"/data-hub/5/tracing/tracing-rewriter.xml\"");
+                            ((ObjectNode) rootNode).put("url-rewriter", "/data-hub/5/tracing/tracing-rewriter.xml");
                         }
                         String serverFile = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(rootNode);
                         logger.info("Writing "+ f.toFile().getAbsolutePath() +" to "
