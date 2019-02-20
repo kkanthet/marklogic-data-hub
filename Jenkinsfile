@@ -9,6 +9,9 @@ def prResponse="";
 def prNumber;
 pipeline{
 	agent none;
+    triggers {
+    issueCommentTrigger('.*retest this please.*')
+  }
 	options {
   	checkoutToSubdirectory 'data-hub'
 	}
