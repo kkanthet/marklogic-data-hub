@@ -54,7 +54,7 @@ pipeline{
                     def email=Email
                     if(env.CHANGE_AUTHOR){
                     def author=env.CHANGE_AUTHOR.toString().trim().toLowerCase()
-                    def email=getEmailFromGITUser author
+                     email=getEmailFromGITUser author
                     }
                     sendMail email,'Check: ${BUILD_URL}/console',false,'Unit Tests for  $BRANCH_NAME Passed'
                     }
@@ -65,7 +65,7 @@ pipeline{
                       def email=Email
                     if(env.CHANGE_AUTHOR){
                     	def author=env.CHANGE_AUTHOR.toString().trim().toLowerCase()
-                    	def email=getEmailFromGITUser author 
+                    	 email=getEmailFromGITUser author 
                     }
                       sendMail email,'Check: ${BUILD_URL}/console',false,'Unit Tests for $BRANCH_NAME Failed'
                       }
