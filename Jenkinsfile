@@ -51,10 +51,12 @@ pipeline{
                   success {
                     println("Unit Tests Completed")
                     script{
-                    def email=Email
+                    def email;
                     if(env.CHANGE_AUTHOR){
                     def author=env.CHANGE_AUTHOR.toString().trim().toLowerCase()
                      email=getEmailFromGITUser author
+                    }else{
+                    	email=Email
                     }
                     sendMail email,'Check: ${BUILD_URL}/console',false,'Unit Tests for  $BRANCH_NAME Passed'
                     }
@@ -62,10 +64,12 @@ pipeline{
                    failure {
                       println("Unit Tests Failed")
                       script{
-                      def email=Email
+                      def email;
                     if(env.CHANGE_AUTHOR){
                     	def author=env.CHANGE_AUTHOR.toString().trim().toLowerCase()
                     	 email=getEmailFromGITUser author 
+                    }else{
+                    email=Email
                     }
                       sendMail email,'Check: ${BUILD_URL}/console',false,'Unit Tests for $BRANCH_NAME Failed'
                       }
