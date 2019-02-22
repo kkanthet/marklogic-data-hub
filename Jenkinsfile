@@ -51,21 +51,21 @@ pipeline{
                   success {
                     println("Unit Tests Completed")
                     script{
+                    def email=Email
+                    if(env.CHANGE_AUTHOR){
                     def author=env.CHANGE_AUTHOR.toString().trim().toLowerCase()
                     def email=getEmailFromGITUser author
-                    if(!email){
-                    	email=Email
-                    } 
+                    }
                     sendMail email,'Check: ${BUILD_URL}/console',false,'Unit Tests for  $BRANCH_NAME Passed'
                     }
                    }
                    failure {
                       println("Unit Tests Failed")
                       script{
+                      def email=Email
+                    if(env.CHANGE_AUTHOR){
                     	def author=env.CHANGE_AUTHOR.toString().trim().toLowerCase()
                     	def email=getEmailFromGITUser author 
-                    	if(!email){
-                    	email=Email
                     }
                       sendMail email,'Check: ${BUILD_URL}/console',false,'Unit Tests for $BRANCH_NAME Failed'
                       }
@@ -89,9 +89,6 @@ pipeline{
 			script{
                     def author=env.CHANGE_AUTHOR.toString().trim().toLowerCase()
                     def email=getEmailFromGITUser author 
-                    if(!email){
-                    	email=Email
-                    }
 			sendMail email,'Check: ${BUILD_URL}/console',false,'Waiting for code review $BRANCH_NAME '
 			}
 			try{
@@ -152,9 +149,6 @@ pipeline{
                     script{
                     def author=env.CHANGE_AUTHOR.toString().trim().toLowerCase()
                     def email=getEmailFromGITUser author 
-                    if(!email){
-                    	email=Email
-                    }
 					sendMail email,'Check: ${BUILD_URL}/console',false,'  $BRANCH_NAME is Merged'
 					}
                    }
@@ -163,9 +157,6 @@ pipeline{
                       script{
                     def author=env.CHANGE_AUTHOR.toString().trim().toLowerCase()
                     def email=getEmailFromGITUser author 
-                    if(!email){
-                    	email=Email
-                    }
                       sendMail email,'Check: ${BUILD_URL}/console',false,' $BRANCH_NAME Cannot be Merged'
                       }
                   }
