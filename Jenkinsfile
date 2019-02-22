@@ -4,7 +4,6 @@ import groovy.json.JsonSlurperClassic
 def gitDataHubRepo="https://github.com/SameeraPriyathamTadikonda/marklogic-data-hub.git"
 def GRADLE_USER_HOME="/.gradle"
 def MAVEN_HOME="/usr/local/maven"
-def JIRA_ID="";
 def commitMessage="";
 def prResponse="";
 def prNumber;
