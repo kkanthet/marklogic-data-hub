@@ -1,7 +1,7 @@
 @Library('shared-libraries') _
 import groovy.json.JsonSlurper
 import groovy.json.JsonSlurperClassic
-def gitDataHubRepo="https://github.com/SameeraPriyathamTadikonda/marklogic-data-hub.git"
+def JAVA_HOME="~/java/jdk1.8.0_72"
 def GRADLE_USER_HOME="/.gradle"
 def MAVEN_HOME="/usr/local/maven"
 def JIRA_ID="";
@@ -14,7 +14,7 @@ pipeline{
   	checkoutToSubdirectory 'data-hub'
 	}
 	parameters{
-	string(name: 'JAVA_HOME', defaultValue: '~/java/jdk1.8.0_72', description: 'Java_Home for the project')
+	string(name: 'Email', defaultValue: 'stadikon@marklogic.com', description: 'Who should I say send the email to?')
 	}
 	stages{
 		stage('Build-datahub'){
@@ -29,7 +29,7 @@ pipeline{
 				}
 				}
 				println(BRANCH_NAME)
-				sh 'echo '+params.JAVA_HOME+' export '+params.JAVA_HOME+' export $WORKSPACE/data-hub'+GRADLE_USER_HOME+' export '+MAVEN_HOME+' export PATH=$WORKSPACE/data-hub'+GRADLE_USER_HOME+':$PATH:$MAVEN_HOME/bin; cd $WORKSPACE/data-hub;rm -rf $GRADLE_USER_HOME/caches;./gradlew clean;./gradlew build -x test -Pskipui=true;'
+				sh 'echo '+JAVA_HOME+'export '+JAVA_HOME+' export $WORKSPACE/data-hub'+GRADLE_USER_HOME+' export '+MAVEN_HOME+' export PATH=$WORKSPACE/data-hub'+GRADLE_USER_HOME+':$PATH:$MAVEN_HOME/bin; cd $WORKSPACE/data-hub;rm -rf $GRADLE_USER_HOME/caches;./gradlew clean;./gradlew build -x test -Pskipui=true;'
 				archiveArtifacts artifacts: 'data-hub/marklogic-data-hub/build/libs/* , data-hub/ml-data-hub-plugin/build/libs/* , data-hub/quick-start/build/libs/', onlyIfSuccessful: true			}
 		}
 		stage('Unit-Tests'){
@@ -52,7 +52,10 @@ pipeline{
                     println("Unit Tests Completed")
                     script{
                     def author=env.CHANGE_AUTHOR.toString().trim().toLowerCase()
-                    def email=getEmailFromGITUser author 
+                    def email=getEmailFromGITUser author
+                    if(email==null){
+                    	email=Email
+                    } 
                     sendMail email,'Check: ${BUILD_URL}/console',false,'Unit Tests for  $BRANCH_NAME Passed'
                     }
                    }
@@ -61,6 +64,9 @@ pipeline{
                       script{
                     	def author=env.CHANGE_AUTHOR.toString().trim().toLowerCase()
                     	def email=getEmailFromGITUser author 
+                    	if(email==null){
+                    	email=Email
+                    }
                       sendMail email,'Check: ${BUILD_URL}/console',false,'Unit Tests for $BRANCH_NAME Failed'
                       }
                   }
@@ -83,6 +89,9 @@ pipeline{
 			script{
                     def author=env.CHANGE_AUTHOR.toString().trim().toLowerCase()
                     def email=getEmailFromGITUser author 
+                    if(email==null){
+                    	email=Email
+                    }
 			sendMail email,'Check: ${BUILD_URL}/console',false,'Waiting for code review $BRANCH_NAME '
 			}
 			try{
@@ -143,6 +152,9 @@ pipeline{
                     script{
                     def author=env.CHANGE_AUTHOR.toString().trim().toLowerCase()
                     def email=getEmailFromGITUser author 
+                    if(email==null){
+                    	email=Email
+                    }
 					sendMail email,'Check: ${BUILD_URL}/console',false,'  $BRANCH_NAME is Merged'
 					}
                    }
@@ -151,6 +163,9 @@ pipeline{
                       script{
                     def author=env.CHANGE_AUTHOR.toString().trim().toLowerCase()
                     def email=getEmailFromGITUser author 
+                    if(email==null){
+                    	email=Email
+                    }
                       sendMail email,'Check: ${BUILD_URL}/console',false,' $BRANCH_NAME Cannot be Merged'
                       }
                   }
@@ -181,12 +196,12 @@ pipeline{
 			post{
                   success {
                     println("End-End Tests Completed")
-                    sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'End-End Tests for $BRANCH_NAME Passed'
+                    sendMail Email,'Check: ${BUILD_URL}/console',false,'End-End Tests for $BRANCH_NAME Passed'
                     
                    }
                    failure {
                       println("End-End Tests Failed")
-                      sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'End-End Tests for  $BRANCH_NAME Failed'
+                      sendMail Email,'Check: ${BUILD_URL}/console',false,'End-End Tests for  $BRANCH_NAME Failed'
                   }
                   }
 		}
@@ -262,12 +277,12 @@ pipeline{
 			post{
                   success {
                     println("Upgrade Tests Completed")
-                    sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'Upgrade Tests for $BRANCH_NAME Passed'
+                    sendMail Email,'Check: ${BUILD_URL}/console',false,'Upgrade Tests for $BRANCH_NAME Passed'
                     // sh './gradlew publish'
                    }
                    failure {
                       println("Upgrade Tests Failed")
-                      sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'Upgrade Tests for $BRANCH_NAME Failed'
+                      sendMail Email,'Check: ${BUILD_URL}/console',false,'Upgrade Tests for $BRANCH_NAME Failed'
                   }
                   }
 		}
@@ -297,12 +312,12 @@ pipeline{
 			post{
                   success {
                     println("Upgrade Tests Completed")
-                    sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'End-End all Tests for $BRANCH_NAME Passed'
+                    sendMail Email,'Check: ${BUILD_URL}/console',false,'End-End all Tests for $BRANCH_NAME Passed'
                     // sh './gradlew publish'
                    }
                    failure {
                       println("Upgrade Tests Failed")
-                      sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'End-End All Tests for $BRANCH_NAME Failed'
+                      sendMail Email,'Check: ${BUILD_URL}/console',false,'End-End All Tests for $BRANCH_NAME Failed'
                   }
                   }
 		}
@@ -378,18 +393,18 @@ pipeline{
 			post{
                   success {
                     println("Sanity Tests Completed")
-                    sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'Sanity Tests for $BRANCH_NAME Passed'
+                    sendMail Email,'Check: ${BUILD_URL}/console',false,'Sanity Tests for $BRANCH_NAME Passed'
                     script{
 						def transitionInput =[transition: [id: '31']]
 						//JIRA_ID=env.CHANGE_TITLE.split(':')[0]
 						jiraTransitionIssue idOrKey: JIRA_ID, input: transitionInput, site: 'JIRA'
 						}
-                    sendMail 'stadikon@marklogic.com','Click approve to release',false,'Datahub is ready for Release'
+                    sendMail Email,'Click approve to release',false,'Datahub is ready for Release'
 
                    }
                    failure {
                       println("Sanity Tests Failed")
-                      sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'Sanity Tests for $BRANCH_NAME Failed'
+                      sendMail Email,'Check: ${BUILD_URL}/console',false,'Sanity Tests for $BRANCH_NAME Failed'
                   }
                   }
 		}
