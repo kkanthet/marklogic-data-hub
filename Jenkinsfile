@@ -13,7 +13,7 @@ pipeline{
   	checkoutToSubdirectory 'data-hub'
 	}
 	parameters{
-	string(name: 'JAVA_HOME', defaultValue: '~/java/jdk1.8.0_72', description: 'Java_Home for the project')
+	string(name: 'JAVA_HOME', defaultValue: ~/java/jdk1.8.0_72, description: 'Java_Home for the project')
 	string(name: 'JIRA_ID', defaultValue: '', description: 'JIRA ID')
 	}
 	stages{
