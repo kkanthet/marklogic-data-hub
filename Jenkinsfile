@@ -123,7 +123,7 @@ pipeline{
     				println(response)
     				if(response.equals("clean")){
     					println("merging can be done")
-    					sh "curl -o - -s -w \"\n%{http_code}\n\" -X PUT -d '{\"commit_title\": \"$JIRA_ID: merging PR\"}' -u $Credentials  ${githubAPIUrl}/pulls/$CHANGE_ID/merge | tail -1 > mergeResult.txt"
+    					sh "curl -o - -s -w \"\n%{http_code}\n\" -X PUT -d '{\"commit_title\": \"$JIRA_ID: merging PR\"}' -u $Credentials "+ githubAPIUrl+"/pulls/$CHANGE_ID/merge | tail -1 > mergeResult.txt"
     					def mergeResult = readFile('mergeResult.txt').trim()
     					if(mergeResult==200){
     						println("Merge successful")
