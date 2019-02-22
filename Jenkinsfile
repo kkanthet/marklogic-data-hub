@@ -50,6 +50,7 @@ pipeline{
                     println("Unit Tests Completed")
                     script{
                     def email=getEmailFromGITUser '$CHANGE_AUTHOR.toString().trim().toLowerCase()' 
+                    println(email)
                     sendMail email,'Check: ${BUILD_URL}/console',false,'Unit Tests for  $BRANCH_NAME Passed'
                     }
                    }
