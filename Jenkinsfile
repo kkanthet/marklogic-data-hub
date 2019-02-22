@@ -15,6 +15,7 @@ pipeline{
 	}
 	parameters{
 	string(name: 'JAVA_HOME', defaultValue: '~/java/jdk1.8.0_72', description: 'Java_Home for the project')
+	string(name: 'JIRA_ID', defaultValue: '', description: 'JIRA ID')
 	}
 	stages{
 		stage('Build-datahub'){
@@ -29,7 +30,7 @@ pipeline{
 				}
 				}
 				println(BRANCH_NAME)
-				println(params.JAVA_HOME)
+				sh 'echo $JAVA_HOME'
 				sh 'echo ${params.JAVA_HOME};export '+JAVA_HOME+' export $WORKSPACE/data-hub'+GRADLE_USER_HOME+' export '+MAVEN_HOME+' export PATH=$WORKSPACE/data-hub'+GRADLE_USER_HOME+':$PATH:$MAVEN_HOME/bin; cd $WORKSPACE/data-hub;rm -rf $GRADLE_USER_HOME/caches;./gradlew clean;./gradlew build -x test -Pskipui=true;'
 				archiveArtifacts artifacts: 'data-hub/marklogic-data-hub/build/libs/* , data-hub/ml-data-hub-plugin/build/libs/* , data-hub/quick-start/build/libs/', onlyIfSuccessful: true			}
 		}
