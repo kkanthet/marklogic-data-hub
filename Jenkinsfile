@@ -13,10 +13,10 @@ pipeline{
 	options {
   	checkoutToSubdirectory 'data-hub'
 	}
-	properties{
+	properties(
 	parameters{
 	string(name: 'Email', defaultValue: 'stadikon@marklogic.com', description: 'Who should I say send the email to?')
-	}}
+	})
 	stages{
 		stage('Build-datahub'){
 		agent { label 'dhfLinuxAgent'}
