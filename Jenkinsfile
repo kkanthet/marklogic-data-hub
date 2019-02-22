@@ -12,9 +12,9 @@ pipeline{
 	agent none;
 	options {
   	checkoutToSubdirectory 'data-hub'
+	}
 	parameters{
 	string(name: 'Email', defaultValue: 'stadikon@marklogic.com', description: 'Who should I say send the email to?')
-	}
 	}
 	stages{
 		stage('Build-datahub'){
