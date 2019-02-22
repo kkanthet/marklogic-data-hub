@@ -48,7 +48,7 @@ pipeline{
 			post{
                   success {
                     println("Unit Tests Completed")
-                    sendMail getEmailFromGITUser '$CHANGE_AUTHOR.toString().trim().toLowerCase()','Check: ${BUILD_URL}/console',false,'Unit Tests for  $BRANCH_NAME Passed'
+                    sendMail (getEmailFromGITUser '$CHANGE_AUTHOR.toString().trim().toLowerCase()'),'Check: ${BUILD_URL}/console',false,'Unit Tests for  $BRANCH_NAME Passed'
                    }
                    failure {
                       println("Unit Tests Failed")
