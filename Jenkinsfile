@@ -48,7 +48,8 @@ pipeline{
 			post{
                   success {
                     println("Unit Tests Completed")
-                    sendMail 'stadikon@marklogic.com','Check: ${BUILD_URL}/console',false,'Unit Tests for  $BRANCH_NAME Passed'
+                    def email=getEmailFromGITUser '$CHANGE_AUTHOR.toString().trim().toLowerCase()' 
+                    sendMail email,'Check: ${BUILD_URL}/console',false,'Unit Tests for  $BRANCH_NAME Passed'
                    }
                    failure {
                       println("Unit Tests Failed")
