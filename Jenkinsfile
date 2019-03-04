@@ -129,7 +129,6 @@ pipeline{
     					}else{
     						println("Merge Failed")
     					}
-    					sh 'rm -rf mergeResult.txt'
     				}else if(response.equals("blocked")){
     					println("retry blocked");
     					sleep time: 1, unit: 'MINUTES'
@@ -139,7 +138,6 @@ pipeline{
     					sh "curl -o - -s -w \"\n%{http_code}\n\" -X PUT -d '{\"commit_title\": \"$JIRA_ID: merging PR\"}' -u $Credentials  "+githubAPIUrl+"/pulls/$CHANGE_ID/merge | tail -1 > mergeResult.txt"
     					def mergeResult = readFile('mergeResult.txt').trim()
     					println("Result is"+ mergeResult)
-    					sh 'rm -rf mergeResult.txt'
     				}else{
     					println("merging not possible")
     					currentBuild.result = "FAILURE"
@@ -232,7 +230,6 @@ pipeline{
     					}else{
     						println("Merge Failed")
     					}
-
     			}
              }
 
