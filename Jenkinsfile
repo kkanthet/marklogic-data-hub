@@ -1,9 +1,6 @@
 @Library('shared-libraries') _
 import groovy.json.JsonSlurper
 import groovy.json.JsonSlurperClassic
-def JAVA_HOME="~/java/jdk1.8.0_72"
-def GRADLE_USER_HOME="/.gradle"
-def MAVEN_HOME="/usr/local/maven"
 def JIRA_ID="";
 def commitMessage="";
 def prResponse="";
@@ -13,6 +10,11 @@ pipeline{
 	agent none;
 	options {
   	checkoutToSubdirectory 'data-hub'
+	}
+	environment{
+	JAVA_HOME="~/java/jdk1.8.0_72"
+	GRADLE_USER_HOME="$WORKSPACE/.gradle"
+	MAVEN_HOME="/usr/local/maven"
 	}
 	parameters{
 	string(name: 'Email', defaultValue: 'stadikon@marklogic.com', description: 'Who should I say send the email to?')
@@ -29,10 +31,7 @@ pipeline{
 				}
 				}
 				println(BRANCH_NAME)
-				sh 'echo '+JAVA_HOME+';export '+JAVA_HOME+';\
-				export $WORKSPACE'+GRADLE_USER_HOME+'\
-				export '+MAVEN_HOME+'\
-				export PATH=$WORKSPACE'+GRADLE_USER_HOME+':$PATH:$MAVEN_HOME/bin;cd $WORKSPACE/data-hub;rm -rf $WORKSPACE'+GRADLE_USER_HOME+'/caches;./gradlew clean --stacktrace;./gradlew build -x test -Pskipui=true;'
+				sh 'export $JAVA_HOME; export $GRADLE_USER_HOME; export $MAVE_HOME/bin;export $GRADLE_USR_HOME:$PATH:$MAVEN_HOME/bin;cd $WORKSPACE/data-hub;rm -rf $WORKSPACE'+GRADLE_USER_HOME+'/caches;./gradlew clean --stacktrace;./gradlew build -x test -Pskipui=true;'
 				archiveArtifacts artifacts: 'data-hub/marklogic-data-hub/build/libs/* , data-hub/ml-data-hub-plugin/build/libs/* , data-hub/quick-start/build/libs/', onlyIfSuccessful: true			}
 		}
 		stage('Unit-Tests'){
