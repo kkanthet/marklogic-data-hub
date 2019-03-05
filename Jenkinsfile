@@ -291,7 +291,7 @@ pipeline{
 				copyRPM 'Latest'
 				//setUpML '$WORKSPACE/xdmp/src/Mark*.rpm'
 				setUpML '/space/Mark*.rpm'
-				sh 'echo '+JAVA_HOME+'export '+JAVA_HOME+' export $WORKSPACE/data-hub'+GRADLE_USER_HOME+'export '+MAVEN_HOME+'export PATH=$WORKSPACE/data-hub'+GRADLE_USER_HOME+':$PATH:$MAVEN_HOME/bin; cd $WORKSPACE/data-hub;rm -rf $GRADLE_USER_HOME/caches;./gradlew clean;./gradlew clean;./gradlew :marklogic-data-hub:test --tests com.marklogic.hub.processes.ProcessManagerTest -Pskipui=true'
+				sh 'echo '+JAVA_HOME+'export '+JAVA_HOME+' export $WORKSPACE'+GRADLE_USER_HOME+'export '+MAVEN_HOME+'export PATH=$WORKSPACE'+GRADLE_USER_HOME+':$PATH:$MAVEN_HOME/bin; cd $WORKSPACE/data-hub;rm -rf $WORKSPACE'+GRADLE_USER_HOME+'/caches;./gradlew clean;./gradlew clean;./gradlew :marklogic-data-hub:test --tests com.marklogic.hub.processes.ProcessManagerTest -Pskipui=true'
 				junit '**/TEST-*.xml'
 					script{
 				 commitMessage = sh (returnStdout: true, script:'''
