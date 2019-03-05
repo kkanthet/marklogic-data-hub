@@ -12,7 +12,7 @@ pipeline{
   	checkoutToSubdirectory 'data-hub'
 	}
 	environment{
-	JAVA_HOME="~/java/jdk1.8.0_72"
+	JAVA_HOME="`~/java/jdk1.8.0_72`"
 	GRADLE_USER_HOME="$WORKSPACE/.gradle"
 	MAVEN_HOME="/usr/local/maven"
 	}
