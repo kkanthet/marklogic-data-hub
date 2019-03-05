@@ -31,7 +31,7 @@ pipeline{
 				}
 				}
 				println(BRANCH_NAME)
-				sh 'echo $JAVA_HOME;export $JAVA_HOME; export $GRADLE_USER_HOME; export $MAVE_HOME/bin;export $GRADLE_USR_HOME:$PATH:$MAVEN_HOME/bin;cd $WORKSPACE/data-hub;rm -rf $WORKSPACE'+GRADLE_USER_HOME+'/caches;./gradlew clean --stacktrace;./gradlew build -x test -Pskipui=true;'
+				sh 'echo $JAVA_HOME;export $GRADLE_USER_HOME;export $MAVE_HOME/bin;export $GRADLE_USR_HOME:$PATH:$MAVEN_HOME/bin;which java;cd $WORKSPACE/data-hub;rm -rf $WORKSPACE'+GRADLE_USER_HOME+'/caches;./gradlew clean --stacktrace;./gradlew build -x test -Pskipui=true;'
 				archiveArtifacts artifacts: 'data-hub/marklogic-data-hub/build/libs/* , data-hub/ml-data-hub-plugin/build/libs/* , data-hub/quick-start/build/libs/', onlyIfSuccessful: true			}
 		}
 		stage('Unit-Tests'){
