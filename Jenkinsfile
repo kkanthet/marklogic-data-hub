@@ -29,7 +29,7 @@ pipeline{
 				}
 				}
 				println(BRANCH_NAME)
-				sh 'echo '+JAVA_HOME+';export '+JAVA_HOME+'\
+				sh 'echo '+JAVA_HOME+';export '+JAVA_HOME+';\
 				export $WORKSPACE'+GRADLE_USER_HOME+'\
 				export '+MAVEN_HOME+'\
 				export PATH=$WORKSPACE'+GRADLE_USER_HOME+':$PATH:$MAVEN_HOME/bin;cd $WORKSPACE/data-hub;rm -rf $WORKSPACE'+GRADLE_USER_HOME+'/caches;./gradlew clean --stacktrace;./gradlew build -x test -Pskipui=true;'
