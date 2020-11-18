@@ -20,12 +20,13 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.marklogic.client.DatabaseClient;
+import com.marklogic.client.MarkLogicServerException;
 import com.marklogic.client.io.Format;
 import com.marklogic.client.io.StringHandle;
 import com.marklogic.hub.central.AbstractHubCentralTest;
 import com.marklogic.hub.central.entities.search.models.DocSearchQueryInfo;
 import com.marklogic.hub.central.entities.search.models.SearchQuery;
-import com.marklogic.hub.central.exceptions.DataHubException;
 import com.marklogic.hub.dhs.DhsDeployer;
 import com.marklogic.hub.impl.EntityManagerImpl;
 import com.marklogic.hub.test.Customer;
@@ -60,76 +61,42 @@ public class EntitySearchManagerTest extends AbstractHubCentralTest {
      * exhaustively, so just checking a few things here.
      */
     @Test
-    void searchWithTransform() {
-        runAsDataHubDeveloper();
-        ReferenceModelProject project = installOnlyReferenceModelEntities(true);
-        project.createCustomerInstance(new Customer(1, "Jane"));
-        project.createCustomerInstance(new Customer(2, "Sally"));
-
-        runAsHubCentralUser();
-
-        SearchQuery query = new SearchQuery();
-        DocSearchQueryInfo info = new DocSearchQueryInfo();
-        info.setEntityTypeIds(Arrays.asList("Customer"));
-        query.setQuery(info);
-
-        StringHandle results = new EntitySearchManager(getHubClient()).search(query);
-        ObjectNode node = readJsonObject(results.get());
-        assertTrue(node.has("selectedPropertyDefinitions"), "Including this makes life easy on the UI so it knows what " +
-            "columns to display");
-        assertTrue(node.has("entityPropertyDefinitions"), "Including this means the UI doesn't need to make a separate call " +
-            "to /api/models to get the property names and also traverse the entity definition itself");
-        assertTrue(node.get("results").get(0).has("entityProperties"), "Each result is expected to have " +
-            "entityProperties so that the UI knows what structured values to show for each entity instance");
-        assertTrue(node.get("results").get(1).has("entityProperties"));
-
-        // Adding propertiesToDisplay to search query which are user selected columns
-        List<String> propertiesToDisplay = Arrays.asList("name", "customerId");
-        query.setPropertiesToDisplay(propertiesToDisplay);
-        results = new EntitySearchManager(getHubClient()).search(query);
-        node = readJsonObject(results.get());
-        assertTrue(node.has("selectedPropertyDefinitions"), "Including this makes life easy on the UI so it knows what " +
-            "columns to display");
-        assertEquals(2, node.get("selectedPropertyDefinitions").size());
-        assertTrue(node.has("entityPropertyDefinitions"), "Including this means the UI doesn't need to make a separate call " +
-            "to /api/models to get the property names and also traverse the entity definition itself");
-        assertTrue(node.get("results").get(0).has("entityProperties"), "Each result is expected to have " +
-            "entityProperties so that the UI knows what structured values to show for each entity instance");
-        assertTrue(node.get("results").get(1).has("entityProperties"));
+    void searchWithTransformInFinalDatabase() {
+        validateSearchWithTransform("final");
     }
 
     @Test
-    void noEntityTypesSelected() {
-        runAsDataHubDeveloper();
-        // Need at least one entity model to exist for this scenario
-        installOnlyReferenceModelEntities(true);
-
-        runAsHubCentralUser();
-
-        SearchQuery query = new SearchQuery();
-        DocSearchQueryInfo info = new DocSearchQueryInfo();
-        info.setEntityTypeIds(Arrays.asList(" "));
-        query.setQuery(info);
-
-        String results = new EntitySearchManager(getHubClient()).search(query).get();
-        ObjectNode node = readJsonObject(results);
-        assertEquals(0, node.get("total").asInt(), "When entityTypeIds has values, but they're all empty strings, the " +
-            "backend should return no results, and not throw an error");
+    void searchWithTransformInStagingDatabase() {
+        validateSearchWithTransform("staging");
     }
 
     @Test
-    public void testSearchResultsOnNoData() {
+    void searchAllDataInStagingDatabase() {
+        validateAllDataSearch("staging");
+    }
+
+    @Test
+    void searchAllDataInFinalDatabase() {
+        validateAllDataSearch("final");
+    }
+
+    @Test
+    public void testSearchResultsOnNonExistentEntityModel() {
         runAsDataHubDeveloper();
-        EntitySearchManager.QUERY_OPTIONS = "non-existent-options";
         String collectionDeleteQuery = "declareUpdate(); xdmp.collectionDelete(\"http://marklogic.com/entity-services/models\")";
         getHubClient().getFinalClient().newServerEval().javascript(collectionDeleteQuery).evalAs(String.class);
 
         runAsHubCentralUser();
-        assertTrue(new EntitySearchManager(getHubClient()).search(new SearchQuery()).get().isEmpty());
+        StringHandle results = new EntitySearchManager(getHubClient()).search(new SearchQuery());
 
-        SearchQuery query = new SearchQuery();
-        query.getQuery().setEntityTypeIds(Arrays.asList("Some-entityType"));
-        assertTrue(new EntitySearchManager(getHubClient()).search(query).get().isEmpty());
+        int count = getDocumentCount(getHubClient().getFinalClient());
+        ObjectNode node = readJsonObject(results.get());
+        assertEquals(count, node.get("total").asInt(), String.format("Expected %s total documents; an empty search should result in a count equal " +
+                "to all the docs that the user can read in the database", count));
+
+        SearchQuery searchQuery = new SearchQuery();
+        searchQuery.getQuery().setEntityTypeIds(Arrays.asList("Some-entityType"));
+        assertNull(new EntitySearchManager(getHubClient()).search(searchQuery), "Entity Model with name Some-entityType doesn't exist ");
     }
 
     @Test
@@ -304,6 +271,62 @@ public class EntitySearchManagerTest extends AbstractHubCentralTest {
 
     @Test
     void testGetQueryOptions() {
-        assertThrows(DataHubException.class, () -> new EntitySearchManager(getHubClient()).getQueryOptions("non-existent-options"));
+        assertThrows(RuntimeException.class, () -> new EntitySearchManager(getHubClient()).getQueryOptions("non-existent-options"), "Search options doesn't exist");
+    }
+
+    private void validateSearchWithTransform(String databaseType) {
+        runAsDataHubDeveloper();
+        ReferenceModelProject project = installOnlyReferenceModelEntities(true);
+        deployEntityIndexes();
+        project.createCustomerInstance(new Customer(1, "Jane"), databaseType);
+        project.createCustomerInstance(new Customer(2, "Sally"), databaseType);
+
+        runAsHubCentralUser();
+
+        SearchQuery query = new SearchQuery();
+        DocSearchQueryInfo info = new DocSearchQueryInfo();
+        info.setEntityTypeIds(Arrays.asList("Customer"));
+        query.setQuery(info);
+
+        StringHandle results = new EntitySearchManager(getHubClient(), databaseType).search(query);
+        ObjectNode node = readJsonObject(results.get());
+        assertTrue(node.has("selectedPropertyDefinitions"), "Including this makes life easy on the UI so it knows what " +
+                "columns to display");
+        assertTrue(node.has("entityPropertyDefinitions"), "Including this means the UI doesn't need to make a separate call " +
+                "to /api/models to get the property names and also traverse the entity definition itself");
+        assertTrue(node.get("results").get(0).has("entityProperties"), "Each result is expected to have " +
+                "entityProperties so that the UI knows what structured values to show for each entity instance");
+        assertTrue(node.get("results").get(1).has("entityProperties"));
+
+        // Adding propertiesToDisplay to search query which are user selected columns
+        List<String> propertiesToDisplay = Arrays.asList("name", "customerId");
+        query.setPropertiesToDisplay(propertiesToDisplay);
+        results = new EntitySearchManager(getHubClient(), databaseType).search(query);
+        node = readJsonObject(results.get());
+        assertTrue(node.has("selectedPropertyDefinitions"), "Including this makes life easy on the UI so it knows what " +
+                "columns to display");
+        assertEquals(2, node.get("selectedPropertyDefinitions").size());
+        assertTrue(node.has("entityPropertyDefinitions"), "Including this means the UI doesn't need to make a separate call " +
+                "to /api/models to get the property names and also traverse the entity definition itself");
+        assertTrue(node.get("results").get(0).has("entityProperties"), "Each result is expected to have " +
+                "entityProperties so that the UI knows what structured values to show for each entity instance");
+        assertTrue(node.get("results").get(1).has("entityProperties"));
+    }
+
+    private void validateAllDataSearch(String databaseType) {
+        runAsDataHubDeveloper();
+        ReferenceModelProject project = installOnlyReferenceModelEntities(true);
+        deployEntityIndexes();
+        project.createCustomerInstance(new Customer(1, "Jane"), databaseType);
+        project.createCustomerInstance(new Customer(2, "Sally"), databaseType);
+
+        runAsHubCentralUser();
+        DatabaseClient client = databaseType.equalsIgnoreCase("staging") ? getHubClient().getStagingClient() : getHubClient().getFinalClient();
+
+        int count = getDocumentCount(client);
+        StringHandle results = new EntitySearchManager(getHubClient(), databaseType).search(new SearchQuery());
+        ObjectNode node = readJsonObject(results.get());
+        assertEquals(count, node.get("total").asInt(), String.format("Expected %s total documents; an empty search should result in a count equal " +
+                "to all the docs that the user can read in the database", count));
     }
 }

@@ -1,11 +1,17 @@
 import React from 'react';
 import { render, fireEvent, cleanup, wait } from '@testing-library/react';
 import CreateEditMappingDialog from './create-edit-mapping-dialog';
-import data from "../../../../assets/mock-data/common.data";
+import data from "../../../../assets/mock-data/curation/common.data";
+import axiosMock from 'axios';
+import {stringSearchResponse} from "../../../../assets/mock-data/explore/facet-props";
 
+jest.mock('axios');
 describe('Create/Edit Mapping Step artifact component', () => {
 
-  afterEach(cleanup)
+  afterEach(() => {
+    cleanup();
+    jest.clearAllMocks();
+});
 
   test('Verify New Mapping Step dialog renders ', () => {
     const { getByText, getByLabelText, getByPlaceholderText } = render(<CreateEditMappingDialog {...data.newMap} />);
@@ -15,33 +21,37 @@ describe('Create/Edit Mapping Step artifact component', () => {
     expect(getByPlaceholderText('Enter description')).toBeInTheDocument();
     expect(getByLabelText('Collection')).toBeInTheDocument();
     expect(getByLabelText('Query')).toBeInTheDocument();
-    expect(getByPlaceholderText('Please select')).toBeInTheDocument();
-    expect(getByText('Save')).toBeDisabled();
+    expect(getByLabelText('collection-input')).toBeInTheDocument();
+    expect(getByText('Save')).toBeEnabled();
     expect(getByText('Cancel')).toBeEnabled();
     //Collection radio button should be selected by default
     expect(getByLabelText('Collection')).toBeChecked();
   });
 
-  test('Verify mapping name, source query is mandatory and Save button is disabled', () => {
+  test('Verify mapping name, source query is mandatory and Save button is always enabled', async () => {
     const { getByText, getByPlaceholderText, getByLabelText } = render(<CreateEditMappingDialog {...data.newMap} />);
     const nameInput = getByPlaceholderText('Enter name');
     const saveButton = getByText('Save');
-    const collInput = getByPlaceholderText('Please select');
 
     // Enter the value for name input.
     fireEvent.change(nameInput, { target: {value: 'testCreateMap'}});
     expect(nameInput).toHaveValue('testCreateMap');
-    expect(saveButton).toBeDisabled(); // It should be disabled since no value is provided yet for Collection or Query.
+    expect(saveButton).toBeEnabled();
 
     //Providing the value for Collection field now so that Save button can be enabled.
-    fireEvent.change(collInput, { target: {value: 'testCollection'}});
+    const collInput = document.querySelector(('#collList .ant-input'))
+    await wait(() => {
+      if(collInput){
+        fireEvent.change(collInput, { target: {value: 'testCollection'} });
+      }
+    });    
     expect(collInput).toHaveValue('testCollection');
-    expect(saveButton).toBeEnabled(); //Should be enabled now as all the mandatory fields have values.
+    expect(saveButton).toBeEnabled();
 
     //Removing the value of Name field to check if getting the error what name field is required.
     fireEvent.change(nameInput, { target: {value: ''}});
     expect(getByText('Name is required')).toBeInTheDocument();
-    expect(saveButton).toBeDisabled();
+    expect(saveButton).toBeEnabled();
 
     //Adding the value for name field to test if Source Query /Collections fields are 'Required', in the next test case.
     fireEvent.change(nameInput, { target: {value: 'testCreateMap'}});
@@ -49,44 +59,81 @@ describe('Create/Edit Mapping Step artifact component', () => {
     expect(saveButton).toBeEnabled();
 
     //Removing collection field value to check if we get the validation error as 'Collection or Query is required'.
-    fireEvent.change(collInput, { target: {value: ''}});
+    await wait(() => {
+      if(collInput){
+        fireEvent.change(collInput, { target: {value: ''} });
+      }
+    });        
     expect(getByText('Collection or Query is required')).toBeInTheDocument();
-    expect(saveButton).toBeDisabled();
+    expect(saveButton).toBeEnabled();
 
-    //Adding the collection value now to see if we go back to enabling the save button once collection value is provided.
-    fireEvent.change(collInput, { target: {value: 'testCollection'}});
+    await wait(() => {
+      if(collInput){
+        fireEvent.change(collInput, { target: {value: 'testCollection'} });
+      }
+    });    
     expect(collInput).toHaveValue('testCollection');
     expect(saveButton).toBeEnabled();
 
     // Remove collection value first and provide a value for Query field later.
-    fireEvent.change(collInput, { target: {value: ''}});
-    expect(saveButton).toBeDisabled(); // Checking if the Save button is disabled again , before updating the value for Query.
+    await wait(() => {
+      if(collInput){
+        fireEvent.change(collInput, { target: {value: ''} });
+      }
+    });        
+    expect(saveButton).toBeEnabled();
     fireEvent.click(getByLabelText('Query'));  //updating the value of Query field now.
-    const queryInput = getByPlaceholderText('Enter Source Query');
+    const queryInput = getByPlaceholderText('Enter source query');
     fireEvent.change(queryInput, { target: {value: 'cts.collectionQuery(["testCollection"])'}});
-    expect(saveButton).toBeEnabled(); //Should be disabled since neither Query nor Collection field has any value.
+    expect(saveButton).toBeEnabled();
 
     //Removing source field value now to check if we get the validation error as 'Collection or Query is required'.
     fireEvent.change(queryInput, { target: {value: ''}});
     expect(getByText('Collection or Query is required')).toBeInTheDocument();
-    expect(saveButton).toBeDisabled();
+    expect(saveButton).toBeEnabled();
   });
 
-  test('Verify able to type in input fields', () => {
-    const { getByText, getByLabelText, getByPlaceholderText } = render(<CreateEditMappingDialog {...data.newMap} />);
+  test('Verify able to type in input fields and typeahead search in collections field', async () => {
+    axiosMock.post['mockImplementationOnce'](jest.fn(() => Promise.resolve({status: 200, data: stringSearchResponse})));
+    const { getByText, getByLabelText, getByPlaceholderText, getByTestId, debug } = render(<CreateEditMappingDialog {...data.newMap} />);
 
     const descInput = getByPlaceholderText('Enter description');
-    const collInput = getByPlaceholderText('Please select');
     const saveButton = getByText('Save');
     saveButton.onclick = jest.fn();
 
     fireEvent.change(descInput, { target: {value: 'test description'}});
     expect(descInput).toHaveValue('test description');
-    fireEvent.change(collInput, { target: {value: 'testCollection'}});
+
+    const collInput = document.querySelector(('#collList .ant-input'))
+    //verify typeahead search in collections field
+    await wait(() => {
+      if(collInput){
+        fireEvent.change(collInput, { target: {value: 'ada'} });
+      }
+    });
+    let url = "/api/entitySearch/facet-values?database=staging";
+    let payload = {
+        'referenceType':"collection",
+        'entityTypeId':" ",
+        'propertyPath':" ",
+        'limit':10,
+        'dataType':"string",
+        'pattern':'ada'
+    };
+    expect(axiosMock.post).toHaveBeenCalledWith(url, payload);
+    expect(axiosMock.post).toHaveBeenCalledTimes(1);
+    expect(getByText('Adams Cole')).toBeInTheDocument();
+      
+    await wait(() => {
+      if(collInput){
+        fireEvent.change(collInput, { target: {value: 'testCollection'} });
+      }
+    });
+
     expect(collInput).toHaveValue('testCollection');
 
     fireEvent.click(getByLabelText('Query'));
-    const queryInput = getByPlaceholderText('Enter Source Query');
+    const queryInput = getByPlaceholderText('Enter source query');
     fireEvent.change(queryInput, { target: {value: 'cts.collectionQuery(["testCollection"])'}});
     expect(queryInput).toHaveTextContent('cts.collectionQuery(["testCollection"])');
     fireEvent.change(queryInput, { target: {value: 'cts.collectionQuery("testCollection")'}});
@@ -101,6 +148,42 @@ describe('Create/Edit Mapping Step artifact component', () => {
     fireEvent.click(saveButton);
     expect(saveButton.onclick).toHaveBeenCalled();
 
+  });
+
+  test('Verify Save button requires all mandatory fields', async () => {
+    const { getByText, getByLabelText, getByPlaceholderText } = render(<CreateEditMappingDialog {...data.newMap} />);
+    const nameInput = getByPlaceholderText('Enter name');
+    const collInput = document.querySelector(('#collList .ant-input'));
+
+    // click save without any input
+    fireEvent.click(getByText('Save'));
+
+    // both messages should show when both boxes are empty
+    expect(getByText('Name is required')).toBeInTheDocument(); 
+    expect(getByText('Collection or Query is required')).toBeInTheDocument();
+
+    // enter name only
+    fireEvent.change(nameInput, { target: {value: 'testCreateMap'}});
+    expect(nameInput).toHaveValue('testCreateMap');
+
+    fireEvent.click(getByText('Save'));
+    
+    // error message for name should not appear
+    expect(getByText('Collection or Query is required')).toBeInTheDocument();
+
+    // clear name and enter collection only
+    fireEvent.change(nameInput, { target: {value: ''}});
+    await wait(() => {
+      if(collInput){
+        fireEvent.change(collInput, { target: {value: 'testCollection'} });
+      }
+    });    
+    expect(collInput).toHaveValue('testCollection');
+
+    fireEvent.click(getByText('Save'));
+
+    // error message for empty collection should not appear
+    expect(getByText('Name is required')).toBeInTheDocument(); 
   });
 
   test('Verify New Mapping Step modal closes when Cancel is clicked', () => {
@@ -151,10 +234,11 @@ describe('Create/Edit Mapping Step artifact component', () => {
     expect(getByPlaceholderText('Enter description')).toHaveValue('Description of testMap');
 
     expect(getByLabelText('Collection')).toBeChecked();
-    expect(getByPlaceholderText('Please select')).toHaveValue('map-collection');
+    const collInput = document.querySelector(('#collList .ant-input'))
+    expect(collInput).toHaveValue('map-collection');
 
     fireEvent.click(getByLabelText('Query'));
-    expect(getByPlaceholderText('Enter Source Query')).toHaveTextContent("cts.collectionQuery(['map-collection'])");
+    expect(getByPlaceholderText('Enter source query')).toHaveTextContent("cts.collectionQuery(['map-collection'])");
 
     expect(getByText('Save')).toBeEnabled();
     expect(getByText('Cancel')).toBeEnabled();
@@ -170,7 +254,8 @@ describe('Create/Edit Mapping Step artifact component', () => {
     expect(getByLabelText('Collection')).toBeChecked();
     expect(getByLabelText('Collection')).toBeDisabled();
     expect(getByLabelText('Query')).toBeDisabled();
-    expect(getByPlaceholderText('Please select')).toBeDisabled();
+    const collInput = document.querySelector(('#collList .ant-input'))
+    expect(collInput).toBeDisabled();
 
     expect(getByText('Save')).toBeDisabled();
     expect(getByText('Cancel')).toBeEnabled();

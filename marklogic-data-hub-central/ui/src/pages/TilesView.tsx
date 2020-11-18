@@ -1,5 +1,5 @@
 import React, { useState, useContext, useEffect } from 'react';
-import tiles from '../config/tiles.config'
+import tiles from '../config/tiles.config';
 import Toolbar from '../components/tiles/toolbar';
 import Tiles from '../components/tiles/tiles';
 import styles from './TilesView.module.scss';
@@ -12,9 +12,12 @@ import Curate from './Curate';
 import Run from './Run';
 import Browse from './Browse';
 import Detail from "./Detail";
+import MatchingDetailStep from '../components/entities/matching/matching-step-detail/matching-step-detail';
 import { AuthoritiesContext } from "../util/authorities";
 import { SearchContext } from '../util/search-context';
 import { useHistory, useLocation } from 'react-router-dom';
+import MergingStepDetail from "../components/entities/merging/merging-step-detail/merging-step-detail";
+import { ConfigProvider } from 'antd';
 
 export type TileId = 'load' | 'model' | 'curate' | 'run' | 'explore';
 export type IconType = 'fa' | 'custom';
@@ -37,10 +40,20 @@ const TilesView = (props) => {
     const history: any = useHistory();
     const location: any = useLocation();
 
+    const setCurateView = () => {
+        if (location.pathname.startsWith('/tiles/curate/match')) {
+            return <MatchingDetailStep/>;
+        } else if (location.pathname.startsWith('/tiles/curate/merge')) {
+            return <MergingStepDetail/>;
+        } else {
+            return <Curate/>;
+        }
+    };
+
     const views: Record<TileId, JSX.Element> = {
         load: <Load />,
         model: <Modeling />,
-        curate: <Curate />,
+        curate: setCurateView(),
         run: <Run />,
         explore: location.pathname.startsWith('/tiles/explore/detail') ? <Detail /> : <Browse/>,
     };
@@ -52,8 +65,8 @@ const TilesView = (props) => {
     } = useContext(SearchContext);
 
     const onMenuClick = () => {
-        setManageQueryModal(true)
-    }
+        setManageQueryModal(true);
+    };
 
     const onTileClose = () => {
         setSelection(INITIAL_SELECTION);
@@ -61,7 +74,7 @@ const TilesView = (props) => {
         setOptions(null);
         setView(null);
         history.push('/tiles');
-    }
+    };
 
     // For role-based privileges
     const auth = useContext(AuthoritiesContext);
@@ -88,18 +101,25 @@ const TilesView = (props) => {
             setCurrentNode(INITIAL_SELECTION); // TODO Handle multiple with nested objects
             setOptions(null);
             setView(null);
-        })
-    }, [])
+        });
+    }, []);
 
     const getNewStepToFlowOptions = () => {
         return !props.addingStepToFlow ? { addingStepToFlow: false } : {
             addingStepToFlow: true,
+            startRunStep: props.startRunStep,
+            flowName : location.state?.flowName,
             newStepName: location.state?.stepToAdd,
             stepDefinitionType: location.state?.stepDefinitionType,
+            viewMode: location.state?.viewMode,
+            pageSize: location.state?.pageSize,
+            page: location.state?.page,
+            sortOrderInfo: location.state?.sortOrderInfo,
+            targetEntityType: location.state?.targetEntityType,
             existingFlow: location.state?.existingFlow || false,
             flowsDefaultKey: location.state?.flowsDefaultKey || ['-1']
-        }
-    }
+        };
+    };
 
     return (
         <>
@@ -107,22 +127,33 @@ const TilesView = (props) => {
             { (searchOptions.view !== null) ?  (
                 <div className={styles.tilesViewContainer}>
                     { (selection !== '') ?  (
-                    <Tiles
-                        id={selection}
-                        view={searchOptions.view}
-                        currentNode={currentNode}
-                        options={options}
-                        onMenuClick={onMenuClick}
-                        onTileClose={onTileClose}
-                        newStepToFlowOptions={getNewStepToFlowOptions()}
-                    />
+                    <ConfigProvider
+                        getPopupContainer={(node) => {
+                            if(node) {
+                                return node.parentNode ?  node.parentNode as HTMLElement : document.body;
+                            }
+                             else {
+                                return document.body
+                            }
+                        }}
+                    >
+                        <Tiles
+                            id={selection}
+                            view={searchOptions.view}
+                            currentNode={currentNode}
+                            options={options}
+                            onMenuClick={onMenuClick}
+                            onTileClose={onTileClose}
+                            newStepToFlowOptions={getNewStepToFlowOptions()}
+                        />
+                    </ConfigProvider>
                     ) : null }
                 </div> ) :
-                <Overview/>
+                <Overview enabled={enabled}/>
             }
 
         </>
     );
-}
+};
 
 export default TilesView;

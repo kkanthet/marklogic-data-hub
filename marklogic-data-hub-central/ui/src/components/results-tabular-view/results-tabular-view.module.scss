@@ -1,31 +1,31 @@
 .queryExport {
-    margin-right: 5px;
-    margin-top: 8px;
-    height: 10px;
+  margin-right: 5px;
+  margin-top: 8px;
+  height: 10px;
 }
 .tabular {
     margin-top: 20px;
-    overflow-x: auto;
-    height: 46vh;
+    overflow: auto;
+    max-height: 46vh;
+    min-height: 42vh;
+    display: grid;
 }
 
 .columnSelector {
-    margin-right: 26px;
-    margin-top: 5px;
-    height: 10px;
-  }
+  margin-right: 1px;
+  margin-top: 5px;
+  height: 10px;
+}
 
-  .icon {
-    display: flex;
-    justify-content: flex-end;
-  }
-  
-  
-  
-.nestedTable{
-    padding: 30px;
-    margin: 0px;
-  }
+.icon {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.nestedTable {
+  padding: 30px;
+  margin: 0px;
+}
 
 .redirectIcons a {
   padding: 8px;

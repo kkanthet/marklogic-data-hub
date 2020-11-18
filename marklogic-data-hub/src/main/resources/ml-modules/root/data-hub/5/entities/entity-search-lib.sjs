@@ -15,8 +15,9 @@
  */
 'use strict';
 
-const ds = require("/data-hub/5/data-services/ds-utils.sjs");
+const httpUtils = require("/data-hub/5/impl/http-utils.sjs");
 const es = require('/MarkLogic/entity-services/entity-services');
+const esInstance = require('/MarkLogic/entity-services/entity-services-instance');
 
 // TODO Will move this to /data-hub/5/entities soon
 const entityLib = require("/data-hub/5/impl/entity-lib.sjs");
@@ -44,7 +45,7 @@ function addPropertiesToSearchResponse(entityName, searchResponse, propertiesToD
       "entityModel": entityModel
     };
     if (!entityModel) {
-      ds.throwServerError(`Could not add entity properties to search response; could not find an entity model for entity name: ${entityName}`);
+      httpUtils.throwNotFound(`Could not add entity properties to search response; could not find an entity model for entity name: ${entityName}`);
     }
 
     const allMetadata = buildAllMetadata("", entityModel, entityName);
@@ -76,7 +77,7 @@ function addPropertiesToSearchResponse(entityName, searchResponse, propertiesToD
 function buildAllMetadata(parentPropertyName, entityModel, entityName) {
   const entityType = entityModel.definitions[entityName];
   if (!entityType) {
-    ds.throwServerError("Could not build property metadata; could not find entity type with name: " + entityName);
+    httpUtils.throwNotFound("Could not build property metadata; could not find entity type with name: " + entityName);
   }
 
   const allPropertiesMetadata = [];
@@ -262,13 +263,29 @@ function getEntityInstance(docUri) {
   return null;
 }
 
-function getEntityInstanceHeaders(docUri) {
-    let doc = cts.doc(docUri);
+function getEntitySources(docUri) {
+  const doc = cts.doc(docUri);
+  let sourcesArr = [];
 
-    if(doc && doc.envelope && doc.envelope.headers && doc.envelope.header.sources) {
-        return doc.envelope.header.sources;
+  if(!doc) {
+    console.log(`Unable to obtain entity instance from document with URI '${docUri}'`);
+    return sourcesArr;
+  }
+
+  if(doc instanceof Element || doc instanceof XMLDocument) {
+    const sources = doc.xpath("/*:envelope/*:headers/*:sources");
+    if(!fn.empty(sources)) {
+      for (var srcDoc of sources) {
+        const currNode = new NodeBuilder().startDocument().addNode(srcDoc).endDocument().toNode();
+        sourcesArr.push(esInstance.canonicalJson(currNode).toObject()["sources"]);
+      }
     }
-    return null;
+  }
+
+  if (doc.toObject() && doc.toObject().envelope && doc.toObject().envelope.headers && doc.toObject().envelope.headers.sources) {
+    sourcesArr = doc.toObject().envelope.headers.sources;
+  }
+  return sourcesArr.length ? handleDuplicateSources("name",sourcesArr) : sourcesArr;
 }
 
 function getPropertyValues(currentProperty, entityInstance) {
@@ -370,7 +387,7 @@ function addEntitySpecificProperties(result, entityInfo, selectedPropertyMetadat
     console.log(`Unable to obtain document with URI '${result.uri}'; will not add document metadata to its search result`);
   }
   result.entityInstance = entityInstance;
-  result.sources = getEntityInstanceHeaders(result.uri) ? getEntityInstanceHeaders(result.uri) : result.sources;
+  result.sources = getEntitySources(result.uri);
   result.entityName = entityTitle;
 }
 
@@ -423,7 +440,7 @@ function addGenericEntityProperties(result) {
     "propertyValue": identifierValue
   };
   result.entityInstance = entityInstance;
-  result.sources = getEntityInstanceHeaders(result.uri) ? getEntityInstanceHeaders(result.uri) : result.sources;
+  result.sources = getEntitySources(result.uri);
   result.entityName = entityTitle;
 }
 
@@ -451,8 +468,78 @@ function removeEntityNameFromCollection(searchResponse, entityName) {
   }
 }
 
+function handleDuplicateSources (propToValidate, arrayWithDuplicates) {
+  const deDupedArray = Array.from(
+    arrayWithDuplicates.reduce(
+        (acc, item) => (
+          item && item[propToValidate] && acc.set(item[propToValidate], item),
+          acc
+        ),
+        new Map()
+      )
+      .values()
+  );
+  return deDupedArray;
+}
+
+function addDocumentMetadataToSearchResults(searchResponse) {
+  searchResponse.results.forEach(result => {
+    let hubMetadata = {};
+    const docUri = result.uri;
+    const documentMetadata = xdmp.documentGetMetadata(docUri);
+    if(documentMetadata) {
+      hubMetadata["lastProcessedByFlow"] = documentMetadata.datahubCreatedInFlow;
+      hubMetadata["lastProcessedByStep"] = documentMetadata.datahubCreatedByStep;
+      hubMetadata["lastProcessedDateTime"] = documentMetadata.datahubCreatedOn;
+      hubMetadata["sources"] = getEntitySources(docUri);
+    }
+    result["hubMetadata"] = hubMetadata;
+  });
+}
+
+function isHubEntityInstance(docUri) {
+  let isHubEntityInstance = false;
+  let doc = cts.doc(docUri);
+  if(doc == null) {
+    return isHubEntityInstance;
+  }
+
+  const nodeKind = xdmp.nodeKind(doc.root);
+
+  if(nodeKind === 'element') {
+    const currNode = new NodeBuilder().startDocument().addNode(doc).endDocument().toNode();
+    doc = esInstance.canonicalJson(currNode).toObject();
+    // Converting instance array generated by canonicalJson into an object
+    if(doc.envelope && doc.envelope.instance && doc.envelope.instance.length) {
+      let instanceObject = {};
+      for(const obj of doc.envelope.instance) {
+        instanceObject = Object.assign(instanceObject, obj);
+      }
+      doc.envelope.instance = instanceObject;
+    }
+  } else {
+    doc = doc.toObject();
+  }
+
+  if((nodeKind === 'object' || nodeKind === 'element') && doc.envelope && doc.envelope.instance && doc.envelope.instance.info
+      && doc.envelope.instance[doc.envelope.instance.info.title]) {
+    const entityModels = fn.collection(entityLib.getModelCollection());
+    const entityModelNames = [];
+    for (const entityModel of entityModels) {
+      entityModelNames.push(JSON.parse(entityModel).info.title);
+    }
+
+    const entityInstanceType = doc.envelope.instance.info.title;
+    isHubEntityInstance = entityModelNames.includes(entityInstanceType);
+  }
+  return isHubEntityInstance;
+}
+
 module.exports = {
+  addDocumentMetadataToSearchResults,
   addPropertiesToSearchResponse,
-  buildPropertyMetadata: buildPropertyMetadata,
-  getEntityInstance: getEntityInstance
+  buildPropertyMetadata,
+  getEntityInstance,
+  getEntitySources,
+  isHubEntityInstance
 };

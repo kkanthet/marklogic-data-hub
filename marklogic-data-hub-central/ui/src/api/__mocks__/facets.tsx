@@ -1,7 +1,13 @@
-import { numericRange } from '../../assets/mock-data/facet'
+import { numericRange, stringSearchResponse } from '../../assets/mock-data/explore/facet-props';
 
 export const rangeFacet = async () => {
     return await new Promise((resolve) => {
-        resolve(numericRange)
-    })
-}
+        resolve(numericRange);
+    });
+};
+
+export const stringSearch = async () => {
+    return await new Promise((resolve) => {
+        resolve(stringSearchResponse);
+    });
+};

@@ -1,8 +1,9 @@
-import { Modal, Form, Input, Button, Tooltip, Icon } from "antd";
+import { Modal, Form, Input, Icon } from "antd";
 import React, { useState, useEffect } from "react";
 import styles from './new-flow-dialog.module.scss';
 import {NewFlowTooltips} from '../../../config/tooltips.config';
 import { MLButton, MLTooltip } from '@marklogic/design-system';
+import { Link, useHistory } from 'react-router-dom';
 
 
 const NewFlowDialog = (props) => {
@@ -12,9 +13,10 @@ const NewFlowDialog = (props) => {
 
   const [isFlowNameTouched, setFlowNameTouched] = useState(false);
 
-  const [isLoading, setIsLoading] = useState(false);
+  const [, setIsLoading] = useState(false);
   const [tobeDisabled, setTobeDisabled] = useState(false);
 
+  let history = useHistory();
   useEffect(() => {
     if (props.flowData && JSON.stringify(props.flowData) != JSON.stringify({}) && props.title === 'Edit Flow') {
       setFlowName(props.flowData.name);
@@ -32,42 +34,63 @@ const NewFlowDialog = (props) => {
       setFlowNameTouched(false);
       setDescription('');
       setTobeDisabled(false);
-    })
+    });
 
   }, [props.title, props.newFlow]);
 
   const onCancel = () => {
     props.setNewFlow(false);
-    if(props.newStepToFlowOptions && props.newStepToFlowOptions.addingStepToFlow){
+    if(props.newStepToFlowOptions && props.newStepToFlowOptions.addingStepToFlow) {
       props.setOpenNewFlow(false);
     }
-  }
+
+    //add information about mapping step, load card, load list, pagination.
+    if(props.newStepToFlowOptions && !props.newStepToFlowOptions.existingFlow){
+      history.push({pathname: `/tiles/${props.newStepToFlowOptions.stepDefinitionType === 'ingestion' ? 'load': 'curate'}`,
+      state: {
+          stepDefinitionType : props.newStepToFlowOptions.stepDefinitionType,
+          targetEntityType: props.newStepToFlowOptions.targetEntityType,
+          viewMode: props.newStepToFlowOptions.viewMode,
+          pageSize: props.newStepToFlowOptions.pageSize,
+          sortOrderInfo: props.newStepToFlowOptions.sortOrderInfo,
+          page: props.newStepToFlowOptions.page
+      }});
+    }
+  };
 
   const onOk = () => {
     props.setNewFlow(false);
-    if(props.newStepToFlowOptions && props.newStepToFlowOptions.addingStepToFlow){
+    if(props.newStepToFlowOptions && props.newStepToFlowOptions.addingStepToFlow) {
       props.setOpenNewFlow(false);
     }
-  }
+  };
 
   const handleSubmit = async (event: { preventDefault: () => void; }) => {
+    if (!flowName) {
+      // missing name
+      setFlowNameTouched(true);
+      event.preventDefault();
+      return;
+    }
+
     if (event) event.preventDefault();
     let dataPayload = {
         name: flowName,
         description: description
-      }
+      };
     setIsLoading(true);
     if (props.title === 'Edit Flow') {
       await props.updateFlow(dataPayload, flowName);
     } else {
       await props.createFlow(dataPayload);
-      if(props.newStepToFlowOptions && props.newStepToFlowOptions.addingStepToFlow){
+      if(props.createAdd && props.newStepToFlowOptions && props.newStepToFlowOptions.addingStepToFlow) {
         await props.addStepToFlow(props.newStepToFlowOptions.newStepName, flowName, props.newStepToFlowOptions.stepDefinitionType);
         props.setOpenNewFlow(false);
+        props.setAddedFlowName(flowName);
       }
     }
     props.setNewFlow(false);
-  }
+  };
 
   const handleChange = (event) => {
     if (event.target.id === 'name') {
@@ -84,9 +107,9 @@ const NewFlowDialog = (props) => {
     }
 
     if (event.target.id === 'description') {
-      setDescription(event.target.value)
+      setDescription(event.target.value);
     }
-  }
+  };
 
   const formItemLayout = {
     labelCol: {
@@ -147,25 +170,22 @@ const NewFlowDialog = (props) => {
         <br /><br />
         <Form.Item className={styles.submitButtonsForm}>
           <div className={styles.submitButtons}>
-            {props.canWriteFlow ?
             <><MLButton aria-label="Cancel" onClick={() => onCancel()}>Cancel</MLButton>
             &nbsp;&nbsp;
             <MLButton
               aria-label="Save"
               type="primary"
               htmlType="submit"
-              disabled={!flowName}
+              disabled={!props.canWriteFlow}
               onClick={handleSubmit}
             >
               Save
-            </MLButton></> :
-            <MLButton onClick={() => onCancel()}>Close</MLButton>
-            }
+            </MLButton></>
           </div>
         </Form.Item>
       </Form>
     </div>
-  </Modal>)
-}
+  </Modal>);
+};
 
 export default NewFlowDialog;

@@ -17,41 +17,46 @@ public class RunFlowViaMainTest extends AbstractHubCoreTest {
 
     @Test
     public void testRunFlow() {
-        setupProjectForRunningTestFlow();
+        installProjectInFolder("flow-runner-test");
         runAsDataHubOperator();
 
         final String flowName = "testFlow";
         makeInputFilePathsAbsoluteInFlow(flowName);
 
-        Main.main(new String[]{
+        Main.runCommand(new String[]{
             "runFlow",
-            "-host", host,
-            "-username", flowRunnerUser,
-            "-password", flowRunnerPassword,
+            "-host", getHubConfig().getHost(),
+            "-username", getHubConfig().getMlUsername(),
+            "-password", getHubConfig().getMlPassword(),
             "-flowName", flowName,
             // Including this to verify that -P flags don't break things
-            "-PmlStagingPort=" + adminHubConfig.getPort(DatabaseKind.STAGING)
+            "-PmlStagingPort=" + getHubConfig().getPort(DatabaseKind.STAGING)
         });
 
-        verifyCollectionCountsFromRunningTestFlow();
+        assertEquals(1, getDocCount(HubConfig.DEFAULT_STAGING_NAME, "xml-coll"));
+        assertEquals(25, getDocCount(HubConfig.DEFAULT_STAGING_NAME, "csv-coll"));
+        assertEquals(25, getDocCount(HubConfig.DEFAULT_STAGING_NAME, "csv-tab-coll"));
+        assertEquals(1, getDocCount(HubConfig.DEFAULT_STAGING_NAME, "json-coll"));
+        assertEquals(1, getDocCount(HubConfig.DEFAULT_FINAL_NAME, "json-map"));
+        assertEquals(1, getDocCount(HubConfig.DEFAULT_FINAL_NAME, "xml-map"));
     }
 
     @Test
     public void testURIPrefix() {
-        setupProjectForRunningTestFlow();
+        installProjectInFolder("flow-runner-test");
         runAsDataHubOperator();
 
         final String flowName = "runXqyFuncFlow";
         makeInputFilePathsAbsoluteInFlow(flowName);
 
-        Main.main(new String[]{
+        Main.runCommand(new String[]{
             "runFlow",
-            "-host", host,
-            "-username", flowRunnerUser,
-            "-password", flowRunnerPassword,
+            "-host", getHubConfig().getHost(),
+            "-username", getHubConfig().getMlUsername(),
+            "-password", getHubConfig().getMlPassword(),
             "-flowName", flowName,
             // Including this to verify that -P flags don't break things
-            "-PmlStagingPort=" + adminHubConfig.getPort(DatabaseKind.STAGING),
+            "-PmlStagingPort=" + getHubConfig().getPort(DatabaseKind.STAGING),
             "-outputURIPrefix", "/output/"
         });
 

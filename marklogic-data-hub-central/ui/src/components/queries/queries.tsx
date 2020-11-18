@@ -3,11 +3,11 @@ import {Button, Modal, Tooltip} from 'antd';
 import { UserContext } from '../../util/user-context';
 import { SearchContext } from '../../util/search-context';
 import SelectedFacets from '../../components/selected-facets/selected-facets';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faPencilAlt, faSave, faCopy, faUndo, faWindowClose } from '@fortawesome/free-solid-svg-icons'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faPencilAlt, faSave, faCopy, faUndo, faWindowClose } from '@fortawesome/free-solid-svg-icons';
 import SaveQueryModal from "../../components/queries/saving/save-query-modal/save-query-modal";
 import SaveQueriesDropdown from "../../components/queries/saving/save-queries-dropdown/save-queries-dropdown";
-import { fetchQueries, creatNewQuery, fetchQueryById } from '../../api/queries'
+import { fetchQueries, creatNewQuery, fetchQueryById } from '../../api/queries';
 import styles from './queries.module.scss';
 import QueryModal from '../../components/queries/managing/manage-query-modal/manage-query';
 import { AuthoritiesContext } from "../../util/authorities";
@@ -18,9 +18,23 @@ import { QueryOptions } from '../../types/query-types';
 import { MLButton, MLTooltip } from '@marklogic/design-system';
 import { getUserPreferences } from '../../services/user-preferences';
 
+interface Props {
+    queries: any[];
+    isSavedQueryUser: boolean;
+    columns: string[];
+    entities: any[];
+    selectedFacets: any[];
+    greyFacets: any[];
+    isColumnSelectorTouched: boolean;
+    entityDefArray: any[];
+    setColumnSelectorTouched: (state: boolean) => void;
+    setQueries: (state: boolean) => void;
+    setIsLoading: (state: boolean) => void;
+    database: string;
+    setCardView: any;
+}
 
-
-const Query = (props) => {
+const Query: React.FC<Props> = (props) => {
 
     const {
         user,
@@ -32,7 +46,8 @@ const Query = (props) => {
         clearAllGreyFacets,
         setEntity,
         setNextEntity,
-        setZeroState
+        setZeroState,
+        setSavedQueries
     } = useContext(SearchContext);
 
     const [openSaveModal, setOpenSaveModal] = useState(false);
@@ -41,7 +56,7 @@ const Query = (props) => {
     const [openEditDetail, setOpenEditDetail] = useState(false);
     const [currentQuery, setCurrentQuery] = useState<any>({});
     const [hoverOverDropdown, setHoverOverDropdown] = useState(false);
-    const [showSaveNewIcon, toggleSaveNewIcon] = useState(true);
+    const [showSaveNewIcon, toggleSaveNewIcon] = useState(false);
     const [showSaveChangesIcon, toggleSaveChangesIcon] = useState(false);
     const [openSaveChangesModal, setOpenSaveChangesModal] = useState(false);
     const [showDiscardIcon, toggleDiscardIcon] = useState(false);
@@ -57,6 +72,7 @@ const Query = (props) => {
     const [showResetQueryNewConfirmation, toggleResetQueryNewConfirmation] = useState(false);
     const [showResetQueryEditedConfirmation, toggleResetQueryEditedConfirmation] = useState(false);
 
+    const [existingQueryYesClicked, toggleExistingQueryYesClicked] = useState(false);
     const [resetYesClicked, toggleResetYesClicked] = useState(false);
     const authorityService = useContext(AuthoritiesContext);
     const canExportQuery = authorityService.canExportEntityInstances();
@@ -75,74 +91,93 @@ const Query = (props) => {
                 propertiesToDisplay: searchOptions.selectedTableProperties,
                 sortOrder: searchOptions.sortOrder
             }
-        }
+        };
         props.setIsLoading(true);
         await creatNewQuery(query);
         setOpenSaveModal(false);
         getSaveQueries();
-    }
+    };
 
     const getSaveQueries = async () => {
         try {
-            const response = await fetchQueries();
-
-            if (response.data) {
-               props.setQueries(response.data);
+            if(props.isSavedQueryUser) {
+                const response = await fetchQueries();
+                if (response.data) {
+                    props.setQueries(response.data);
+                    setSavedQueries(response.data);
+                }
             }
         } catch (error) {
-            handleError(error)
+            handleError(error);
         }
-    }
+    };
 
     const getSaveQueryWithId = async (key) => {
        try {
            const response = await fetchQueryById(key);
-           if (response.data) {
-            let options: QueryOptions = {
-                searchText: response.data.savedQuery.query.searchText,
-                entityTypeIds: response.data.savedQuery.query.entityTypeIds,
-                selectedFacets: response.data.savedQuery.query.selectedFacets,
-                selectedQuery: response.data.savedQuery.name,
-                propertiesToDisplay: response.data.savedQuery.propertiesToDisplay,
-                zeroState: searchOptions.zeroState,
-                manageQueryModal: searchOptions.manageQueryModal,
-                sortOrder: response.data.savedQuery.sortOrder
-            }
-            applySaveQuery(options);
-            setCurrentQuery(response.data);
-               if(props.greyFacets.length > 0){
-                   clearAllGreyFacets();
-               }
-               toggleApply(false);
-               if(response.data.savedQuery.hasOwnProperty('description') && response.data.savedQuery.description){
-                   setCurrentQueryDescription(response.data.savedQuery.description);
-               } else{
-                   setCurrentQueryDescription('');
+           if(props.isSavedQueryUser) {
+               if (response.data) {
+                   let options: QueryOptions = {
+                       searchText: response.data.savedQuery.query.searchText,
+                       entityTypeIds: response.data.savedQuery.query.entityTypeIds,
+                       selectedFacets: response.data.savedQuery.query.selectedFacets,
+                       selectedQuery: response.data.savedQuery.name,
+                       propertiesToDisplay: response.data.savedQuery.propertiesToDisplay,
+                       zeroState: searchOptions.zeroState,
+                       manageQueryModal: searchOptions.manageQueryModal,
+                       sortOrder: response.data.savedQuery.sortOrder,
+                       database: searchOptions.database,
+                   };
+                   applySaveQuery(options);
+                   setCurrentQuery(response.data);
+                   if(props.greyFacets.length > 0){
+                       clearAllGreyFacets();
+                   }
+                   toggleApply(false);
+                   if(response.data.savedQuery.hasOwnProperty('description') && response.data.savedQuery.description){
+                       setCurrentQueryDescription(response.data.savedQuery.description);
+                   } else{
+                       setCurrentQueryDescription('');
+                   }
                }
            }
        } catch (error) {
-           handleError(error)
+           handleError(error);
        }
-   }
+   };
 
     const isSaveQueryChanged = () => {
         if (currentQuery && currentQuery.hasOwnProperty('savedQuery') && currentQuery.savedQuery.hasOwnProperty('query')) {
-            if ((JSON.stringify(currentQuery.savedQuery.query.selectedFacets) !== JSON.stringify(searchOptions.selectedFacets)) ||
+            if (((JSON.stringify(currentQuery.savedQuery.query.selectedFacets) !== JSON.stringify(searchOptions.selectedFacets)) ||
                 (currentQuery.savedQuery.query.searchText !== searchOptions.query) ||
                 (JSON.stringify(currentQuery.savedQuery.sortOrder) !== JSON.stringify(searchOptions.sortOrder)) ||
                 (JSON.stringify(currentQuery.savedQuery.propertiesToDisplay) !== JSON.stringify(searchOptions.selectedTableProperties)) ||
-                (props.greyFacets.length > 0)) {
+                (props.greyFacets.length > 0) || props.isColumnSelectorTouched) &&
+                searchOptions.selectedQuery !== 'select a query')   {
                 return true;
             }
         }
         return false;
-    }
+    };
+
+    const isNewQueryChanged = () => {
+        if (currentQuery && Object.keys(currentQuery).length === 0) {
+            if (props.isSavedQueryUser && searchOptions.entityTypeIds.length > 0 &&
+                (props.selectedFacets.length > 0 || searchOptions.query.length > 0
+                    || searchOptions.sortOrder.length > 0 || props.isColumnSelectorTouched)
+                && searchOptions.selectedQuery === 'select a query') {
+                return true;
+            }
+        }
+        return false;
+    };
 
     useEffect(() => {
         if (props.queries.length > 0) {
             for (let key of props.queries) {
                 if (key.savedQuery.name === currentQueryName) {
                     setCurrentQuery(key);
+                    // setCurrentQueryDescription(key['savedQuery']['description']);
                 }
             }
         }
@@ -154,12 +189,12 @@ const Query = (props) => {
 
     useEffect(() => {
         initializeUserPreferences();
-    },[])
+    },[]);
 
     useEffect(() => {
-            if(!entityCancelClicked && searchOptions.nextEntityType !== searchOptions.entityTypeIds[0]) {
+            if(searchOptions.nextEntityType && !entityCancelClicked && searchOptions.nextEntityType !== searchOptions.entityTypeIds[0]) {
                 // TO CHECK IF THERE HAS BEEN A CANCEL CLICKED WHILE CHANGING ENTITY
-                if (isSaveQueryChanged() && !searchOptions.zeroState) {
+                if ((isSaveQueryChanged() || isNewQueryChanged()) && !searchOptions.zeroState) {
                     toggleEntityConfirmation(true);
                 } else {
                     setCurrentQueryOnEntityChange();
@@ -175,44 +210,59 @@ const Query = (props) => {
         if (defaultPreferences !== null) {
             let parsedPreferences = JSON.parse(defaultPreferences);
             if (parsedPreferences.selectedQuery !== 'select a query' && JSON.stringify(parsedPreferences) !== JSON.stringify([])) {
-                let queryObject = parsedPreferences.queries.find(obj => parsedPreferences.selectedQuery === obj.savedQuery?.name);
-                if (queryObject?.savedQuery && queryObject.savedQuery.hasOwnProperty('description') && queryObject.savedQuery.description) {
-                     setCurrentQueryDescription(queryObject?.savedQuery.description);
+                if (parsedPreferences.queries && Array.isArray(parsedPreferences.queries)) {
+                    let queryObject = parsedPreferences.queries.find(obj => parsedPreferences.selectedQuery === obj.savedQuery?.name);
+                    if (queryObject?.savedQuery && queryObject.savedQuery.hasOwnProperty('description') && queryObject.savedQuery.description) {
+                        setCurrentQueryDescription(queryObject?.savedQuery.description);
+                    }
                 }
             }
         }
-    }
+    };
 
     // Switching between entity confirmation modal buttons
     const onCancel = () => {
         toggleEntityConfirmation(false);
         toggleEntityCancelClicked(true);
         setNextEntity(searchOptions.entityTypeIds[0]);
-    }
+    };
 
     const onNoClick  = () => {
+        toggleEntityConfirmation(false);
         setCurrentQueryOnEntityChange();
-    }
+    };
 
     const onOk = () => {
+    if (Object.keys(currentQuery).length === 0) {
+        toggleEntityConfirmation(false);
+        toggleExistingQueryYesClicked(true);
+        setOpenSaveModal(true);
+    } else {
         setOpenSaveChangesModal(true);
         toggleEntityConfirmation(false);
         toggleEntityQueryUpdate(true);
-    }
+        }
+    };
 
     const setCurrentQueryOnEntityChange = () => {
+        if(searchOptions.nextEntityType === 'All Data'){
+            props.setCardView(true);
+        } else {
+            props.setCardView(false);
+        }
         setEntity(searchOptions.nextEntityType);
+        toggleSaveNewIcon(false);
+        props.setColumnSelectorTouched(false);
         setCurrentQuery({});
         setCurrentQueryName('select a query');
         setCurrentQueryDescription('');
-        toggleEntityConfirmation(false);
-    }
+    };
 
    // Reset confirmation modal buttons when making changes to saved query
     const onResetCancel = () => {
         toggleResetQueryNewConfirmation(false);
         toggleResetQueryEditedConfirmation(false);
-    }
+    };
 
     const onResetOk = () => {
         if(showResetQueryNewConfirmation){
@@ -225,7 +275,7 @@ const Query = (props) => {
         }
         toggleResetQueryNewConfirmation(false);
         toggleResetQueryEditedConfirmation(false);
-    }
+    };
 
     const onNoResetClick = () => {
         setZeroState(true);
@@ -237,24 +287,26 @@ const Query = (props) => {
             propertiesToDisplay: [],
             zeroState: true,
             manageQueryModal: false,
-            sortOrder: []
-        }
+            sortOrder: [],
+            database: 'final',
+        };
         applySaveQuery(options);
         toggleResetQueryEditedConfirmation(false);
         toggleResetQueryNewConfirmation(false);
-    }
+        props.setColumnSelectorTouched(false);
+    };
 
     const resetIconClicked = () => {
         const resetQueryEditedConfirmation = props.isSavedQueryUser && props.queries.length > 0
-                                            && searchOptions.selectedQuery !== 'select a query' && isSaveQueryChanged()
-        const resetQueryNewConfirmation = props.isSavedQueryUser && props.queries.length > 0 &&
+                                            && searchOptions.selectedQuery !== 'select a query' && isSaveQueryChanged();
+        const resetQueryNewConfirmation = props.isSavedQueryUser && props.queries.length > 0 && searchOptions.entityTypeIds.length > 0 &&
                                           (props.selectedFacets.length > 0 || searchOptions.query.length > 0
                                           || searchOptions.sortOrder.length > 0)
-                                          && searchOptions.selectedQuery === 'select a query'
+                                          && searchOptions.selectedQuery === 'select a query';
         if (resetQueryNewConfirmation) {
-            toggleResetQueryNewConfirmation(true)
+            toggleResetQueryNewConfirmation(true);
         } else if (resetQueryEditedConfirmation) {
-            toggleResetQueryEditedConfirmation(true)
+            toggleResetQueryEditedConfirmation(true);
         } else {
             setZeroState(true);
             let options: QueryOptions = {
@@ -265,24 +317,28 @@ const Query = (props) => {
                 propertiesToDisplay: [],
                 zeroState: true,
                 manageQueryModal: false,
-                sortOrder: []
-            }
+                sortOrder: [],
+                database: 'final',
+            };
             applySaveQuery(options);
+            clearAllGreyFacets();
         }
-    }
+    };
 
     useEffect(() => {
         if (Object.entries(currentQuery).length !== 0 && searchOptions.selectedQuery !== 'select a query') {
             setHoverOverDropdown(true);
+            setCurrentQueryDescription(currentQuery['savedQuery']['description']);
         }
         else{
             setHoverOverDropdown(false);
+            setCurrentQueryDescription('');
         }
     }, [currentQuery]);
 
 
     useEffect(() => {
-        if (isSaveQueryChanged()) {
+        if (isSaveQueryChanged() && searchOptions.selectedQuery !== 'select a query') {
             toggleSaveChangesIcon(true);
             toggleDiscardIcon(true);
             toggleSaveNewIcon(false);
@@ -293,30 +349,23 @@ const Query = (props) => {
             toggleSaveNewIcon(true);
         }
 
-    }, [searchOptions, props.greyFacets, isSaveQueryChanged()])
+    }, [searchOptions, props.greyFacets, isSaveQueryChanged()]);
 
     return (
         <div>
             <div>
-                {props.isSavedQueryUser && (props.selectedFacets.length > 0 || searchOptions.query
+                {(props.selectedFacets.length > 0 || searchOptions.query
                     || props.isColumnSelectorTouched || searchOptions.sortOrder.length > 0) &&
                 showSaveNewIcon && searchOptions.entityTypeIds.length > 0 && searchOptions.selectedQuery === 'select a query' &&
                     <div style={{ marginTop: '-22px' }}>
-                        <MLTooltip title={'Save the current query'}>
+                        <MLTooltip title={props.isSavedQueryUser ? 'Save the current query' : 'Save Query: Contact your security administrator to get the roles and permissions to access this functionality'}>
                             <FontAwesomeIcon
                                 icon={faSave}
-                                title="save-query"
-                                onClick={() => setOpenSaveModal(true)}
+                                onClick={props.isSavedQueryUser ? () => setOpenSaveModal(true) : () => setOpenSaveModal(false)}
+                                className={props.isSavedQueryUser ? styles.enabledSaveIcon : styles.disabledSaveIcon}
                                 data-testid='save-modal'
                                 style={props.queries.length > 0 ? {
-                                    color: '#5b69af',
-                                    marginLeft: '170px',
-                                    marginBottom: '9px',
-                                    cursor:'pointer'
-                                } : {
-                                        color: '#5b69af', marginLeft: '18px',
-                                        marginBottom: '9px',
-                                        cursor:'pointer'
+                                    marginLeft: '170px',marginBottom: '9px'} : {marginLeft: '18px',marginBottom: '9px'
                                     }}
                                 size="lg" />
                         </MLTooltip>
@@ -334,6 +383,8 @@ const Query = (props) => {
                                     currentQueryDescription={currentQueryDescription}
                                     setCurrentQueryDescription={setCurrentQueryDescription}
                                     resetYesClicked={resetYesClicked}
+                                    setColumnSelectorTouched={props.setColumnSelectorTouched}
+                                    existingQueryYesClicked={existingQueryYesClicked}
                                 />}
                         </div>
                     </div>}
@@ -377,6 +428,7 @@ const Query = (props) => {
                                     entityQueryUpdate={entityQueryUpdate}
                                     toggleEntityQueryUpdate={()=>toggleEntityQueryUpdate(false)}
                                     resetYesClicked={resetYesClicked}
+                                    setColumnSelectorTouched={props.setColumnSelectorTouched}
                                 />}
                         </div>
                     </div>}
@@ -473,6 +525,8 @@ const Query = (props) => {
                             currentQueryDescription={currentQueryDescription}
                             setCurrentQueryDescription={setCurrentQueryDescription}
                             resetYesClicked={resetYesClicked}
+                            setColumnSelectorTouched={props.setColumnSelectorTouched}
+                            existingQueryYesClicked={existingQueryYesClicked}
                         />}
                 </div>}
             { resetQueryIcon && props.isSavedQueryUser && props.queries.length > 0 &&
@@ -534,7 +588,6 @@ const Query = (props) => {
                 />
             </div>
             <QueryModal
-                hasStructured={props.hasStructured}
                 canExportQuery={canExportQuery}
                 queries={props.queries}
                 setQueries={props.setQueries}
@@ -547,6 +600,7 @@ const Query = (props) => {
                 isSavedQueryUser={props.isSavedQueryUser}
                 modalVisibility={searchOptions.manageQueryModal}
                 entityDefArray={props.entityDefArray}
+                database={searchOptions.database}
             />
             <Modal
                 visible={showEntityConfirmation}
@@ -564,7 +618,6 @@ const Query = (props) => {
                 <p>Changing the entity selection starts a new query. Would you like to save the existing query before changing the selection?</p>
             </Modal>
         </div>
-    )
-
-}
+    );
+};
 export default Query;

@@ -54,8 +54,6 @@ public class EnvironmentConfig {
 
     private String DHFVersion;
 
-    private boolean isVersionCompatibleWithES;
-
     public InstallInfo getInstallInfo() {
         return installInfo;
     }
@@ -92,10 +90,6 @@ public class EnvironmentConfig {
         return DHFVersion;
     }
 
-    public boolean isVersionCompatibleWithES() {
-        return isVersionCompatibleWithES;
-    }
-
     @JsonIgnore
     public void checkIfInstalled() {
         projectDir = mlSettings.getHubProject().getProjectDirString();
@@ -103,14 +97,13 @@ public class EnvironmentConfig {
         // As of 5.3.0, per DHFPROD-4912, we want this to fallback to the local project if the version can't be
         // determined from an installed DH (likely because DH is not yet installed)
         this.installedVersion = versions.getInstalledVersion(true);
-        this.marklogicVersion = versions.getMarkLogicVersion();
+        this.marklogicVersion = versions.getMarkLogicVersionString();
         this.runningVersion = this.mlSettings.getJarVersion();
         // The references in QS to "dhfversion" cannot be removed via DHFPROD-4912, as QS is unfortunately tightly
         // bound to this value. So we need something here. The new getLocalProjectVersion concept in 5.3 will work,
         // with the one caveat being that if it cannot be identified, then 2.0.0 is used as a fallback, and QS likely
         // does not want to display that to the user.
         this.DHFVersion = versions.getLocalProjectVersion();
-        this.isVersionCompatibleWithES = versions.isVersionCompatibleWithES();
 
         // Replace "-SNAPSHOT" in version with ".0" as QS compares versions and fails if version number contains text
         installedVersion = installedVersion.replace("-SNAPSHOT", ".0");

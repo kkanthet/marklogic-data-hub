@@ -1,12 +1,12 @@
 import React from 'react';
-import { render, fireEvent, waitForElement, act, cleanup } from '@testing-library/react'
-import '@testing-library/jest-dom/extend-expect'
+import { render, fireEvent, waitForElement, act, cleanup } from '@testing-library/react';
+import '@testing-library/jest-dom/extend-expect';
 import {AuthoritiesContext, AuthoritiesService} from '../util/authorities';
 import axiosMock from 'axios';
 import mocks from '../api/__mocks__/mocks.data';
 import Load from "./Load";
-import LoadList from "../components/load/load-list";
 import {MemoryRouter} from "react-router-dom";
+import tiles from '../config/tiles.config';
 
 jest.mock('axios');
 jest.setTimeout(30000);
@@ -22,7 +22,7 @@ describe('Load component', () => {
     afterEach(() => {
         jest.clearAllMocks();
         cleanup();
-    })
+    });
 
     test('Verify cannot edit with only readIngestion authority', async () => {
         const authorityService = new AuthoritiesService();
@@ -182,11 +182,13 @@ describe('Load component', () => {
         const authorityService = new AuthoritiesService();
         authorityService.setAuthorities(['readIngestion','writeIngestion']);
 
-        const { getByText, getAllByText, getByLabelText } = render(
+        const { getByText, getAllByText, getByLabelText, getByTestId } = render(
           <MemoryRouter><AuthoritiesContext.Provider value={authorityService}><Load/></AuthoritiesContext.Provider></MemoryRouter>
         );
 
         expect(await(waitForElement(() => getByLabelText('switch-view-list')))).toBeInTheDocument();
+
+        expect(getByText(tiles.load.intro)).toBeInTheDocument(); // tile intro text
 
         // Check for steps to be populated in default view
         expect(axiosMock.get).toBeCalledWith('/api/steps/ingestion');
@@ -208,7 +210,7 @@ describe('Load component', () => {
         expect(getByText('JSON')).toBeInTheDocument();
         expect(getByText('Last Updated: 01/01/2000 4:00AM')).toBeInTheDocument();
         expect(getByLabelText('icon: setting')).toBeInTheDocument();
-        expect(getByLabelText('icon: edit')).toBeInTheDocument();
+        expect(getByTestId('testLoad-edit')).toBeInTheDocument();
         expect(getByLabelText('icon: delete')).toBeInTheDocument();
 
     });

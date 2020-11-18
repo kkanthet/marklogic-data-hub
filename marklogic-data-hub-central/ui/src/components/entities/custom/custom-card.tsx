@@ -1,8 +1,6 @@
-import React, {useEffect, useState} from 'react';
+import React, { useState } from 'react';
 import styles from './custom-card.module.scss';
-import {Card, Icon, Tooltip, Row, Col, Modal, Select} from 'antd';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import {faTrashAlt} from '@fortawesome/free-regular-svg-icons';
+import {Card, Icon, Row, Col } from 'antd';
 import {convertDateFromISO, getInitialChars, extractCollectionFromSrcQuery} from '../../../util/conversionFunctions';
 import AdvancedSettingsDialog from "../../advanced-settings/advanced-settings-dialog";
 import {AdvCustomTooltips} from '../../../config/tooltips.config';
@@ -25,12 +23,12 @@ const CustomCard: React.FC<Props> = (props) => {
     const OpenCustomDialog = (index) => {
         setViewCustom(true);
         setCustomData(prevState => ({ ...prevState, ...props.data[index]}));
-    }
+    };
 
     const OpenCustomSettingsDialog = (index) => {
         setCustomData(prevState => ({ ...prevState, ...props.data[index]}));
         setOpenCustomSettings(true);
-    }
+    };
 
     return (
         <div className={styles.customContainer}>
@@ -41,9 +39,10 @@ const CustomCard: React.FC<Props> = (props) => {
                     <Card
                         actions={[
                             <span></span>,
+                            <span></span>,
                             <MLTooltip title={AdvCustomTooltips.settings} placement="bottom"><Icon type="setting" key="setting" role="settings-custom button" data-testid={elem.name+'-settings'} onClick={() => OpenCustomSettingsDialog(index)}/></MLTooltip>,
                             <MLTooltip title={AdvCustomTooltips.viewCustom} placement="bottom"><Icon type="edit" key="edit" role="edit-custom button" data-testid={elem.name+'-edit'} onClick={() => OpenCustomDialog(index)}/></MLTooltip>,
-                            <i role="disabled-delete-custom button" onClick={(event) => event.preventDefault()}><FontAwesomeIcon icon={faTrashAlt} className={styles.disabledDeleteIcon} size="lg"/></i>,
+
                         ]}
                         className={styles.cardStyle}
                         size="small"
@@ -73,6 +72,6 @@ const CustomCard: React.FC<Props> = (props) => {
             />
         </div>
     );
-}
+};
 
 export default CustomCard;

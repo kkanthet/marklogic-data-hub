@@ -77,6 +77,10 @@ declare namespace Cypress {
 
       deleteSteps(stepType: string, ...stepNames: any[]): Chainable<Element>
 
+      deleteEntities(...entityNames: any[]): Chainable<Element>
+
+      deleteRecordsInFinal(...collections: any[]): Chainable<Element>
+
       waitForModalToDisappear(): void
 
       verifyStepAddedToFlow(stepType: string, stepName: string): Chainable<Element>
@@ -94,5 +98,9 @@ declare namespace Cypress {
        * @param stepName - name of the step
        */
       verifyStepRunResult(jobStatus: string, stepType: string, stepName: string): Chainable<Element>
+
+      waitForAsyncRequest(): Chainable<WaitXHR>
+
+      getAttached(selector: any): Chainable<Element>
     }
   }

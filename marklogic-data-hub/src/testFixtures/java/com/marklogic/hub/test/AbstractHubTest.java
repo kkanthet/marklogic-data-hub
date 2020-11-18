@@ -1,21 +1,18 @@
 package com.marklogic.hub.test;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.marklogic.appdeployer.AppConfig;
 import com.marklogic.appdeployer.ConfigDir;
 import com.marklogic.appdeployer.command.Command;
 import com.marklogic.appdeployer.command.CommandContext;
 import com.marklogic.appdeployer.impl.SimpleAppDeployer;
 import com.marklogic.client.DatabaseClient;
+import com.marklogic.client.document.JSONDocumentManager;
+import com.marklogic.client.io.DocumentMetadataHandle;
 import com.marklogic.client.io.JacksonHandle;
-import com.marklogic.hub.DatabaseKind;
-import com.marklogic.hub.HubClient;
-import com.marklogic.hub.HubConfig;
-import com.marklogic.hub.HubProject;
-import com.marklogic.hub.deploy.commands.DeployDatabaseFieldCommand;
-import com.marklogic.hub.deploy.commands.GenerateFunctionMetadataCommand;
-import com.marklogic.hub.deploy.commands.LoadUserArtifactsCommand;
-import com.marklogic.hub.deploy.commands.LoadUserModulesCommand;
+import com.marklogic.hub.*;
+import com.marklogic.hub.deploy.commands.*;
 import com.marklogic.hub.flow.FlowInputs;
 import com.marklogic.hub.flow.RunFlowResponse;
 import com.marklogic.hub.flow.impl.FlowRunnerImpl;
@@ -24,7 +21,6 @@ import com.marklogic.hub.impl.HubProjectImpl;
 import com.marklogic.hub.impl.Versions;
 import com.marklogic.mgmt.api.API;
 import com.marklogic.mgmt.api.database.Database;
-import com.marklogic.mgmt.api.security.User;
 import com.marklogic.mgmt.resource.databases.DatabaseManager;
 import com.marklogic.mgmt.resource.security.ProtectedPathManager;
 import com.marklogic.mgmt.util.SimplePropertySource;
@@ -32,13 +28,12 @@ import org.apache.commons.io.FileUtils;
 import org.custommonkey.xmlunit.XMLUnit;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.util.FileCopyUtils;
-import org.springframework.util.StringUtils;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 import java.util.regex.Pattern;
@@ -46,15 +41,7 @@ import java.util.regex.Pattern;
 /**
  * Abstract base class for all Data Hub tests. Intended to provide a set of reusable methods for all tests.
  */
-public abstract class AbstractHubTest extends TestObject {
-
-    /**
-     * Tests should prefer this over getHubConfig, but of course use getHubConfig if HubClient doesn't provide something
-     * that you need.
-     *
-     * @return
-     */
-    protected abstract HubClient getHubClient();
+public abstract class AbstractHubTest extends AbstractHubClientTest {
 
     /**
      * Use this when you need access to stuff that's not in HubClient. Typically, that means you need a HubProject or
@@ -65,8 +52,6 @@ public abstract class AbstractHubTest extends TestObject {
     protected abstract HubConfigImpl getHubConfig();
 
     protected abstract File getTestProjectDirectory();
-
-    protected abstract HubConfigImpl runAsUser(String username, String password);
 
     protected void resetHubProject() {
         XMLUnit.setIgnoreWhitespace(true);
@@ -89,41 +74,25 @@ public abstract class AbstractHubTest extends TestObject {
         if (projectDir != null && projectDir.exists()) {
             try {
                 FileUtils.deleteDirectory(projectDir);
-            } catch (IOException ex) {
-                logger.warn("Unable to delete the project directory", ex);
+            } catch (Exception ex) {
+                logger.warn("Unable to delete the project directory: " + ex.getMessage());
             }
         }
     }
 
     protected void resetDatabases() {
-        // Admin is needed to clear out provenance data
-        runAsAdmin();
-        String xquery = "cts:uris((), (), cts:not-query(cts:collection-query('hub-core-artifact'))) ! xdmp:document-delete(.)";
-        HubClient hubClient = getHubClient();
-        hubClient.getStagingClient().newServerEval().xquery(xquery).evalAs(String.class);
-        hubClient.getFinalClient().newServerEval().xquery(xquery).evalAs(String.class);
-        hubClient.getJobsClient().newServerEval().xquery(xquery).evalAs(String.class);
-    }
+        super.resetDatabases();
 
-    protected HubConfigImpl runAsDataHubDeveloper() {
-        return runAsUser("test-data-hub-developer", "password");
-    }
-
-    protected HubConfigImpl runAsDataHubOperator() {
-        return runAsUser("test-data-hub-operator", "password");
-    }
-
-    protected HubConfigImpl runAsAdmin() {
-        return runAsUser("test-admin-for-data-hub-tests", "password");
-    }
-
-    protected HubConfigImpl runAsTestUserWithRoles(String... roles) {
-        setTestUserRoles(roles);
-        return runAsTestUser();
-    }
-
-    protected HubConfigImpl runAsTestUser() {
-        return runAsUser("test-data-hub-user", "password");
+        try {
+            clearDatabase(getHubConfig().newStagingClient(getHubConfig().getDbName(DatabaseKind.STAGING_SCHEMAS)));
+        } catch (Exception ex) {
+            logger.warn("Unable to clear staging schemas database, but will continue: " + ex.getMessage());
+        }
+        try {
+            clearDatabase(getHubConfig().newStagingClient(getHubConfig().getDbName(DatabaseKind.FINAL_SCHEMAS)));
+        } catch (Exception ex) {
+            logger.warn("Unable to clear final schemas database, but will continue: " + ex.getMessage());
+        }
     }
 
     /**
@@ -137,22 +106,11 @@ public abstract class AbstractHubTest extends TestObject {
         Properties props = new Properties();
         props.setProperty("mlUsername", mlUsername);
         props.setProperty("mlPassword", mlPassword);
+
+        // Need to include this so that when running tests in parallel, this doesn't default back to localhost
+        props.setProperty("mlHost", getHubConfig().getHost());
+
         getHubConfig().applyProperties(new SimplePropertySource(props));
-    }
-
-    /**
-     * Each test is free to modify the roles on this user so it can be used for any purpose. Such tests should not
-     * make any assumptions about what roles this user does have entering into the test.
-     *
-     * @param roles
-     */
-    protected void setTestUserRoles(String... roles) {
-        runAsAdmin();
-
-        User user = new User(new API(getHubConfig().getManageClient()), "test-data-hub-user");
-        user.setRole(Arrays.asList(roles));
-        user.setPassword("password");
-        user.save();
     }
 
     /**
@@ -316,10 +274,10 @@ public abstract class AbstractHubTest extends TestObject {
             new GenerateFunctionMetadataCommand(hubConfig).generateFunctionMetadata();
         } catch (Exception ex) {
             logger.warn("Unable to generate function metadata. Catching this by default, as at least one test " +
-                    "- GetPrimaryEntityTypesTest - is failing in Jenkins because it cannot generate metadata for a module " +
-                    "for unknown reasons (the test passes locally). That test does not depend on metadata. If your test " +
-                    "does depend on knowing that metadata generation failed, consider overriding this to allow for the " +
-                    "exception to propagate; cause: " + ex.getMessage(), ex);
+                "- GetPrimaryEntityTypesTest - is failing in Jenkins because it cannot generate metadata for a module " +
+                "for unknown reasons (the test passes locally). That test does not depend on metadata. If your test " +
+                "does depend on knowing that metadata generation failed, consider overriding this to allow for the " +
+                "exception to propagate; cause: " + ex.getMessage(), ex);
         }
 
         LoadUserArtifactsCommand loadUserArtifactsCommand = new LoadUserArtifactsCommand(hubConfig);
@@ -338,16 +296,16 @@ public abstract class AbstractHubTest extends TestObject {
         String baseDirStr = hubConfig.getProjectDir();
         AppConfig appConfig = hubConfig.getAppConfig();
         List<ConfigDir> configDirs = appConfig.getConfigDirs();
-        for (ConfigDir configDir:configDirs) {
+        for (ConfigDir configDir : configDirs) {
             String configPath = configDir.getBaseDir().getPath();
             if (!configPath.contains(baseDirStr)) {
                 configDir.setBaseDir(Paths.get(baseDirStr, configPath).toFile());
             }
         }
         List<String> modulePaths = appConfig.getModulePaths();
-        for (String modulePath: modulePaths) {
+        for (String modulePath : modulePaths) {
             if (!modulePath.contains(baseDirStr)) {
-                modulePaths.set(modulePaths.indexOf(modulePath),Paths.get(baseDirStr,modulePath).toString());
+                modulePaths.set(modulePaths.indexOf(modulePath), Paths.get(baseDirStr, modulePath).toString());
             }
         }
     }
@@ -361,54 +319,8 @@ public abstract class AbstractHubTest extends TestObject {
         waitForTasksToFinish();
     }
 
-    /**
-     * Use this anytime a test needs to wait for things that run on the ML task server - generally, post-commit triggers
-     * - to finish, without resorting to arbitrary Thread.sleep calls that don't always work and often require more
-     * waiting than necessary.
-     */
-    protected void waitForTasksToFinish() {
-        String query = "xquery version '1.0-ml';" +
-            "\n declare namespace ss = 'http://marklogic.com/xdmp/status/server';" +
-            "\n declare namespace hs = 'http://marklogic.com/xdmp/status/host';" +
-            "\n let $task-server-id as xs:unsignedLong := xdmp:host-status(xdmp:host())//hs:task-server-id" +
-            "\n return fn:count(xdmp:server-status(xdmp:host(), $task-server-id)/ss:request-statuses/*)";
-
-        final int maxTries = 100;
-        final long sleepPeriod = 200;
-
-        DatabaseClient stagingClient = getHubClient().getStagingClient();
-
-        int taskCount = Integer.parseInt(stagingClient.newServerEval().xquery(query).evalAs(String.class));
-        int tries = 0;
-        logger.debug("Waiting for task server tasks to finish, count: " + taskCount);
-        while (taskCount > 0 && tries < maxTries) {
-            tries++;
-            try {
-                Thread.sleep(sleepPeriod);
-            } catch (Exception ex) {
-                // ignore
-            }
-            taskCount = Integer.parseInt(stagingClient.newServerEval().xquery(query).evalAs(String.class));
-            logger.debug("Waiting for task server tasks to finish, count: " + taskCount);
-        }
-
-        // Hack for cluster tests - if there's more than one host, wait a couple more seconds. Sigh.
-        String secondHost = stagingClient.newServerEval().xquery("xdmp:hosts()[2]").evalAs(String.class);
-        if (StringUtils.hasText(secondHost)) {
-            sleep(2000);
-        }
-    }
-
     protected boolean isVersionCompatibleWith520Roles() {
-        return new Versions(getHubClient()).isVersionCompatibleWith520Roles();
-    }
-
-    protected JsonNode getStagingDoc(String uri) {
-        return getHubClient().getStagingClient().newJSONDocumentManager().read(uri, new JacksonHandle()).get();
-    }
-
-    protected JsonNode getFinalDoc(String uri) {
-        return getHubClient().getFinalClient().newJSONDocumentManager().read(uri, new JacksonHandle()).get();
+        return new Versions(getHubClient()).getMarkLogicVersion().isVersionCompatibleWith520Roles();
     }
 
     /**
@@ -474,13 +386,93 @@ public abstract class AbstractHubTest extends TestObject {
      * @return
      */
     protected RunFlowResponse runFlow(FlowInputs flowInputs) {
+        makeInputFilePathsAbsoluteInFlow(flowInputs.getFlowName());
         FlowRunnerImpl flowRunner = new FlowRunnerImpl(getHubClient());
         RunFlowResponse response = flowRunner.runFlow(flowInputs);
         flowRunner.awaitCompletion();
         return response;
     }
 
+    protected void waitForReindex(HubClient hubClient, String database){
+        String query = "(\n" +
+            "  for $forest-id in xdmp:database-forests(xdmp:database('" + database + "'))\n" +
+            "  return xdmp:forest-status($forest-id)//*:reindexing\n" +
+            ") = fn:true()";
+        boolean currentStatus;
+        int attempts = 125;
+        boolean previousStatus = false;
+        do{
+            sleep(200L);
+            currentStatus = Boolean.parseBoolean(hubClient.getStagingClient().newServerEval().xquery(query).evalAs(String.class));
+            if(currentStatus){
+                logger.info("Reindexing staging database");
+            }
+            if(!currentStatus && previousStatus){
+                logger.info("Finished reindexing staging database");
+                return;
+            }
+            else{
+                previousStatus = currentStatus;
+            }
+            attempts--;
+        }
+        while(attempts > 0);
+        if(currentStatus){
+            logger.warn("Reindexing is taking more than 25 seconds");
+        }
+    }
+
     protected HubProjectImpl getHubProject() {
-        return (HubProjectImpl)getHubConfig().getHubProject();
+        return (HubProjectImpl) getHubConfig().getHubProject();
+    }
+
+    /**
+     * This is needed for running flows without a HubProject because if the paths are relative (which they are by
+     * default), then a HubProject is needed to resolve them into absolute paths.
+     */
+    protected void makeInputFilePathsAbsoluteInFlow(String flowName) {
+        final String flowFilename = flowName + ".flow.json";
+        try {
+            Path projectDir = getHubProject().getProjectDir();
+            final File flowFile = projectDir.resolve("flows").resolve(flowFilename).toFile();
+            JsonNode flow = objectMapper.readTree(flowFile);
+            makeInputFilePathsAbsoluteForFlow(flow, projectDir.toFile().getAbsolutePath());
+            objectMapper.writeValue(flowFile, flow);
+
+            // Have to run as a developer in order to update the flow document
+            runAsDataHubDeveloper();
+            JSONDocumentManager mgr = getHubClient().getStagingClient().newJSONDocumentManager();
+            final String uri = "/flows/" + flowFilename;
+            if (mgr.exists(uri) != null) {
+                DocumentMetadataHandle metadata = mgr.readMetadata("/flows/" + flowFilename, new DocumentMetadataHandle());
+                mgr.write("/flows/" + flowFilename, metadata, new JacksonHandle(flow));
+            }
+        } catch (Exception ex) {
+            throw new RuntimeException(ex);
+        }
+    }
+
+    protected void makeInputFilePathsAbsoluteForFlow(JsonNode flow, String projectDir) {
+        JsonNode steps = flow.get("steps");
+        steps.fieldNames().forEachRemaining(name -> {
+            JsonNode step = steps.get(name);
+            if (step.has("fileLocations")) {
+                ObjectNode fileLocations = (ObjectNode) step.get("fileLocations");
+                makeInputFilePathsAbsolute(fileLocations, projectDir);
+            }
+        });
+    }
+
+    protected void makeInputFilePathsAbsolute(ObjectNode fileLocations, String projectDir) {
+        if (fileLocations.has("inputFilePath")) {
+            String currentPath = fileLocations.get("inputFilePath").asText();
+            if (!Paths.get(currentPath).isAbsolute()) {
+                fileLocations.put("inputFilePath", projectDir + "/" + currentPath);
+            }
+        }
+    }
+    protected int getDocumentCount(DatabaseClient client) {
+        String query = "cts.estimate(cts.trueQuery())";
+        return Integer.parseInt(client.newServerEval().javascript(query).evalAs(String.class));
     }
 }

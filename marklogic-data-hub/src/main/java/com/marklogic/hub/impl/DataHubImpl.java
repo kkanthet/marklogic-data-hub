@@ -42,6 +42,7 @@ import com.marklogic.client.io.DocumentMetadataHandle;
 import com.marklogic.client.io.JacksonHandle;
 import com.marklogic.client.io.QueryOptionsListHandle;
 import com.marklogic.hub.*;
+import com.marklogic.hub.dataservices.ArtifactService;
 import com.marklogic.hub.deploy.HubAppDeployer;
 import com.marklogic.hub.deploy.commands.*;
 import com.marklogic.hub.deploy.util.HubDeployStatusListener;
@@ -95,7 +96,10 @@ public class DataHubImpl implements DataHub, InitializingBean {
     private Versions versions;
 
     @Autowired
-    private FlowRunner flowRunner;
+    FlowRunner flowRunner;
+
+    @Autowired
+    FlowManager flowManager;
 
     protected final Logger logger = LoggerFactory.getLogger(this.getClass());
 
@@ -249,7 +253,7 @@ public class DataHubImpl implements DataHub, InitializingBean {
     @Override
     public boolean isServerVersionValid(String versionString) {
         try{
-            Versions.MarkLogicVersion serverVersion = versions.getMLVersion(versionString);
+            MarkLogicVersion serverVersion = new MarkLogicVersion(versionString);
             if (!(serverVersion.getMajor() == 9 || serverVersion.getMajor() == 10)) {
                 return false;
             }
@@ -308,6 +312,7 @@ public class DataHubImpl implements DataHub, InitializingBean {
      *                                 introduced for the sake of DHF tests so that marklogic-unit-test will not be deleted
      */
     public void clearUserModules(List<String> resourceNamesToNotDelete) {
+        long start = System.currentTimeMillis();
         logger.info("Clearing user modules");
         ResourcePatternResolver resolver = new PathMatchingResourcePatternResolver(DataHub.class.getClassLoader());
         try {
@@ -397,9 +402,21 @@ public class DataHubImpl implements DataHub, InitializingBean {
                     "] ! xdmp:document-delete(.)\n";
             runInDatabase(query, hubConfig.getDbName(DatabaseKind.MODULES));
         } catch (Exception e) {
-            logger.error("Failed to clear user modules, cause: " + e.getMessage(), e);
+            throw new RuntimeException("Failed to clear user modules, cause: " + e.getMessage(), e);
         }
-        logger.info("Finished clearing user modules");
+        logger.info("Finished clearing user modules; time elapsed: " + (System.currentTimeMillis() - start));
+    }
+
+    public void clearUserArtifacts(){
+        final HubClient hubClientToUse = hubClient != null ? hubClient : hubConfig.newHubClient();
+
+        long start = System.currentTimeMillis();
+        logger.info("Clearing user artifacts as user: " + hubClientToUse.getUsername());
+
+        ArtifactService.on(hubClientToUse.getStagingClient()).clearUserArtifacts();
+        ArtifactService.on(hubClientToUse.getFinalClient()).clearUserArtifacts();
+
+        logger.info("Finished clearing user artifacts; time elapsed: " + (System.currentTimeMillis() - start));
     }
 
     public void deleteDocument(String uri, DatabaseKind databaseKind) {
@@ -478,7 +495,7 @@ public class DataHubImpl implements DataHub, InitializingBean {
         }
 
 
-        serverVersion = versions.getMarkLogicVersion();
+        serverVersion = versions.getMarkLogicVersionString();
         serverVersionOk = isServerVersionValid(serverVersion);
         Map<String, Object> response = new HashMap<>();
         response.put("serverVersion", serverVersion);
@@ -695,7 +712,7 @@ public class DataHubImpl implements DataHub, InitializingBean {
              * Replace ml-gradle's DeployOtherServersCommand with a subclass that has DHF-specific functionality
              */
             if (c instanceof DeployOtherServersCommand) {
-                newCommands.add(new DeployHubOtherServersCommand());
+                newCommands.add(new DeployHubOtherServersCommand(hubConfig));
             }
             else {
                 newCommands.add(c);
@@ -860,7 +877,7 @@ public class DataHubImpl implements DataHub, InitializingBean {
     @Override
     public String getServerVersion() {
         if(serverVersion == null) {
-            serverVersion = versions.getMarkLogicVersion();
+            serverVersion = versions.getMarkLogicVersionString();
         }
         return serverVersion;
     }
@@ -900,7 +917,7 @@ public class DataHubImpl implements DataHub, InitializingBean {
             }
 
             hubConfig.initHubProject();
-            hubConfig.getHubProject().upgradeProject();
+            hubConfig.getHubProject().upgradeProject(flowManager);
             System.out.println("Starting in version 5.2.0, the default value of mlModulePermissions has been changed to \"data-hub-module-reader,read,data-hub-module-reader,execute,data-hub-module-writer,update,rest-extension-user,execute\". " +
                 "It is recommended to remove this property from gradle.properties unless you must customize the value." );
 

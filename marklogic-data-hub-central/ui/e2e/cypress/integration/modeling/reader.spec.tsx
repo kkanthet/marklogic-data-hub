@@ -9,7 +9,7 @@ import {
 } from '../../support/components/model/index';
 import { confirmationModal, toolbar, tiles } from '../../support/components/common/index';
 import { Application } from '../../support/application.config';
-import browsePage from '../../support/pages/browse'
+import browsePage from '../../support/pages/browse';
 import 'cypress-wait-until';
 
 describe('Entity Modeling: Reader Role', () => {
@@ -19,8 +19,8 @@ describe('Entity Modeling: Reader Role', () => {
     cy.visit('/');
     cy.contains(Application.title);
     console.log(Cypress.env('mlHost'));
-    cy.loginAsTestUserWithRoles("hub-central-entity-model-reader", "hub-central-saved-query-user").withRequest()
-    cy.waitUntil(() => toolbar.getModelToolbarIcon()).click();
+    cy.loginAsTestUserWithRoles("hub-central-entity-model-reader", "hub-central-saved-query-user").withRequest();
+    cy.waitUntil(() => toolbar.getModelToolbarIcon().should('have.css', 'cursor', 'pointer')).click();
     entityTypeTable.waitForTableToLoad();
   });
 
@@ -30,22 +30,24 @@ describe('Entity Modeling: Reader Role', () => {
   });
 
   it('can navigate by clicking instance count and last processed, can not create, edit, or delete entity models', () => {
-    cy.waitUntil(() => entityTypeTable.getEntityLastProcessed('Person')).click();
-    tiles.getExploreTile().should('exist');
-    cy.waitUntil(() => browsePage.getSelectedEntity()).should('eq', 'Person');
-    browsePage.getClearAllButton().should('exist');
+    // Removed navigation tests unitl DHFPROD-6152 is resolved
     
-    toolbar.getModelToolbarIcon().click();
-    tiles.getModelTile().should('exist');
+    // cy.waitUntil(() => entityTypeTable.getEntityLastProcessed('Person')).click();
+    // tiles.getExploreTile().should('exist');
+    // cy.waitUntil(() => browsePage.getSelectedEntity()).should('eq', 'Person');
+    // browsePage.getClearAllButton().should('exist');
 
-    cy.waitUntil(() => entityTypeTable.getEntityInstanceCount('Order')).click();
-    tiles.getExploreTile().should('exist');
-    cy.waitUntil(() => browsePage.getSelectedEntity().should('eq', 'Order'));
-    browsePage.getClearAllButton().should('not.exist');
+    // toolbar.getModelToolbarIcon().click();
+    // tiles.getModelTile().should('exist');
 
-    cy.go('back');
-    cy.url().should('include', '/tiles/model');
-    tiles.getModelTile().should('exist');
+    // cy.waitUntil(() => entityTypeTable.getEntityInstanceCount('Order')).click();
+    // tiles.getExploreTile().should('exist');
+    // cy.waitUntil(() => browsePage.getSelectedEntity().should('eq', 'Order'));
+    // browsePage.getClearAllButton().should('not.exist');
+
+    // cy.go('back');
+    // cy.url().should('include', '/tiles/model');
+    // tiles.getModelTile().should('exist');
 
     modelPage.getAddEntityButton().click({ force: true });
     cy.wait(100);
@@ -94,7 +96,7 @@ describe('Entity Modeling: Reader Role', () => {
     propertyTable.getAddPropertyToStructureType('Zip').click({ force: true });
     cy.wait(100);
     propertyModal.getStructuredTypeName().should('not.be.visible');
-    
+
     propertyTable.getDeleteStructuredPropertyIcon('Customer', 'Zip', 'fiveDigit').click({ force: true });
     cy.wait(100);
     confirmationModal.getDeletePropertyStepWarnText().should('not.be.visible');

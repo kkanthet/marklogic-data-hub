@@ -64,16 +64,22 @@ function validateArtifact(artifact) {
 
 function defaultArtifact(artifactName) {
   const defaultPermissions = 'data-hub-common,read,data-hub-common,update';
-  return {
-    artifactName,
-    collections: ['default-mastering'],
-    additionalCollections: [],
+  let artifact = {
+    batchSize: 100,
+    threadCount: 1,
     sourceDatabase: dataHub.config.FINALDATABASE,
     targetDatabase: dataHub.config.FINALDATABASE,
-    provenanceGranularityLevel: 'coarse',
+    targetEntity: "Change this to a valid entity type name; e.g. Customer",
+    sourceQuery: "cts.collectionQuery('Change this to a valid collection name; e.g. Customer')",
+    collections: [
+      "mastering-summary"
+    ],
     permissions: defaultPermissions,
-    batchSize: 100
+    targetFormat: "json"
   };
+  artifact["matchRulesets"] = artifact.matchRulesets || [];
+  artifact["thresholds"] = artifact.thresholds || [];
+  return artifact;
 }
 
 module.exports = {

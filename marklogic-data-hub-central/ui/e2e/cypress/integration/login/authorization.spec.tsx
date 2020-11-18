@@ -8,6 +8,7 @@ import loadPage from "../../support/pages/load";
 import modelPage from "../../support/pages/model";
 import runPage from "../../support/pages/run";
 import curatePage from "../../support/pages/curate";
+import browsePage from "../../support/pages/browse";
 
 describe('login', () => {
 
@@ -26,17 +27,16 @@ describe('login', () => {
 
   it('greets with Data Hub Central title and footer links', () => {
       cy.contains(Application.title);
-      cy.contains('Policies');
-      cy.contains('Terms and Conditions');
+      cy.contains('Privacy');
   });
 
   it('should verify all the error conditions for login', () => {
-      //Verify username/password is required and login button is disabled
+      //Verify username/password is required and login button is enabled
       loginPage.getUsername().type('{enter}').blur();
       loginPage.getPassword().type('{enter}').blur();
       cy.contains('Username is required');
       cy.contains('Password is required');
-      loginPage.getLoginButton().should('be.disabled');
+      loginPage.getLoginButton().should('be.enabled');
 
       //Verify invalid credentials error message
       loginPage.getUsername().type('test');
@@ -61,13 +61,13 @@ describe('login', () => {
           .url().should('include', '/tiles');
         //All tiles but Explore, should show a tooltip that says contact your administrator
       ['Load', 'Model', 'Curate', 'Run'].forEach((tile) => {
-          toolbar.getToolBarIcon(tile).should('have.attr', {style: 'cursor: not-allowed'})
+          toolbar.getToolBarIcon(tile).should('have.attr', {style: 'cursor: not-allowed'});
       });
 
       toolbar.getExploreToolbarIcon().trigger('mouseover');
       cy.contains('Explore');
       toolbar.getExploreToolbarIcon().click();
-      cy.findByText('Search through loaded data and curated data');
+      cy.findByText('Search, filter, review, and export your curated data.');
       tiles.getExploreTile().should('exist');
       projectInfo.getAboutProject().click();
       projectInfo.waitForInfoPageToLoad();
@@ -77,10 +77,10 @@ describe('login', () => {
 
   it('should only enable Model and Explorer tile for hub-central-entity-model-reader', () => {
       cy.loginAsTestUserWithRoles('hub-central-entity-model-reader', 'hub-central-saved-query-user').withUI()
-          .url().should('include', '/tile');
+          .url().should('include', '/tiles');
       //All tiles but Explore and Model, should show a tooltip that says contact your administrator
       ['Load', 'Curate', 'Run'].forEach((tile) => {
-          toolbar.getToolBarIcon(tile).should('have.attr', {style: 'cursor: not-allowed'})
+          toolbar.getToolBarIcon(tile).should('have.attr', {style: 'cursor: not-allowed'});
       });
 
       toolbar.getModelToolbarIcon().click();
@@ -90,12 +90,12 @@ describe('login', () => {
 
   it('should only enable Load and Explorer tile for hub-central-load-reader', () => {
       let stepName = 'loadCustomersJSON';
-      let flowName= 'personJSON'
-      cy.loginAsTestUserWithRoles('hub-central-load-reader').withRequest()
-          .url().should('include', '/tile');
+      let flowName= 'personJSON';
+      cy.loginAsTestUserWithRoles('hub-central-load-reader').withUI()
+          .url().should('include', '/tiles');
       //All tiles but Explore and Model, should show a tooltip that says contact your administrator
       ['Model', 'Curate', 'Run'].forEach((tile) => {
-          toolbar.getToolBarIcon(tile).should('have.attr', {style: 'cursor: not-allowed'})
+          toolbar.getToolBarIcon(tile).should('have.attr', {style: 'cursor: not-allowed'});
       });
 
       toolbar.getLoadToolbarIcon().click();
@@ -128,26 +128,26 @@ describe('login', () => {
   });
 
   it('should only enable Curate and Explorer tile for hub-central-mapping-reader', () => {
-      let entityTypeId = 'Customer'
-      let mapStepName = 'mapCustomersXML'
-      cy.loginAsTestUserWithRoles('hub-central-mapping-reader').withRequest()
-          .url().should('include', '/tile');
+      let entityTypeId = 'Customer';
+      let mapStepName = 'mapCustomersXML';
+      cy.loginAsTestUserWithRoles('hub-central-mapping-reader').withUI()
+          .url().should('include', '/tiles');
       //All tiles but Explore and Model, should show a tooltip that says contact your administrator
       ['Load', 'Model', 'Run'].forEach((tile) => {
-          toolbar.getToolBarIcon(tile).should('have.attr', {style: 'cursor: not-allowed'})
+          toolbar.getToolBarIcon(tile).should('have.attr', {style: 'cursor: not-allowed'});
       });
 
       toolbar.getCurateToolbarIcon().click();
       curatePage.toggleEntityTypeId(entityTypeId);
       curatePage.verifyTabs(entityTypeId, 'be.visible', 'not.exist');
-      curatePage.addNewMapStep().should('not.be.visible');
+      curatePage.addNewStep().should('not.be.visible');
       curatePage.stepSettings(mapStepName).click();
       curatePage.saveSettings(mapStepName).should('be.disabled');
       curatePage.cancelSettings(mapStepName).click();
       curatePage.editStep(mapStepName).click();
       curatePage.verifyStepNameIsVisible(mapStepName);
-      curatePage.saveEdit(mapStepName).should('be.disabled');
-      curatePage.cancelEdit(mapStepName).click();
+      curatePage.saveEdit().should('be.disabled');
+      curatePage.cancelEdit().click();
       curatePage.deleteDisabled().should('exist');
       curatePage.noEntityType().should('not.exist');
   });
@@ -155,11 +155,11 @@ describe('login', () => {
   it('should only enable Run and Explorer tile for hub-central-step-runner', () => {
       const flowName = 'personJSON';
       const stepName = 'loadPersonJSON';
-      cy.loginAsTestUserWithRoles('hub-central-step-runner').withRequest()
-          .url().should('include', '/tile');
+      cy.loginAsTestUserWithRoles('hub-central-step-runner').withUI()
+          .url().should('include', '/tiles');
       //All tiles but Run and Explore, should show a tooltip that says contact your administrator
       ['Load', 'Model', 'Curate'].forEach((tile) => {
-          toolbar.getToolBarIcon(tile).should('have.attr', {style: 'cursor: not-allowed'})
+          toolbar.getToolBarIcon(tile).should('have.attr', {style: 'cursor: not-allowed'});
       });
 
       toolbar.getRunToolbarIcon().click();
@@ -173,11 +173,11 @@ describe('login', () => {
   it('should only enable Run and Explorer tile for hub-central-flow-writer', () => {
       const flowName = 'personJSON';
       const stepName = 'loadPersonJSON';
-      cy.loginAsTestUserWithRoles('hub-central-flow-writer').withRequest()
-          .url().should('include', '/tile');
+      cy.loginAsTestUserWithRoles('hub-central-flow-writer').withUI()
+          .url().should('include', '/tiles');
       //All tiles but Run and Explore, should show a tooltip that says contact your administrator
       ['Load', 'Model', 'Curate'].forEach((tile) => {
-          toolbar.getToolBarIcon(tile).should('have.attr', {style: 'cursor: not-allowed'})
+          toolbar.getToolBarIcon(tile).should('have.attr', {style: 'cursor: not-allowed'});
         });
 
       toolbar.getRunToolbarIcon().click();
@@ -196,6 +196,31 @@ describe('login', () => {
       projectInfo.getAboutProject().click();
       projectInfo.waitForInfoPageToLoad();
       projectInfo.getDownloadButton().click();
+  });
+
+  it('should redirect to /tiles/explore when uri is undefined for /detail view bookmark', () => {
+      let host = Cypress.config().baseUrl;
+      cy.visit(`${host}?from=%2Ftiles%2Fexplore%2Fdetail`);
+      loginPage.getUsername().type('hc-test-user');
+      loginPage.getPassword().type('password');
+      loginPage.getLoginButton().click();
+      cy.location('pathname').should('include', '/tiles/explore');
+      tiles.getExploreTile().should('exist');
+      browsePage.getSelectedEntity().should('contain', 'All Entities');
+  });
+
+  it('should redirect a bookmark to login screen when not authenticated', () => {
+      let host = Cypress.config().baseUrl;
+      //URL from bookmark
+      cy.visit(`${host}?from=%2Ftiles%2Fcurate`);
+      //Redirected to login
+      loginPage.getUsername().type('hc-developer');
+      loginPage.getPassword().type('password');
+      loginPage.getLoginButton().click();
+      cy.location('pathname').should('include', '/tiles/curate');
+      cy.waitUntil(() => cy.contains('Customer'));
+      cy.contains('Person');
+      cy.contains('No Entity Type');
   });
 
 });

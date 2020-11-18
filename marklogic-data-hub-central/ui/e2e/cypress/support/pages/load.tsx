@@ -12,35 +12,35 @@ class LoadPage {
      * @param type - accepts `list` or `card`
      */
     addNewButton(type: string) {
-        return cy.findByLabelText(`add-new-${type}`)
+        return cy.findByLabelText(`add-new-${type}`);
     }
 
     stepName(stepName: string) {
         return cy.findByText(stepName);
     }
 
-    stepDescription(stepName: string) {
-
-    }
-
-    stepSourceFormat(stepName: string) {
-
-    }
-
-    stepTargetFormat(stepName: string) {
-
-    }
-
-    stepLastUpdated(stepName: string) {
-
-    }
-
-    columnSort(columnName: string) {
-
-    }
+    // stepDescription(stepName: string) {
+    //
+    // }
+    //
+    // stepSourceFormat(stepName: string) {
+    //
+    // }
+    //
+    // stepTargetFormat(stepName: string) {
+    //
+    // }
+    //
+    // stepLastUpdated(stepName: string) {
+    //
+    // }
+    //
+    // columnSort(columnName: string) {
+    //
+    // }
 
     closeModal() {
-        return cy.get('[aria-label="icon: close"]')
+        return cy.get('[aria-label="icon: close"]');
     }
 
     /**
@@ -72,12 +72,25 @@ class LoadPage {
     }
 
     deleteStepConfirmationMessage(stepName: string) {
-        return cy.findByText(`Are you sure you want to delete "${stepName}"`);
+        return cy.findByText(`Are you sure you want to delete the ${stepName} step`);
     }
 
-    addStepToFlowConfirmationMessage(stepName: string, flowName: string) {
-        return cy.findByText(`Are you sure you want to add "${stepName}" to flow "${flowName}"?`)
+    addStepToFlowConfirmationMessage() {
+        return cy.findByLabelText('step-not-in-flow');
     }
+
+    addStepToFlowRunConfirmationMessage() {
+        return cy.findByLabelText('step-not-in-flow-run');
+    }
+
+    addStepExistingToFlowConfirmationMessage() {
+        return cy.findByLabelText('step-in-flow');
+    }
+    
+    addStepExistingToFlowRunConfirmationMessage() {
+        return cy.findByLabelText('step-in-flow-run');
+    }
+        
     pagination() {
 
     }
@@ -100,7 +113,7 @@ class LoadPage {
 
     selectSourceFormat(format: string) {
         cy.get('#sourceFormat').click();
-        cy.findAllByText(`${format}`).last().click();
+        cy.findAllByText(`${format}`).last().click({force: true});
     }
 
     selectTargetFormat(format: string) {
@@ -134,8 +147,8 @@ class LoadPage {
      * @param db - accepts `STAGING` or `FINAL`
      */
     selectTargetDB(db: string) {
-        cy.findByLabelText('targetDatabase-select').click();
-        cy.findByTestId(`targetDbOptions-data-hub-${db}`).click();
+        cy.waitUntil(() => cy.findByLabelText('targetDatabase-select')).click();
+        cy.waitUntil(() => cy.findByTestId(`targetDbOptions-data-hub-${db}`)).click({ force: true });
     }
 
     /**
@@ -232,6 +245,23 @@ class LoadPage {
         return cy.findByTestId(`${stepName}-edit`);
     }
 
+    runStepInCardView(stepName: string) {
+        return cy.findByTestId(`${stepName}-run`);
+    }
+
+    runInNewFlow(stepName: string) {
+        return cy.findByTestId(`${stepName}-run-toNewFlow`);
+    };
+
+    runExistingFlowsList(stepName: string) {
+        return cy.findByTestId(`${stepName}-run-flowsList`);
+    }
+
+    runStepInExistingFlow(stepName: string, flowName: string) {
+        this.runExistingFlowsList(stepName).click({force: true});
+        cy.findByLabelText(`${flowName}-run-option`).click({force: true});
+    }
+
     addToNewFlow(stepName: string) {
         return cy.findByTestId(`${stepName}-toNewFlow`);
     }
@@ -241,6 +271,11 @@ class LoadPage {
         this.addToNewFlow(stepName).click();
     }
 
+    addStepToNewFlowListView(stepName: string){
+        cy.findByLabelText(`${stepName}-add-icon`).click();
+        this.addToNewFlow(stepName).click({force: true});
+    }
+
     existingFlowsList(stepName: string) {
         return cy.findByTestId(`${stepName}-flowsList`);
     }
@@ -248,7 +283,7 @@ class LoadPage {
     addStepToExistingFlow(stepName: string, flowName: string) {
         this.stepName(stepName).trigger('mouseover');
         this.existingFlowsList(stepName).click();
-        cy.findByLabelText(flowName).click();
+        cy.findByLabelText(`${flowName}-option`).click();
     }
 
 }

@@ -17,6 +17,7 @@
 package com.marklogic.hub.step.impl;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -25,9 +26,11 @@ import com.marklogic.hub.util.json.JSONObject;
 import org.apache.commons.lang3.StringUtils;
 
 import java.util.Map;
+import java.util.Objects;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class Step {
+    private String stepId;
     private String name;
     private String description;
     private Map<String, Object> options;
@@ -38,6 +41,14 @@ public class Step {
     private String stepDefinitionName;
     private StepDefinition.StepDefinitionType stepDefinitionType;
     private JsonNode fileLocations;
+
+    public String getStepId() {
+        return stepId;
+    }
+
+    public void setStepId(String stepId) {
+        this.stepId = stepId;
+    }
 
     public String getName() {
         return name;
@@ -123,6 +134,7 @@ public class Step {
         Step step = new Step();
 
         JSONObject jsonObject = new JSONObject(json);
+        step.setStepId(jsonObject.getString("stepId"));
         step.setStepDefinitionName(jsonObject.getString("stepDefinitionName"));
         step.setStepDefinitionType(StepDefinition.StepDefinitionType.getStepDefinitionType(jsonObject.getString("stepDefinitionType")));
         String stepName = jsonObject.getString("name");
@@ -159,16 +171,12 @@ public class Step {
         if (StringUtils.isNotEmpty(stepDefinitionName) ? !stepDefinitionName.equals(that.stepDefinitionName) : StringUtils.isNotEmpty(that.stepDefinitionName)) {
             return false;
         }
-        if (options == null && that.options != null || options != null && that.options == null || options.size() != that.options.size()) {
+
+        if (!Objects.equals(options, that.options)) {
             return false;
         }
-        if (options != null && that.options != null) {
-            if (!options.entrySet().stream().allMatch(e -> e.getValue() instanceof JsonNode && ((JsonNode) e.getValue()).equals(that.options.get(e.getKey())))) {
-                return false;
-            }
-        }
-        if (customHook == null && that.customHook != null || customHook != null && that.customHook == null ||
-            !customHook.equals(that.customHook)) {
+
+        if (!Objects.equals(customHook, that.customHook)) {
             return false;
         }
 

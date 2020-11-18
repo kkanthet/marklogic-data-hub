@@ -1,0 +1,11 @@
+{
+  "name" : "convertedFlow",
+  "steps" : {
+    "1" : {
+      "stepId" : "ingest-orders-ingestion"
+    },
+    "2": {
+      "stepId": "map-orders-mapping"
+    }
+  }
+}

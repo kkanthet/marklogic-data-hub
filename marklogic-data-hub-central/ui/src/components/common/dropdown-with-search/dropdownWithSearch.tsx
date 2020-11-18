@@ -1,4 +1,4 @@
-import { Menu, Select } from "antd"
+import { Select } from "antd";
 import React, { useState, useEffect, useRef, useCallback, CSSProperties } from 'react';
 import styles from './dropdownWithSearch.module.scss';
 import arrayIcon from '../../../assets/icon_array.png';
@@ -24,14 +24,43 @@ const DropDownWithSearch = (props) => {
         }, []
     );
 
+    const charToPxScalingFactor = 9;
+    const maxWidth = 400;
+    const minWidth = 168;
+
+    // calculates width of dropdown in 'px' based on length of displayed elements
+    const calcDropdownWidth = () => {
+        if (props.indentList && props.srcData) {
+            let maxStringLengthInPx = 0;
+            props.srcData.map((element, index) => maxStringLengthInPx = Math.max(maxStringLengthInPx, element.value.length * charToPxScalingFactor + props.indentList[index]));
+            if (maxStringLengthInPx > maxWidth) return maxWidth.toString() + 'px';
+            if (maxStringLengthInPx < minWidth) return minWidth.toString() + 'px';
+            return maxStringLengthInPx.toString() + 'px';
+        }
+        return minWidth.toString() + 'px';
+    };
+
+    // truncates and adds ellipsis for dropdown text
+    const formatDropdownText = (text, index) => {
+        let indentVal;
+        props.indentList ? indentVal = props.indentList[index] : indentVal = 0;
+        if ((text.length * charToPxScalingFactor) + indentVal > maxWidth) {
+            for (let i = text.length; i > 0; i--) {
+                if (((i + 3) * charToPxScalingFactor) + indentVal < maxWidth) return text.substring(0, i) + '...';
+            }
+        }
+        return text;
+    };
+
     //CSS Styles for the select list
+    const dropDownWidth = calcDropdownWidth();
     const listStyle:CSSProperties = {
-        width: '12em',
-    }
+        width: dropDownWidth,
+    };
 
     const dropDownStyle: CSSProperties = {
         maxHeight: '40vh',
-    }
+    };
 
     useEffect(() => {
         setSelList(prev => props.setDisplaySelectList);
@@ -39,7 +68,7 @@ const DropDownWithSearch = (props) => {
         if(props.setDisplaySelectList){
             setEventValid(prev => true);
         }
-    },[props.setDisplaySelectList,props.setDisplayMenu])
+    },[props.setDisplaySelectList,props.setDisplayMenu]);
 
     //Handling click event outside the Dropdown Menu
     useEffect(() => {
@@ -48,16 +77,16 @@ const DropDownWithSearch = (props) => {
         }
 
         return () => {
-            document.removeEventListener('click', handleOuterClick)
+            document.removeEventListener('click', handleOuterClick);
         };
     });
 
     const optionsStyle = (index) =>{
         if(props.indentList) {
-            return {lineHeight: '2vh', textIndent: props.indentList[index]+'px'};
+            return {lineHeight: '2vh', textOverflow: 'clip', textIndent: props.indentList[index]+'px'};
         }
         else {
-            return {lineHeight: '2vh'};
+            return {lineHeight: '2vh', textOverflow: 'clip'};
         }
     };
     /* props.srcData requires an array of tuple instead of a flat array to handle duplicate values */
@@ -75,10 +104,10 @@ const DropDownWithSearch = (props) => {
                     value={null}
                     onChange={props.onItemSelect}
                 >
-                    {props.srcData.map((element, index) => <Select.Option data-testid = {element.value + '-option'} style={optionsStyle(index)} key={element.key}>{element.value} {<MLTooltip title = "Multiple"><img data-testid = {element.value + '-optionIcon'} src= {element.struct ? arrayIcon : '' }/></MLTooltip>}</Select.Option>)}
+                    {props.srcData.map((element, index) => <Select.Option data-testid = {element.value + '-option'} style={optionsStyle(index)} key={element.key}>{formatDropdownText(element.value, index)}{<MLTooltip title = "Multiple"><img data-testid = {element.value + '-optionIcon'} src= {element.struct ? arrayIcon : '' }/></MLTooltip>}</Select.Option>)}
                </Select>  }
         </div>
     );
-}
+};
 
 export default DropDownWithSearch;

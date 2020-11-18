@@ -19,6 +19,8 @@ interface Props {
     currentQueryDescription: string;
     setCurrentQueryDescription: (description: string) => void;
     resetYesClicked: boolean;
+    setColumnSelectorTouched: (state: boolean) => void;
+    existingQueryYesClicked: boolean;
 }
 
 const SaveQueryModal: React.FC<Props> = (props) => {
@@ -30,7 +32,8 @@ const SaveQueryModal: React.FC<Props> = (props) => {
         searchOptions,
         applySaveQuery,
         setAllGreyedOptions,
-        setZeroState
+        setZeroState,
+        setEntity
     } = useContext(SearchContext);
 
     const {
@@ -49,8 +52,9 @@ const SaveQueryModal: React.FC<Props> = (props) => {
 
     const onCancel = () => {
         props.setSaveModalVisibility();
-    }
+    };
     const onOk = async () => {
+        console.log('ON OKAY');
         let facets = { ...searchOptions.selectedFacets };
         let selectedFacets = facets;
         let greyedFacets = greyedOptions.selectedFacets;
@@ -81,8 +85,9 @@ const SaveQueryModal: React.FC<Props> = (props) => {
                 propertiesToDisplay: searchOptions.selectedTableProperties,
                 zeroState: searchOptions.zeroState,
                 manageQueryModal: searchOptions.manageQueryModal,
-                sortOrder: searchOptions?.sortOrder || []
-            }
+                sortOrder: searchOptions?.sortOrder || [],
+                database: searchOptions.database,
+            };
             applySaveQuery(options);
             props.setCurrentQueryName(queryName);
             props.setCurrentQueryDescription(queryDescription);
@@ -96,10 +101,13 @@ const SaveQueryModal: React.FC<Props> = (props) => {
                     propertiesToDisplay: [],
                     zeroState: true,
                     manageQueryModal: false,
-                    sortOrder: []
-                }
+                    sortOrder: [],
+                    database: 'final',
+                };
                 applySaveQuery(options);
             }
+            props.setColumnSelectorTouched(false);
+            props.existingQueryYesClicked && setEntity(searchOptions.nextEntityType);
         } catch (error) {
             if (error.response.status === 400) {
                 if (error.response.data.hasOwnProperty('message')) {
@@ -111,7 +119,7 @@ const SaveQueryModal: React.FC<Props> = (props) => {
                 handleError(error);
             }
         }
-    }
+    };
 
     const handleChange = (event) => {
         if (event.target.id === 'save-query-name') {
@@ -120,11 +128,11 @@ const SaveQueryModal: React.FC<Props> = (props) => {
         if (event.target.id === 'save-query-description') {
             setQueryDescription(event.target.value);
         }
-    }
+    };
 
     const unAppliedFacets = (e) => {
-        setRadioOptionClicked(e.target.value)
-    }
+        setRadioOptionClicked(e.target.value);
+    };
 
 
     return (
@@ -193,8 +201,8 @@ const SaveQueryModal: React.FC<Props> = (props) => {
                 </Form.Item>
             </Form>
         </Modal>
-    )
-}
+    );
+};
 
 export default SaveQueryModal;
 

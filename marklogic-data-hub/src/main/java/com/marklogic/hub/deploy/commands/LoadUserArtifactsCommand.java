@@ -17,10 +17,10 @@ package com.marklogic.hub.deploy.commands;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.marklogic.appdeployer.command.AbstractCommand;
 import com.marklogic.appdeployer.command.CommandContext;
-import com.marklogic.client.DatabaseClient;
 import com.marklogic.client.document.DocumentWriteSet;
 import com.marklogic.client.document.JSONDocumentManager;
 import com.marklogic.client.ext.modulesloader.Modules;
@@ -28,22 +28,24 @@ import com.marklogic.client.ext.modulesloader.ModulesFinder;
 import com.marklogic.client.ext.modulesloader.impl.EntityDefModulesFinder;
 import com.marklogic.client.ext.modulesloader.impl.MappingDefModulesFinder;
 import com.marklogic.client.ext.modulesloader.impl.PropertiesModuleManager;
+import com.marklogic.client.ext.tokenreplacer.TokenReplacer;
 import com.marklogic.client.ext.util.DefaultDocumentPermissionsParser;
 import com.marklogic.client.ext.util.DocumentPermissionsParser;
 import com.marklogic.client.io.DocumentMetadataHandle;
 import com.marklogic.client.io.JacksonHandle;
+import com.marklogic.hub.HubClient;
 import com.marklogic.hub.HubConfig;
 import com.marklogic.hub.dataservices.ArtifactService;
 import com.marklogic.hub.dataservices.ModelsService;
 import com.marklogic.hub.dataservices.StepService;
 import com.marklogic.mgmt.util.ObjectMapperFactory;
+import org.apache.commons.io.FileUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Component;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -64,6 +66,7 @@ public class LoadUserArtifactsCommand extends AbstractCommand {
 
     private DocumentPermissionsParser documentPermissionsParser = new DefaultDocumentPermissionsParser();
     private ObjectMapper objectMapper;
+    private TokenReplacer tokenReplacer;
 
     public void setForceLoad(boolean forceLoad) {
         this.forceLoad = forceLoad;
@@ -107,6 +110,7 @@ public class LoadUserArtifactsCommand extends AbstractCommand {
 
     @Override
     public void execute(CommandContext context) {
+        tokenReplacer = context.getAppConfig().buildTokenReplacer();
         loadUserArtifacts();
     }
 
@@ -115,62 +119,73 @@ public class LoadUserArtifactsCommand extends AbstractCommand {
      * class is used outside a deployment context.
      */
     public void loadUserArtifacts() {
-        DatabaseClient stagingClient = hubConfig.newStagingClient(null);
+        HubClient hubClient = hubConfig.newHubClient();
 
         try {
-            // Models are loaded via their own DS endpoint
-            loadModels(stagingClient);
+            long start = System.currentTimeMillis();
+            loadModels(hubClient);
+            logger.info("Loaded models, time: " + (System.currentTimeMillis() - start) + "ms");
 
-            // Supports pre-5.3 mappings
-            loadMappingsViaRestApi(stagingClient);
-
-            loadFlows(stagingClient);
-            loadStepDefinitions(stagingClient);
-            loadSteps(stagingClient);
+            start = System.currentTimeMillis();
+            loadLegacyMappings(hubClient);
+            loadFlows(hubClient);
+            loadStepDefinitions(hubClient);
+            loadSteps(hubClient);
+            logger.info("Loaded flows, mappings, step definitions and steps, time: " + (System.currentTimeMillis() - start) + "ms");
         }
         catch (IOException e) {
             throw new RuntimeException("Unable to load user artifacts, cause: " + e.getMessage(), e);
         }
     }
 
-    protected void loadModels(DatabaseClient stagingClient) throws IOException {
+    /**
+     * Due to significant performance issues with loading entity models via xdmp.invoke plus the existence of pre and
+     * post commit triggers on entity models, separate calls are made to the staging and final app servers for saving
+     * entity models. This avoids the performance issue, as the saveModels endpoint will not use an xdmp.invoke to
+     * save each model.
+     *
+     * @param hubClient
+     * @throws IOException
+     */
+    private void loadModels(HubClient hubClient) throws IOException {
         final Path modelsPath = hubConfig.getHubEntitiesDir();
         if (modelsPath.toFile().exists()) {
-            ModelsService modelsService = ModelsService.on(stagingClient);
+            ArrayNode modelsArray = objectMapper.createArrayNode();
             EntityDefModulesFinder modulesFinder = new EntityDefModulesFinder();
             Files.walkFileTree(modelsPath, new SimpleFileVisitor<Path>() {
                 @Override
-                public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+                public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
                     logger.info("Loading models from directory " + dir);
                     modulesFinder.findModules(dir.toString()).getAssets().forEach(r -> {
-                        JsonNode model;
+                        logger.info("Loading model from file: " + r.getFilename());
                         try {
-                            model = objectMapper.readTree(r.getInputStream());
-                        } catch (IOException e) {
-                            throw new RuntimeException("Unable to read model as JSON; model filename: " + r.getFilename(), e);
+                            modelsArray.add(readArtifact(r.getFile()));
                         }
-                        modelsService.saveModel(model);
-                        logger.info("Loaded model from file " + r.getFilename());
+                        catch (IOException e) {
+                            throw new RuntimeException("Unable to read model file: " + r.getFilename() + "; cause: " + e.getMessage(), e);
+                        }
                     });
                     return FileVisitResult.CONTINUE;
                 }
             });
+            if (modelsArray.size() > 0) {
+                ModelsService.on(hubClient.getStagingClient()).saveModels(modelsArray);
+                ModelsService.on(hubClient.getFinalClient()).saveModels(modelsArray);
+            }
         }
     }
 
     /**
-     * TODO The ArtifactService isn't loading all mappings the way that this method does, so we still need it in place
-     * for mappings created prior to 5.3.0.
+     * "Legacy" = pre-5.3 mappings that are stored in documents outside of flows, but are not mapping steps.
      *
-     * @param stagingClient
+     * @param hubClient
      * @throws IOException
      */
-    protected void loadMappingsViaRestApi(DatabaseClient stagingClient) throws IOException {
+    private void loadLegacyMappings(HubClient hubClient) throws IOException {
         Path mappingsPath = hubConfig.getHubMappingsDir();
         if (mappingsPath.toFile().exists()) {
-            DatabaseClient finalClient = hubConfig.newFinalClient();
-            JSONDocumentManager finalDocMgr = finalClient.newJSONDocumentManager();
-            JSONDocumentManager stagingDocMgr = stagingClient.newJSONDocumentManager();
+            JSONDocumentManager finalDocMgr = hubClient.getFinalClient().newJSONDocumentManager();
+            JSONDocumentManager stagingDocMgr = hubClient.getStagingClient().newJSONDocumentManager();
             DocumentWriteSet stagingMappingDocumentWriteSet = stagingDocMgr.newWriteSet();
             DocumentWriteSet finalMappingDocumentWriteSet = finalDocMgr.newWriteSet();
 
@@ -252,14 +267,7 @@ public class LoadUserArtifactsCommand extends AbstractCommand {
         DocumentWriteSet... writeSets
     ) throws IOException {
         if (forceLoad || propertiesModuleManager.hasFileBeenModifiedSinceLastLoaded(r.getFile())) {
-            InputStream inputStream = r.getInputStream();
-
-            JsonNode json;
-            try {
-                json = objectMapper.readTree(inputStream);
-            } finally {
-                inputStream.close();
-            }
+            JsonNode json = readArtifact(r.getFile());
 
             if (json instanceof ObjectNode && json.has("language")) {
                 json = replaceLanguageWithLang((ObjectNode)json);
@@ -282,36 +290,38 @@ public class LoadUserArtifactsCommand extends AbstractCommand {
      * Loads steps, where the assumption is that the name of each directory under the steps path corresponds to a step
      * definition type. And thus each .step.json file in that directory should be loaded as a step.
      *
-     * @param stagingClient
+     * @param hubClient
      * @throws IOException
      */
-    private void loadSteps(DatabaseClient stagingClient) throws IOException {
+    private void loadSteps(HubClient hubClient) throws IOException {
         final Path stepsPath = hubConfig.getHubProject().getStepsPath();
         if (stepsPath.toFile().exists()) {
             ObjectMapper objectMapper = new ObjectMapper();
-            StepService stepService = StepService.on(stagingClient);
+            StepService stepService = StepService.on(hubClient.getStagingClient());
             for (File stepTypeDir : stepsPath.toFile().listFiles(File::isDirectory)) {
                 final String stepType = stepTypeDir.getName();
                 for (File stepFile : stepTypeDir.listFiles((File d, String name) -> name.endsWith(".step.json"))) {
-                    JsonNode step = objectMapper.readTree(stepFile);
+                    JsonNode step = readArtifact(stepFile);
                     if (!step.has("name")) {
                         throw new RuntimeException("Unable to load step from file: " + stepFile + "; no 'name' property found");
                     }
                     final String stepName = step.get("name").asText();
                     logger.info(format("Loading step of type '%s' with name '%s'", stepType, stepName));
-                    stepService.saveStep(stepType, step);
+                    //We want the contents of file in the project to overwrite the step if it's already present. Hence
+                    //steps are deployed with 'overwrite' flag set to true.
+                    stepService.saveStep(stepType, step, true);
                 }
             }
         }
     }
 
-    private void loadFlows(DatabaseClient stagingClient) throws IOException {
+    private void loadFlows(HubClient hubClient) throws IOException {
         final Path flowsPath = hubConfig.getHubProject().getFlowsDir();
         if (flowsPath.toFile().exists()) {
             ObjectMapper objectMapper = new ObjectMapper();
-            ArtifactService service = ArtifactService.on(stagingClient);
+            ArtifactService service = ArtifactService.on(hubClient.getStagingClient());
             for (File file : flowsPath.toFile().listFiles(f -> f.isFile() && f.getName().endsWith(".flow.json"))) {
-                JsonNode flow = objectMapper.readTree(file);
+                JsonNode flow = readArtifact(file);
                 if (!flow.has("name")) {
                     throw new RuntimeException("Unable to load flow from file: " + file + "; no 'name' property found");
                 }
@@ -322,18 +332,18 @@ public class LoadUserArtifactsCommand extends AbstractCommand {
         }
     }
 
-    private void loadStepDefinitions(DatabaseClient stagingClient) throws IOException {
+    private void loadStepDefinitions(HubClient hubClient) throws IOException {
         final Path stepDefsPath = hubConfig.getHubProject().getStepDefinitionsDir();
         if (stepDefsPath.toFile().exists()) {
             ObjectMapper objectMapper = new ObjectMapper();
-            ArtifactService service = ArtifactService.on(stagingClient);
+            ArtifactService service = ArtifactService.on(hubClient.getStagingClient());
             for (File typeDir : stepDefsPath.toFile().listFiles(File::isDirectory)) {
                 final String stepDefType = typeDir.getName();
                 for (File defDir : typeDir.listFiles(File::isDirectory)) {
                     final String stepDefName = defDir.getName();
                     File stepDefFile = new File(defDir, stepDefName + ".step.json");
                     if (stepDefFile.exists()) {
-                        JsonNode stepDef = objectMapper.readTree(stepDefFile);
+                        JsonNode stepDef = readArtifact(stepDefFile);
                         if (!stepDef.has("name")) {
                             throw new RuntimeException("Unable to load step definition from file: " + stepDefFile +
                                 "; no 'name' property was found");
@@ -368,6 +378,25 @@ public class LoadUserArtifactsCommand extends AbstractCommand {
             }
         }
         return newObject;
+    }
+
+    /**
+     * Reads the artifact file, replaces tokens and then returns the content as a JsonNode.
+     *
+     * @param file
+     * @return
+     */
+    private JsonNode readArtifact(File file) {
+        JsonNode jsonNode;
+        try {
+            String artifact = tokenReplacer.replaceTokens(FileUtils.readFileToString(file));
+            jsonNode = objectMapper.readTree(artifact);
+        }
+        catch (Exception e) {
+            throw new RuntimeException("Unable to read file " + file.getName() + " + as JSON; cause: " + e.getMessage(), e);
+        }
+
+        return jsonNode;
     }
 
     public void setHubConfig(HubConfig hubConfig) {

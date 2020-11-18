@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext, useRef } from 'react';
+import React, { useState, useEffect, useContext, useRef, useLayoutEffect } from 'react';
 import axios from 'axios';
 import { Layout } from 'antd';
 import { RouteComponentProps, withRouter } from 'react-router-dom';
@@ -14,20 +14,22 @@ import SearchResults from '../components/search-results/search-results';
 import { updateUserPreferences, createUserPreferences, getUserPreferences } from '../services/user-preferences';
 import { entityFromJSON, entityParser, getTableProperties } from '../util/data-conversion';
 import styles from './Browse.module.scss';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faStream, faTable, faAngleDoubleRight, faAngleDoubleLeft } from '@fortawesome/free-solid-svg-icons'
-import Query from '../components/queries/queries'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faStream, faTable, faAngleDoubleRight, faAngleDoubleLeft } from '@fortawesome/free-solid-svg-icons';
+import Query from '../components/queries/queries';
 import { AuthoritiesContext } from "../util/authorities";
 import ZeroStateExplorer from '../components/zero-state-explorer/zero-state-explorer';
 import ResultsTabularView from "../components/results-tabular-view/results-tabular-view";
 import { QueryOptions } from '../types/query-types';
-import { MLTooltip, MLSpin } from '@marklogic/design-system';
+import { MLTooltip, MLSpin, MLRadio } from '@marklogic/design-system';
+import RecordCardView from '../components/record-view/record-view';
+import { PropertySafetyFilled } from '@ant-design/icons';
+
 
 interface Props extends RouteComponentProps<any> {
 }
 
 const Browse: React.FC<Props> = ({ location }) => {
-
   const { Content, Sider } = Layout;
   const componentIsMounted = useRef(true);
   const {
@@ -39,10 +41,12 @@ const Browse: React.FC<Props> = ({ location }) => {
     setEntityClearQuery,
     setLatestJobFacet,
     resetSearchOptions,
-    setEntity,
     applySaveQuery,
     setPageWithEntity,
     setPageQueryOptions,
+    setEntity,
+    setDatabase,
+    setLatestDatabase,
   } = useContext(SearchContext);
   const searchBarRef = useRef<HTMLDivElement>(null);
   const authorityService = useContext(AuthoritiesContext);
@@ -52,17 +56,21 @@ const Browse: React.FC<Props> = ({ location }) => {
   const [facets, setFacets] = useState();
   const [isLoading, setIsLoading] = useState(true);
   const [totalDocuments, setTotalDocuments] = useState(0);
-  const [tableView, toggleTableView] = useState(true);
+  const [tableView, toggleTableView] = useState(JSON.parse(getUserPreferences(user.name)).tableView);
   const [endScroll, setEndScroll] = useState(false);
   const [collapse, setCollapsed] = useState(false);
   const [selectedFacets, setSelectedFacets] = useState<any[]>([]);
   const [greyFacets, setGreyFacets] = useState<any[]>([]);
-  const [columns, setColumns] = useState<string[]>();
+  const [columns, setColumns] = useState<string[]>([]);
   const [isSavedQueryUser, setIsSavedQueryUser] = useState<boolean>(authorityService.isSavedQueryUser());
   const [queries, setQueries] = useState<any>([]);
   const [entityPropertyDefinitions, setEntityPropertyDefinitions] = useState<any[]>([]);
   const [selectedPropertyDefinitions, setSelectedPropertyDefinitions] = useState<any[]>([]);
   const [isColumnSelectorTouched, setColumnSelectorTouched] = useState(false);
+  const [zeroStatePageDatabase, setZeroStatePageDatabase] = useState('final');
+  const resultsRef = useRef<HTMLDivElement>(null);
+  const [cardView, setCardView] = useState(location && location.state && location.state['isEntityInstance'] ? true : JSON.parse(getUserPreferences(user.name)).cardView);
+
 
   const getEntityModel = async () => {
     try {
@@ -78,7 +86,7 @@ const Browse: React.FC<Props> = ({ location }) => {
     } finally {
       setIsLoading(false);
     }
-  }
+  };
 
   const getSearchResults = async (allEntities: string[]) => {
     try {
@@ -86,11 +94,11 @@ const Browse: React.FC<Props> = ({ location }) => {
       setIsLoading(true);
       const response = await axios({
         method: 'POST',
-        url: `/api/entitySearch`,
+        url: `/api/entitySearch?database=${searchOptions.database}`,
         data: {
           query: {
             searchText: searchOptions.query,
-            entityTypeIds: searchOptions.entityTypeIds.length ? searchOptions.entityTypeIds : allEntities,
+            entityTypeIds: cardView ? [] : searchOptions.entityTypeIds.length ? searchOptions.entityTypeIds :  allEntities,
             selectedFacets: searchOptions.selectedFacets,
           },
           propertiesToDisplay: searchOptions.selectedTableProperties,
@@ -99,7 +107,7 @@ const Browse: React.FC<Props> = ({ location }) => {
           sortOrder: searchOptions.sortOrder
         }
       });
-      if (componentIsMounted.current) {
+      if (componentIsMounted.current && response.data) {
         setData(response.data.results);
         if (response.data.hasOwnProperty('entityPropertyDefinitions')) {
           setEntityPropertyDefinitions(response.data.entityPropertyDefinitions);
@@ -107,36 +115,44 @@ const Browse: React.FC<Props> = ({ location }) => {
         if (response.data.hasOwnProperty('selectedPropertyDefinitions')) {
           setSelectedPropertyDefinitions(response.data.selectedPropertyDefinitions);
         }
+
         setFacets(response.data.facets);
         setTotalDocuments(response.data.total);
 
         if (response.data.selectedPropertyDefinitions && response.data.selectedPropertyDefinitions.length) {
-          let properties = getTableProperties(response.data.selectedPropertyDefinitions);
-          setColumns(properties)
+          if(!['All Data'].includes(searchOptions.nextEntityType)) {
+            let properties = getTableProperties(response.data.selectedPropertyDefinitions);
+            setColumns(properties);
+          } else {
+            setColumns([]);
+          }
         }
       }
     } catch (error) {
-        console.error('error', error)
+      console.error('error', error);
       handleError(error);
     } finally {
       setIsLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
     getEntityModel();
     initializeUserPreferences();
     return () => {
-      componentIsMounted.current = false
-    }
-  }, [])
-
+      componentIsMounted.current = false;
+    };
+  }, []);
 
   useEffect(() => {
-    if (entities.length && (!searchOptions.nextEntityType || searchOptions.nextEntityType === 'All Entities' || (searchOptions.entityTypeIds[0] == searchOptions.nextEntityType))) {
-      getSearchResults(entities);
-    }
-  }, [searchOptions, entities, user.error.type]);
+    if (entities.length && (!searchOptions.nextEntityType ||
+        (searchOptions.nextEntityType === 'All Entities' && !searchOptions.entityTypeIds.length && !searchOptions.selectedTableProperties.length && !cardView) ||
+        (searchOptions.nextEntityType === 'All Data' && !searchOptions.entityTypeIds.length && !searchOptions.selectedTableProperties.length && cardView) ||
+        (!['All Entities', 'All Data'].includes(searchOptions.nextEntityType) && searchOptions.entityTypeIds[0] === searchOptions.nextEntityType)
+      )) {
+        getSearchResults(entities);
+      }
+  }, [searchOptions, searchOptions.zeroState === false && entities, user.error.type]);
 
 
   useEffect(() => {
@@ -146,16 +162,29 @@ const Browse: React.FC<Props> = ({ location }) => {
         location.state['start'],
         location.state['searchFacets'],
         location.state['query'],
-        location.state['sortOrder'])
+        location.state['sortOrder'],
+        location.state['targetDatabase']);
       location.state['tableView'] ? toggleTableView(true) : toggleTableView(false);
     }
+    else if (location.state
+      && location.state.hasOwnProperty('entityName')
+      && location.state.hasOwnProperty('targetDatabase')
+      && location.state.hasOwnProperty('jobId')) {
+        setCardView(false);
+        setLatestJobFacet(location.state['jobId'], location.state['entityName'], location.state['targetDatabase']);
+    }
     else if (location.state && location.state.hasOwnProperty('entityName') && location.state.hasOwnProperty('jobId')) {
+      setCardView(false);
       setLatestJobFacet(location.state['jobId'], location.state['entityName']);
     }
     else if (location.state && location.state.hasOwnProperty('entity')) {
+      setCardView(false);
       setEntityClearQuery(location.state['entity']);
     }
-
+    else if (location.state && location.state.hasOwnProperty('targetDatabase') && location.state.hasOwnProperty('jobId')) {
+      setCardView(true);
+      setLatestDatabase(location.state['targetDatabase'], location.state['jobId']);
+    }
   }, [searchOptions.zeroState]);
 
   const setZeroStateQueryOptions = () => {
@@ -167,20 +196,26 @@ const Browse: React.FC<Props> = ({ location }) => {
       propertiesToDisplay: [],
       zeroState: true,
       manageQueryModal: false,
-      sortOrder: []
-    }
-     applySaveQuery(options);
-  }
-    
+      sortOrder: [],
+      database: 'final',
+    };
+    applySaveQuery(options);
+  };
+
   const initializeUserPreferences = async () => {
-    if (location.state) {
-      if (location.state['tileIconClicked']) {
-        await setZeroStateQueryOptions();
-      }
-    } else {
-      let defaultPreferences = getUserPreferences(user.name);
-      if (defaultPreferences !== null) {
-        let parsedPreferences = JSON.parse(defaultPreferences);
+    let defaultPreferences = getUserPreferences(user.name);
+    if (defaultPreferences !== null) {
+      let parsedPreferences = JSON.parse(defaultPreferences);
+      if (location.state) {
+        if (location.state['tileIconClicked']) {
+          await setZeroStateQueryOptions();
+          let preferencesObject = {
+            ...parsedPreferences,
+            zeroState: searchOptions.zeroState
+          };
+          updateUserPreferences(user.name, preferencesObject);
+        }
+      } else {
         if (!parsedPreferences.zeroState && searchOptions.zeroState) {
           let options: any = {
             searchText: parsedPreferences.query.searchText || '',
@@ -191,20 +226,25 @@ const Browse: React.FC<Props> = ({ location }) => {
             pageNumber: parsedPreferences.pageNumber || 1,
             pageLength: parsedPreferences.pageLength,
             propertiesToDisplay: searchOptions.selectedTableProperties || [],
-            zeroState: parsedPreferences.zeroState || false,
+            zeroState: parsedPreferences.zeroState,
             manageQueryModal: false,
-            sortOrder: parsedPreferences.sortOrder || []
-          }
-          await setPageQueryOptions(options)
-          if (parsedPreferences.hasOwnProperty('tableView')) {
-            toggleTableView(parsedPreferences.tableView);
+            sortOrder: parsedPreferences.sortOrder || [],
+            database: parsedPreferences.database
+          };
+          await setPageQueryOptions(options);
+          if (parsedPreferences.hasOwnProperty('tableView') && parsedPreferences.hasOwnProperty('cardView')) {
+            if (parsedPreferences.cardView) {
+              setCardView(parsedPreferences.cardView);
+            } else {
+              toggleTableView(parsedPreferences.tableView);
+            }
           }
         } else if (parsedPreferences.zeroState) {
           await setZeroStateQueryOptions();
         }
       }
     }
-  }
+  };
 
   const setUserPreferences = (view: string = '') => {
     let preferencesObject = {
@@ -221,10 +261,12 @@ const Browse: React.FC<Props> = ({ location }) => {
       queries: queries,
       propertiesToDisplay: searchOptions.selectedTableProperties,
       zeroState: searchOptions.zeroState,
-      sortOrder: searchOptions.sortOrder
-    }
+      sortOrder: searchOptions.sortOrder,
+      cardView: cardView,
+      database: searchOptions.database
+    };
     updateUserPreferences(user.name, preferencesObject);
-  }
+  };
 
   const handleUserPreferences = () => {
     setUserPreferences();
@@ -237,25 +279,53 @@ const Browse: React.FC<Props> = ({ location }) => {
     }
   };
 
+  const setDatabasePreferences = (option:string) => {
+    setDatabase(option);
+    let userPreferences = getUserPreferences(user.name);
+    if (userPreferences) {
+      let oldOptions = JSON.parse(userPreferences);
+      let newOptions = {
+        ...oldOptions,
+        database: option
+      };
+      updateUserPreferences(user.name, newOptions);
+    }
+  };
+
   const onCollapse = () => {
     setCollapsed(!collapse);
-  }
+  };
 
-  useScrollPosition(({ currPos }) => {
-    if (currPos.endOfScroll && !endScroll) {
-      setEndScroll(true);
-    } else if (!currPos.endOfScroll && endScroll) {
-      setEndScroll(false);
+  useLayoutEffect(() => {
+    if (endScroll && data.length) {
+      if (resultsRef.current) {
+        resultsRef.current['style']['boxShadow'] = '0px 4px 4px -4px #999, 0px -4px 4px -4px #999';
+      }
+    } else if (!endScroll) {
+      if (resultsRef.current) {
+        resultsRef.current['style']['boxShadow'] = 'none';
+      }
     }
-  }, [endScroll], null);
+  }, [endScroll]);
+
+  const onResultScroll = (event) => {
+    if (resultsRef && resultsRef.current) {
+      const bottom = event.target.scrollHeight - event.target.scrollTop === event.target.clientHeight;
+      if (resultsRef.current.scrollTop > 0 && !bottom) {
+        setEndScroll(true);
+      } else if (resultsRef.current.scrollTop === 0 || bottom) {
+        setEndScroll(false);
+      }
+    }
+  };
 
   const updateSelectedFacets = (facets) => {
     setSelectedFacets(facets);
-  }
+  };
 
   const updateCheckedFacets = (facets) => {
     setGreyFacets(facets);
-  }
+  };
 
   const handleViewChange = (view) => {
     let tableView = '';
@@ -267,13 +337,17 @@ const Browse: React.FC<Props> = ({ location }) => {
       tableView = 'table';
     }
     setUserPreferences(tableView);
-  }
+
+    if (resultsRef && resultsRef.current) {
+      resultsRef.current['style']['boxShadow'] = 'none';
+    }
+  };
 
   if (searchOptions.zeroState) {
     return (
       <>
-        <Query queries={queries} setQueries={setQueries} isSavedQueryUser={isSavedQueryUser} columns={columns} setIsLoading={setIsLoading} entities={entities} selectedFacets={[]} greyFacets={[]} entityDefArray={entityDefArray} />
-        <ZeroStateExplorer entities={entities} setEntity={setEntity} queries={queries} columns={columns} setIsLoading={setIsLoading} tableView={tableView} toggleTableView={toggleTableView} />
+        <Query queries={queries} setQueries={setQueries} isSavedQueryUser={isSavedQueryUser} columns={columns} setIsLoading={setIsLoading} entities={entities} selectedFacets={[]} greyFacets={[]} entityDefArray={entityDefArray} isColumnSelectorTouched={isColumnSelectorTouched} setColumnSelectorTouched={setColumnSelectorTouched} database={zeroStatePageDatabase} setCardView={setCardView}/>
+        <ZeroStateExplorer entities={entities} isSavedQueryUser={isSavedQueryUser} queries={queries} columns={columns} setIsLoading={setIsLoading} tableView={tableView} toggleTableView={toggleTableView} setCardView={setCardView} setDatabasePreferences={setDatabasePreferences} zeroStatePageDatabase={zeroStatePageDatabase} setZeroStatePageDatabase={setZeroStatePageDatabase} />
       </>
     );
   } else {
@@ -292,23 +366,23 @@ const Browse: React.FC<Props> = ({ location }) => {
             entityDefArray={entityDefArray}
             facetRender={updateSelectedFacets}
             checkFacetRender={updateCheckedFacets}
+            setDatabasePreferences={setDatabasePreferences}
           />
         </Sider>
         <Content className={styles.content}>
 
           <div className={styles.collapseIcon} id='sidebar-collapse-icon'>
             {collapse ?
-            <FontAwesomeIcon aria-label="collapsed" icon={faAngleDoubleRight} onClick={onCollapse} size="lg" style={{ fontSize: '16px', color: '#000' }} /> :
-            <FontAwesomeIcon aria-label="expanded" icon={faAngleDoubleLeft} onClick={onCollapse} size="lg" style={{ fontSize: '16px', color: '#000' }} />}
+              <FontAwesomeIcon aria-label="collapsed" icon={faAngleDoubleRight} onClick={onCollapse} size="lg" style={{ fontSize: '16px', color: '#000' }} /> :
+              <FontAwesomeIcon aria-label="expanded" icon={faAngleDoubleLeft} onClick={onCollapse} size="lg" style={{ fontSize: '16px', color: '#000' }} />}
           </div>
-
           {user.error.type === 'ALERT' ?
             <AsyncLoader />
             :
             <>
               {/* TODO Fix searchBar widths, it currently overlaps at narrow browser widths */}
               <div className={styles.searchBar} ref={searchBarRef}>
-                <SearchBar entities={entities} />
+                <SearchBar entities={entities} cardView={cardView}/>
                 <SearchSummary
                   total={totalDocuments}
                   start={searchOptions.start}
@@ -326,17 +400,27 @@ const Browse: React.FC<Props> = ({ location }) => {
                 </div>
                 <div className={styles.spinViews}>
                   <div className={styles.switchViews}>
-                  {isLoading && <MLSpin data-testid="spinner" className={collapse ? styles.sideBarExpanded : styles.sideBarCollapsed} />}
-                    <div className={!tableView ? styles.toggled : styles.toggleView}
-                      data-cy="facet-view" id={'snippetView'}
-                      onClick={() => handleViewChange('snippet')}>
-                      <MLTooltip title={'Snippet View'}><FontAwesomeIcon icon={faStream} size="lg" /></MLTooltip>
-                    </div>
-                    <div className={tableView ? styles.toggled : styles.toggleView}
-                      data-cy="table-view" id={'tableView'}
-                      onClick={() => handleViewChange('table')}>
-                      <MLTooltip title={'Table View'}><FontAwesomeIcon className={styles.tableIcon} icon={faTable} size="lg" /></MLTooltip>
-                    </div>
+                    {isLoading && <MLSpin data-testid="spinner" className={collapse ? styles.sideBarExpanded : styles.sideBarCollapsed} />}
+                    {!cardView ? <div aria-label="switch-view" >
+                      <MLRadio.MLGroup
+                        buttonStyle="outline"
+                        name="radiogroup"
+                        size="large"
+                        defaultValue={tableView ? 'table' : 'snippet'}
+                        onChange={e => handleViewChange(e.target.value)}
+                      >
+                        <MLRadio.MLButton aria-label="switch-view-table" value={'table'} >
+                          <i data-cy="table-view" id={'tableView'}><MLTooltip title={'Table View'}>{
+                            tableView ? <FontAwesomeIcon icon={faTable} /> : <FontAwesomeIcon icon={faTable} style={{ color: '#CCC' }} />}
+                          </MLTooltip></i>
+                        </MLRadio.MLButton>
+                        <MLRadio.MLButton aria-label="switch-view-snippet" value={'snippet'} >
+                          <i data-cy="facet-view" id={'snippetView'}><MLTooltip title={'Snippet View'}>
+                            {!tableView ? <FontAwesomeIcon icon={faStream} /> : <FontAwesomeIcon icon={faStream} style={{ color: '#CCC' }} />}
+                          </MLTooltip></i>
+                        </MLRadio.MLButton>
+                      </MLRadio.MLGroup>
+                    </div> : ''}
                   </div>
                 </div>
                 <Query queries={queries}
@@ -348,43 +432,52 @@ const Browse: React.FC<Props> = ({ location }) => {
                   selectedFacets={selectedFacets}
                   greyFacets={greyFacets}
                   isColumnSelectorTouched={isColumnSelectorTouched}
+                  setColumnSelectorTouched={setColumnSelectorTouched}
                   entityDefArray={entityDefArray}
+                  database={searchOptions.database}
+                  setCardView={setCardView}
                 />
               </div>
-              <div>
-              <div className={styles.fixedView} >
-                {tableView ?
-                  <div>
-                    <ResultsTabularView
+              <div className={styles.viewContainer} >
+                <div className={styles.fixedView} >
+                  {cardView ?
+                    <RecordCardView
                       data={data}
                       entityPropertyDefinitions={entityPropertyDefinitions}
                       selectedPropertyDefinitions={selectedPropertyDefinitions}
-                      entityDefArray={entityDefArray}
-                      columns={columns}
-                      selectedEntities={searchOptions.entityTypeIds}
-                      setColumnSelectorTouched={setColumnSelectorTouched}
-                      tableView={tableView}
                     />
-                  </div>
-                  : <SearchResults data={data} entityDefArray={entityDefArray} tableView={tableView} columns={columns} />
-                }
-              </div>
-              <br />
-              <div>
-                <SearchSummary
-                  total={totalDocuments}
-                  start={searchOptions.start}
-                  length={searchOptions.pageLength}
-                  pageSize={searchOptions.pageSize}
-                />
-                <SearchPagination
-                  total={totalDocuments}
-                  pageNumber={searchOptions.pageNumber}
-                  pageSize={searchOptions.pageSize}
-                  pageLength={searchOptions.pageLength}
-                  maxRowsPerPage={searchOptions.maxRowsPerPage}
-                />
-              </div>
+                    : (tableView ?
+                      <div>
+                        <ResultsTabularView
+                          data={data}
+                          entityPropertyDefinitions={entityPropertyDefinitions}
+                          selectedPropertyDefinitions={selectedPropertyDefinitions}
+                          entityDefArray={entityDefArray}
+                          columns={columns}
+                          selectedEntities={searchOptions.entityTypeIds}
+                          setColumnSelectorTouched={setColumnSelectorTouched}
+                          tableView={tableView}
+                        />
+                      </div>
+                      : <div id="snippetViewResult" className={styles.snippetViewResult} ref={resultsRef} onScroll={onResultScroll}><SearchResults data={data} entityDefArray={entityDefArray} tableView={tableView} columns={columns} /></div>
+                    )}
+                </div>
+                <br />
+                <div>
+                  <SearchSummary
+                    total={totalDocuments}
+                    start={searchOptions.start}
+                    length={searchOptions.pageLength}
+                    pageSize={searchOptions.pageSize}
+                  />
+                  <SearchPagination
+                    total={totalDocuments}
+                    pageNumber={searchOptions.pageNumber}
+                    pageSize={searchOptions.pageSize}
+                    pageLength={searchOptions.pageLength}
+                    maxRowsPerPage={searchOptions.maxRowsPerPage}
+                  />
+                </div>
               </div>
             </>
           }
@@ -392,6 +485,6 @@ const Browse: React.FC<Props> = ({ location }) => {
       </Layout>
     );
   }
-}
+};
 
 export default withRouter(Browse);

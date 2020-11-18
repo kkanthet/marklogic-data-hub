@@ -56,43 +56,42 @@ function matchDetailsByMergedQuery(mergedQuery) {
  * @return {{contentCollection: string, mergedCollection: string, notificationCollection: string, archivedCollection: string, auditingCollection: string}} collectionInfo
  */
 function checkOptions(content, options, filteredContent = [], reqOptProperties = requiredOptionProperties) {
-  let hasRequiredOptions = reqOptProperties.every((propName) => !!options[propName]);
+  let existingRequiredOptions = reqOptProperties.filter((propNames) => {
+    if (Array.isArray(propNames)) {
+      return true;
+    } else {
+      return !!options[propNames];
+    }
+  });
+  let hasRequiredOptions = existingRequiredOptions.length === reqOptProperties.length;
   if (!hasRequiredOptions) {
-    throw new Error(`Missing the following required mastering options: ${xdmp.describe(requiredOptionProperties.filter((propName) => !options[propName]), emptySequence, emptySequence)}`);
-  }
-  options.matchOptions = options.matchOptions || {};
-  options.mergeOptions = options.mergeOptions || {};
-  // provide default empty array values for collections to simplify later logic
-  options.mergeOptions.collections = Object.assign({"content": [], "archived": [], "merged": [], "notification": [], "auditing": []},options.mergeOptions.collections);
-  options.matchOptions.collections = Object.assign({"content": []},options.matchOptions.collections);
-  // sanity check the collections set for the match/merge options
-  if (options.matchOptions.collections.content.length) {
-    options.mergeOptions.collections.content = options.matchOptions.collections.content;
-  } else if (options.mergeOptions.collections.content.length) {
-    options.matchOptions.collections.content = options.mergeOptions.collections.content;
+    let missingProperties = reqOptProperties.filter((propNames) => !existingRequiredOptions.includes(propNames));
+    throw new Error(`Missing the following required mastering options: ${xdmp.toJsonString(missingProperties)}`);
   }
 
-  if (options.targetEntity) {
-    // set the target entity based off of the step options
-    options.mergeOptions.targetEntity = options.targetEntity;
-    options.matchOptions.targetEntity = options.targetEntity;
-    // Set default collections be entity type
-    options.mergeOptions.collections = getCollectionSettings(options.mergeOptions.collections, options.targetEntity);
-  }
+  const targetEntityType = options.targetEntityType || options.targetEntity;
+  options.targetEntityType = targetEntityType;
+  const optionsRoot = (options.mergeOptions || options.matchOptions || options);
+  setCollectionDefaults(optionsRoot, targetEntityType);
 
-  if (reqOptProperties.includes('mergeOptions')) {
+  let targetCollections = {};
+  ['onMerge', 'onNoMatch', 'onArchive', 'onNotification'].forEach((eventName) => {
+    targetCollections[eventName] = targetCollections[eventName] || {};
+  });
+  if (options.mergeOptions) {
     options.mergeOptions.algorithms = options.mergeOptions.algorithms || {};
-    options.mergeOptions.algorithms.collections = options.mergeOptions.algorithms.collections || {};
-    ['onMerge', 'onNoMatch', 'onArchive', 'onNotification'].forEach((eventName) => {
-      options.mergeOptions.algorithms.collections[eventName] = options.mergeOptions.algorithms.collections[eventName] || {};
-    });
+    options.mergeOptions.algorithms.collections = Object.assign(targetCollections, options.mergeOptions.algorithms.collections);
+  } else if (options.mergeRules) {
+    options.targetCollections = options.targetCollections || {};
+    options.targetCollections = Object.assign(targetCollections, targetCollections);
   }
 
-  const contentCollection = fn.head(masteringCollections.getCollections(Sequence.from(options.mergeOptions.collections.content), masteringConsts['CONTENT-COLL']));
-  const archivedCollection = fn.head(masteringCollections.getCollections(Sequence.from(options.mergeOptions.collections.archived), masteringConsts['ARCHIVED-COLL']));
-  const mergedCollection = fn.head(masteringCollections.getCollections(Sequence.from(options.mergeOptions.collections.merged), masteringConsts['MERGED-COLL']));
-  const notificationCollection = fn.head(masteringCollections.getCollections(Sequence.from(options.mergeOptions.collections.notification), masteringConsts['NOTIFICATION-COLL']));
-  const auditingCollection = fn.head(masteringCollections.getCollections(Sequence.from(options.mergeOptions.collections.auditing), masteringConsts['AUDITING-COLL']));
+  const collections = optionsRoot.collections;
+  const contentCollection = fn.head(masteringCollections.getCollections(Sequence.from(collections.content), masteringConsts['CONTENT-COLL']));
+  const archivedCollection = fn.head(masteringCollections.getCollections(Sequence.from(collections.archived), masteringConsts['ARCHIVED-COLL']));
+  const mergedCollection = fn.head(masteringCollections.getCollections(Sequence.from(collections.merged), masteringConsts['MERGED-COLL']));
+  const notificationCollection = fn.head(masteringCollections.getCollections(Sequence.from(collections.notification), masteringConsts['NOTIFICATION-COLL']));
+  const auditingCollection = fn.head(masteringCollections.getCollections(Sequence.from(collections.auditing), masteringConsts['AUDITING-COLL']));
   let contentHasExpectedContentCollection = true;
   let contentHasTargetEntityCollection = true;
   if (content) {
@@ -111,19 +110,29 @@ function checkOptions(content, options, filteredContent = [], reqOptProperties =
     }
   }
   // If target entity is set, we match on documents containing an entity instead of a content collection
-  if (!options.targetEntity) {
+  if (!options.targetEntityType) {
     if (content && !contentHasExpectedContentCollection) {
       if (contentHasTargetEntityCollection) {
         xdmp.log(`Expected collection "${contentCollection}" not found on content. Using entity collection "${options.targetEntity}" instead. \
         You may need to review your match/merge options`, 'notice');
-        options.matchOptions.collections.content.push(options.targetEntity);
-        options.mergeOptions.collections.content.push(options.targetEntity);
+        optionsRoot.collections.content.push(options.targetEntity);
       } else {
         xdmp.log(`Expected collection "${contentCollection}" not found on content. You may need to review your match/merge options`, 'warning');
       }
     }
   }
   return { archivedCollection, contentCollection, mergedCollection, notificationCollection, auditingCollection };
+}
+
+function setCollectionDefaults(collectionsParent, targetEntityType) {
+  // provide default empty array values for collections to simplify later logic
+  collectionsParent.collections = Object.assign({"content": [], "archived": [], "merged": [], "notification": [], "auditing": []},collectionsParent.collections);
+  if (targetEntityType) {
+    if (!(collectionsParent.targetEntity || collectionsParent.targetEntityType)) {
+      collectionsParent.targetEntityType = targetEntityType;
+    }
+    collectionsParent.collections = getCollectionSettings(collectionsParent.collections, targetEntityType);
+  }
 }
 
 function expectedCollectionEvents(entityType, existingMergeOptions) {

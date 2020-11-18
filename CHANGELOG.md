@@ -1,4 +1,15 @@
 # Change Log
+# [v5.2.5](https://github.com/marklogic/marklogic-data-hub/releases/tag/v5.2.5) (2020-10-29)
+**Fixed Bugs:**
+- [DHFPROD-6162] - Writing temporal documents to temporal collections fails with "data-hub-operator".
+
+
+# [v5.2.4](https://github.com/marklogic/marklogic-data-hub/releases/tag/v5.2.4) (2020-09-03)
+**Fixed Bugs:**
+- [DHFPROD-5866] - Handle null/empty/undefined values in table view for Explorer application
+- [DHFPROD-4687] - Retrieve the keystore wallet's password in a secure fashion
+
+
 # [v5.2.3](https://github.com/marklogic/marklogic-data-hub/releases/tag/v5.2.3) (2020-07-10)
 
 **Fixed Bugs:**

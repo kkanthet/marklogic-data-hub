@@ -1,5 +1,6 @@
 package com.marklogic.hub.impl;
 
+import com.marklogic.client.DatabaseClient;
 import com.marklogic.client.ext.SecurityContextType;
 import com.marklogic.hub.DatabaseKind;
 import com.marklogic.hub.HubConfig;
@@ -129,6 +130,16 @@ public class HubConfigImplTest {
             "LoadSchemasCommand requires that the schemas path be absolute; path: " + config.getAppConfig().getSchemaPaths());
     }
 
+    @Test
+    void connectionTypeIsGatewayInProvisionedEnvironment(){
+        HubConfigImpl hubConfig = new HubConfigImpl("localhost", "admin", "admin");
+        assertNull(hubConfig.getAppConfig().getRestConnectionType());
+        hubConfig.setIsProvisionedEnvironment(true);
+        hubConfig.applyProperties(new Properties());
+        assertEquals(DatabaseClient.ConnectionType.GATEWAY, hubConfig.getAppConfig().getRestConnectionType());
+        assertEquals(DatabaseClient.ConnectionType.GATEWAY, hubConfig.getAppConfig().getAppServicesConnectionType());
+    }
+
     private void verifyDefaultValues(HubConfigImpl config) {
         assertFalse(config.getIsHostLoadBalancer());
 
@@ -235,5 +246,21 @@ public class HubConfigImplTest {
         assertEquals("digest", config.getAuthMethod(DatabaseKind.FINAL));
         assertEquals("digest", config.getAuthMethod(DatabaseKind.STAGING));
         assertEquals("digest", config.getAuthMethod(DatabaseKind.JOB));
+    }
+
+    @Test
+    void registerLowerCasedPropertyConsumers() {
+        HubConfigImpl config = new HubConfigImpl();
+        config.registerLowerCasedPropertyConsumers();
+
+        Properties props = new Properties();
+        props.setProperty("mlhost", "lower-host");
+        props.setProperty("mlusername", "lower-user");
+        props.setProperty("mlpassword", "lower-password");
+        config.applyProperties(new SimplePropertySource(props));
+
+        assertEquals("lower-host", config.getHost());
+        assertEquals("lower-user", config.getMlUsername());
+        assertEquals("lower-password", config.getMlPassword());
     }
 }

@@ -1,6 +1,6 @@
 @font-face {
   font-family: MLCustomFont;
-  src: url(./fonts/ML_IconFont.ttf);
+  src: url(./fonts/ML_IconFont_explore.ttf);
   font-family: 'MLCustomFont'format('truetype');
   font-weight: normal;
   font-style: normal;
@@ -17,8 +17,10 @@ body {
   position: relative;
   margin-right: 70px;
   overflow-y: auto;
-  height: 100vh;
+  height: 90vh;
   max-height: 92vh;
+  margin-bottom: 70px;
+  flex: 1;
 }
 
 .ant-layout-header {
@@ -34,7 +36,9 @@ body {
   margin: 0;
 }
 main {
-  flex: 1;
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
 }
 #background {
   display: flex;
@@ -44,14 +48,15 @@ main {
 .ant-layout-footer {
   display: flex;
   justify-content: center;
-  padding: 30px 0;
+  padding: 20px 0 0 0;
   margin: 0;
   background-color: transparent;
+  height: 60px;
 }
 
 /* Handle any excess scroll space below background image */
 .bgColorImage {
-  background-color: #ac4c58;
+  background-color: #181d23;
 }
 .bgColorWhite {
   background-color: #fff;
@@ -144,10 +149,9 @@ tr.ant-table-row:hover > td {
 
 .ant-tooltip {
   white-space: pre-wrap;
-}
-
-.ant-popover {
-  position: fixed;
+  width: max-content;
+  font-style: normal;
+  font-weight: normal;
 }
 
 .react-resizable > .ant-table-header-column {
@@ -197,6 +201,16 @@ ul.ant-cascader-menu {
 ul.ant-cascader-menu:nth-child(2) {
   min-width: 150px;
   width: auto;
+}
+
+/* Mapping - Create/Edit step Typeahead search  */
+
+.ant-select-dropdown-menu-item-active:not(.ant-select-dropdown-menu-item-disabled) {
+  background-color: #E9F7FE;
+}
+
+.ant-select-auto-complete.ant-select .ant-select-selection--single {
+  width: 95%;
 }
 
 
@@ -255,3 +269,6 @@ ul.ant-cascader-menu:nth-child(2) {
     margin-top: 18px;
 }
 
+.ant-select-dropdown-menu-item{
+  text-align: left;
+}

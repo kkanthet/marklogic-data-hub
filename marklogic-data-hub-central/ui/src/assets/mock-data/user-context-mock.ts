@@ -1,4 +1,5 @@
 import { UserContextInterface, IUserContextInterface } from '../../types/user-types';
+import {MAX_SESSION_TIME} from "../../config/application.config";
 
 const defaultUserData: UserContextInterface = {
   name: '',
@@ -9,8 +10,8 @@ const defaultUserData: UserContextInterface = {
     type: ''
   },
   pageRoute: '/',
-  maxSessionTime: 300
-}
+  maxSessionTime: MAX_SESSION_TIME
+};
 
 const defaultUserContext: IUserContextInterface = {
   user: defaultUserData,
@@ -22,7 +23,7 @@ const defaultUserContext: IUserContextInterface = {
   setPageRoute: jest.fn(),
   setAlertMessage: jest.fn(),
   resetSessionTime: jest.fn(),
-  getSessionTime: jest.fn().mockReturnValue(300)
+  getSessionTime: jest.fn().mockReturnValue(MAX_SESSION_TIME)
 };
 
 export const userNotAuthenticated: IUserContextInterface = defaultUserContext;
@@ -34,10 +35,10 @@ export const userAuthenticated: IUserContextInterface = Object.assign(defaultUse
     error : {
       type: ''
     },
-    pageRoute: '/',
-    maxSessionTime: 300
+    pageRoute: '/tiles',
+    maxSessionTime: MAX_SESSION_TIME
   }
-})
+});
 
 export const userSessionWarning: IUserContextInterface = {
   user: {
@@ -49,7 +50,7 @@ export const userSessionWarning: IUserContextInterface = {
       type: ''
     },
     pageRoute: '/',
-    maxSessionTime: 300
+    maxSessionTime: MAX_SESSION_TIME
   },
   loginAuthenticated: jest.fn(),
   sessionAuthenticated: jest.fn(),
@@ -60,7 +61,7 @@ export const userSessionWarning: IUserContextInterface = {
   resetSessionTime: jest.fn(),
   clearErrorMessage: jest.fn(),
   getSessionTime: jest.fn().mockReturnValue(29)
-}
+};
 
 export const userModalError: IUserContextInterface = {
   user: {
@@ -72,7 +73,7 @@ export const userModalError: IUserContextInterface = {
       type: 'MODAL'
     },
     pageRoute: '/',
-    maxSessionTime: 300
+    maxSessionTime: MAX_SESSION_TIME
   },
   loginAuthenticated: jest.fn(),
   sessionAuthenticated: jest.fn(),
@@ -82,8 +83,8 @@ export const userModalError: IUserContextInterface = {
   handleError: jest.fn(),
   resetSessionTime: jest.fn(),
   clearErrorMessage: jest.fn(),
-  getSessionTime: jest.fn().mockReturnValue(300)
-}
+  getSessionTime: jest.fn().mockReturnValue(MAX_SESSION_TIME)
+};
 
 export const userNoErrorNoSessionWarning: IUserContextInterface = {
   user: {
@@ -95,7 +96,7 @@ export const userNoErrorNoSessionWarning: IUserContextInterface = {
       type: ''
     },
     pageRoute: '/',
-    maxSessionTime: 300
+    maxSessionTime: MAX_SESSION_TIME
   },
   loginAuthenticated: jest.fn(),
   sessionAuthenticated: jest.fn(),
@@ -105,8 +106,8 @@ export const userNoErrorNoSessionWarning: IUserContextInterface = {
   handleError: jest.fn(),
   resetSessionTime: jest.fn(),
   clearErrorMessage: jest.fn(),
-  getSessionTime: jest.fn().mockReturnValue(300)
-}
+  getSessionTime: jest.fn().mockReturnValue(MAX_SESSION_TIME)
+};
 
 export const userHasModalErrorHasSessionWarning: IUserContextInterface = {
   user: {
@@ -118,7 +119,7 @@ export const userHasModalErrorHasSessionWarning: IUserContextInterface = {
       type: 'MODAL'
     },
     pageRoute: '/',
-    maxSessionTime: 300
+    maxSessionTime: MAX_SESSION_TIME
   },
   loginAuthenticated: jest.fn(),
   sessionAuthenticated: jest.fn(),
@@ -129,4 +130,4 @@ export const userHasModalErrorHasSessionWarning: IUserContextInterface = {
   resetSessionTime: jest.fn(),
   clearErrorMessage: jest.fn(),
   getSessionTime: jest.fn().mockReturnValue(29)
-}
+};

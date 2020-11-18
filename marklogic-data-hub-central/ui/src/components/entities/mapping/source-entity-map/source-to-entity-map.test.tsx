@@ -1,7 +1,7 @@
 import React from 'react';
-import { waitForElement, waitForElementToBeRemoved, render, cleanup, fireEvent, within, screen, wait, prettyDOM } from '@testing-library/react';
+import { waitForElement, waitForElementToBeRemoved, render, cleanup, fireEvent, within } from '@testing-library/react';
 import SourceToEntityMap from './source-to-entity-map';
-import data from '../../../../assets/mock-data/common.data';
+import data from '../../../../assets/mock-data/curation/common.data';
 import { shallow } from 'enzyme';
 import SplitPane from 'react-split-pane';
 import axiosMock from 'axios';
@@ -29,17 +29,32 @@ describe('RTL Source-to-entity map tests', () => {
     });
 
     test('RTL tests with source data',  () => {
-        const { getByTestId,  getByText, queryByText, rerender} = render(<SourceToEntityMap {...data.mapProps} mappingVisible={true}/>);
+        const { getByTestId,  getByText, queryByText, rerender } = render(<SourceToEntityMap {...data.mapProps} mappingVisible={true}/>);
         expect(getByText('Source Data')).toBeInTheDocument();
         expect(getByText('proteinId')).toBeInTheDocument();
+        expect(getByText('emptyString')).toBeInTheDocument();
+        expect(getByText('nullValue')).toBeInTheDocument();
+        expect(getByText('numberValue')).toBeInTheDocument();
+        expect(getByText('booleanValue')).toBeInTheDocument();
+        expect(getByText('whitespaceValue')).toBeInTheDocument();
+        expect(getByText('emptyArrayValue')).toBeInTheDocument();
         expect(getByTestId("entityContainer")).toBeInTheDocument();
         expect(getByTestId("srcContainer")).toBeInTheDocument();
         expect(getByTestId("srcContainer")).toHaveClass("sourceContainer");
         expect(getByText('Entity: Person')).toBeInTheDocument();
         expect(getByText('Test')).toBeEnabled();
-        rerender(<SourceToEntityMap{...data.mapProps} mappingVisible={true} isLoading={true} />)
+
+        // Check datatype class names for source values
+        expect(getByTestId("emptyString-srcValue").children[0].className.includes('datatype-string')).toBe(true);
+        expect(getByTestId("nullValue-srcValue").children[0].className.includes('datatype-null')).toBe(true);
+        expect(getByTestId("numberValue-srcValue").children[0].className.includes('datatype-number')).toBe(true);
+        expect(getByTestId("booleanValue-srcValue").children[0].className.includes('datatype-boolean')).toBe(true);
+        expect(getByTestId("whitespaceValue-srcValue").children[0].className.includes('datatype-string')).toBe(true);
+        expect(getByTestId("emptyArrayValue-srcValue").children[0].className.includes('datatype-object')).toBe(true);
+
+        rerender(<SourceToEntityMap{...data.mapProps} mappingVisible={true} isLoading={true} />);
         expect(getByTestId('spinTest')).toBeInTheDocument();
-        rerender(<SourceToEntityMap{...data.mapProps} mappingVisible={true} isLoading={false} />)
+        rerender(<SourceToEntityMap{...data.mapProps} mappingVisible={true} isLoading={false} />);
         expect(queryByText("Unable to find source records using the specified collection or query.")).not.toBeInTheDocument();
         let exp = getByText('testNameInExp');
         expect(exp).toBeInTheDocument();
@@ -70,7 +85,7 @@ describe('RTL Source-to-entity map tests', () => {
         expect(queryByText('forSearch')).not.toBeInTheDocument();
     });
 
-    test('Mapping expression for a nested entity property with same name should be saved apprpriately', async () => {
+    test('Mapping expression for a nested entity property with same name should be saved appropriately', async () => {
         const nestedEntityWithSameName = [
             { key: 1, name: 'propId', type: 'int' },
             { key: 2, name: 'propName', type: 'parent-Name', children: [
@@ -89,13 +104,13 @@ describe('RTL Source-to-entity map tests', () => {
         />);
 
         fireEvent.change(getAllByTestId('propName-mapexpression')[0], { target: { value: "concat(propName,'-NEW')" } });
-        fireEvent.blur(getAllByTestId('propName-mapexpression')[0])
-        await(waitForElement(() => (getByTestId('successMessage'))))
+        fireEvent.blur(getAllByTestId('propName-mapexpression')[0]);
+        await(waitForElement(() => (getByTestId('successMessage'))));
 
         //Appropriate field should be saved when there are duplicate property names
-        expect(getAllByTestId('propName-mapexpression')[0]).toHaveTextContent("concat(propName,'-NEW')")
-        expect(getAllByTestId('propName-mapexpression')[1]).toHaveTextContent('')
-    })
+        expect(getAllByTestId('propName-mapexpression')[0]).toHaveTextContent("concat(propName,'-NEW')");
+        expect(getAllByTestId('propName-mapexpression')[1]).toHaveTextContent('');
+    });
 
     test('Filtering Name column in Source (JSON Source Data) and Entity tables', () => {
 
@@ -334,43 +349,43 @@ describe('RTL Source-to-entity map tests', () => {
 
       //Check the sort order of Name column rows before enforcing sort order
       let srcTable = document.querySelectorAll('#srcContainer .ant-table-row-level-0');
-      validateMappingTableRow(srcTable, ['proteinId', 'proteinType', 'nutFreeName', 'proteinCat', 'proteinDog'], 'key', data.mapProps.sourceData);
+      validateMappingTableRow(srcTable, ['proteinId', 'proteinType', 'nutFreeName', 'proteinCat', 'proteinDog', 'emptyString', 'nullValue', 'numberValue', 'booleanValue', 'whitespaceValue', 'emptyArrayValue', 'numberArray', 'booleanArray'], 'key', data.mapProps.sourceData);
 
       //Click on the Name column to sort the rows by Ascending order
       fireEvent.click(sourceTableNameSort);
       srcTable = document.querySelectorAll('#srcContainer .ant-table-row-level-0');
-      validateMappingTableRow(srcTable, ['nutFreeName', 'proteinCat', 'proteinDog', 'proteinId', 'proteinType'],  'key', data.mapProps.sourceData);
+      validateMappingTableRow(srcTable, ['booleanArray', 'booleanValue', 'emptyArrayValue', 'emptyString', 'nullValue', 'numberArray', 'numberValue', 'nutFreeName', 'proteinCat', 'proteinDog', 'proteinId', 'proteinType', 'whitespaceValue'],  'key', data.mapProps.sourceData);
 
       //Click on the Name column to sort the rows by Descending order
       fireEvent.click(sourceTableNameSort);
       srcTable = document.querySelectorAll('#srcContainer .ant-table-row-level-0');
-      validateMappingTableRow(srcTable, ['proteinType','proteinId', 'proteinDog', 'proteinCat', 'nutFreeName'],  'key', data.mapProps.sourceData);
+      validateMappingTableRow(srcTable, ['whitespaceValue', 'proteinType','proteinId', 'proteinDog', 'proteinCat', 'nutFreeName', 'numberValue', 'numberArray', 'nullValue', 'emptyString', 'emptyArrayValue', 'booleanValue', 'booleanArray'],  'key', data.mapProps.sourceData);
 
       //Click on the Name column again to remove the applied sort order and check if its removed
       fireEvent.click(sourceTableNameSort);
       srcTable = document.querySelectorAll('#srcContainer .ant-table-row-level-0');
-      validateMappingTableRow(srcTable, ['proteinId', 'proteinType', 'nutFreeName', 'proteinCat', 'proteinDog'], 'key', data.mapProps.sourceData);
+      validateMappingTableRow(srcTable, ['proteinId', 'proteinType', 'nutFreeName', 'proteinCat', 'proteinDog', 'emptyString', 'nullValue', 'numberValue', 'booleanValue', 'whitespaceValue', 'emptyArrayValue', 'numberArray', 'booleanArray'], 'key', data.mapProps.sourceData);
 
       /* Validate sorting on Values column in source table */
 
       //Check the sort order of Values column rows before enforcing sort order
       srcTable = document.querySelectorAll('#srcContainer .ant-table-row-level-0');
-      validateMappingTableRow(srcTable, ['123EAC', 'home', undefined, 'commercial', 'retriever, golden, labrador'], 'val', data.mapProps.sourceData);
+      validateMappingTableRow(srcTable, ['123EAC', 'home', undefined, 'commercial', 'retriever, golden, labrador', '', 'null', '321', 'true', ' ', '[ ]', '1, 2, 3', 'true, false, true'], 'val', data.mapProps.sourceData);
 
       //Click on the Values column to sort the rows by Ascending order
       fireEvent.click(sourceTableValueSort);
       srcTable = document.querySelectorAll('#srcContainer .ant-table-row-level-0');
-      validateMappingTableRow(srcTable, ['123EAC', 'commercial', 'home', 'retriever, golden, labrador', undefined], 'val', data.mapProps.sourceData);
+      validateMappingTableRow(srcTable, ['', ' ', '[ ]', '1, 2, 3', '123EAC', '321', 'commercial', 'home', 'null', 'retriever, golden, labrador', 'true', 'true, false, true', undefined], 'val', data.mapProps.sourceData);
 
       //Click on the Values column to sort the rows by Descending order
       fireEvent.click(sourceTableValueSort);
       srcTable = document.querySelectorAll('#srcContainer .ant-table-row-level-0');
-      validateMappingTableRow(srcTable, ['retriever, golden, labrador', 'home', 'commercial', '123EAC', undefined], 'val', data.mapProps.sourceData);
+      validateMappingTableRow(srcTable, ['true', 'retriever, golden, labrador', 'null', 'home', 'commercial', '123EAC', undefined, 'true, false, true', '321', '1, 2, 3', '[ ]', ' ', ''], 'val', data.mapProps.sourceData);
 
       //Click on the Value column again to remove the applied sort order and check if its removed
       fireEvent.click(sourceTableValueSort);
       srcTable = document.querySelectorAll('#srcContainer .ant-table-row-level-0');
-      validateMappingTableRow(srcTable, ['123EAC', 'home', undefined, 'commercial', 'retriever, golden, labrador'], 'val', data.mapProps.sourceData);
+      validateMappingTableRow(srcTable, ['123EAC', 'home', undefined, 'commercial', 'retriever, golden, labrador', '', 'null', '321', 'true', ' ', '[ ]', '1, 2, 3', 'true, false, true'], 'val', data.mapProps.sourceData);
 
       /* Validate sorting in Entity table columns */
       const entityTableNameSort = getByTestId('entityTableName'); // For value column sorting
@@ -410,137 +425,137 @@ describe('RTL Source-to-entity map tests', () => {
 
     test('Verify evaluation of valid expression for mapping writer user', async () => {
         axiosMock.post['mockImplementation'](jest.fn(() => Promise.resolve({ status: 200, data: data.testJSONResponse })));
-        const { getByText, getByTestId, queryByTestId } = render(<SourceToEntityMap {...data.mapProps} mappingVisible={true} />)
+        const { getByText, getByTestId, queryByTestId } = render(<SourceToEntityMap {...data.mapProps} mappingVisible={true} />);
         let propNameExpression = getByText('testNameInExp');
-        let propAttributeExpression = getByText('placeholderAttribute')
+        let propAttributeExpression = getByText('placeholderAttribute');
 
         fireEvent.change(propNameExpression, { target: {value: "proteinID" }});
-        fireEvent.blur(propNameExpression)
+        fireEvent.blur(propNameExpression);
         fireEvent.change(propAttributeExpression, { target: {value: "proteinType" }});
-        fireEvent.blur(propAttributeExpression)
+        fireEvent.blur(propAttributeExpression);
 
         // Test button should be disabled before mapping expression is saved
-        expect(document.querySelector('#Test-btn')).toBeDisabled()
+        expect(document.querySelector('#Test-btn')).toBeDisabled();
 
         // waiting for success message before clicking on Test button
-        await(waitForElement(() => (getByTestId('successMessage'))))
+        await(waitForElement(() => (getByTestId('successMessage'))));
         // checking successMessage is still there before waitForElementToBeRemoved as this would occasionally fail under load
         if (queryByTestId('successMessage')) {
-            await (waitForElementToBeRemoved(() => (queryByTestId('successMessage'))))
+            await (waitForElementToBeRemoved(() => (queryByTestId('successMessage'))));
         }
 
         // Test button should be enabled after mapping expression is saved
-        expect(document.querySelector('#Test-btn')).toBeEnabled()
+        expect(document.querySelector('#Test-btn')).toBeEnabled();
 
         //Verify Test button click
-        fireEvent.click(getByText('Test'))
-        await(waitForElement(() => getByTestId('propName-value')))
-        expect(getByTestId('propName-value')).toHaveTextContent('123EAC')
-        expect(getByTestId('propAttribute-value')).toHaveTextContent('home')
+        fireEvent.click(getByText('Test'));
+        await(waitForElement(() => getByTestId('propName-value')));
+        expect(getByTestId('propName-value')).toHaveTextContent('123EAC');
+        expect(getByTestId('propAttribute-value')).toHaveTextContent('home');
 
         //Verify Clear button click
-        fireEvent.click(getByText('Clear'))
-        expect(getByTestId('propName-value')).not.toHaveTextContent('123EAC')
-        expect(getByTestId('propAttribute-value')).not.toHaveTextContent('home')
+        fireEvent.click(getByText('Clear'));
+        expect(getByTestId('propName-value')).not.toHaveTextContent('123EAC');
+        expect(getByTestId('propAttribute-value')).not.toHaveTextContent('home');
         // DEBUG
         // debug(onClosestTableRow(getByTestId('propName-value')))
         // debug(onClosestTableRow(getByTestId('propAttribute-value')))
-    })
+    });
 
     test('Truncation in case of responses for Array datatype', async () => {
         axiosMock.post['mockImplementation'](jest.fn(() => Promise.resolve({ status: 200, data: data.truncatedJSONResponse })));
-        const { getByText, getAllByRole, getByTestId, queryByTestId } = render(<SourceToEntityMap {...data.mapProps} mappingVisible={true} entityTypeProperties={data.truncatedEntityProps} sourceData = {data.JSONSourceDataToTruncate}/>)
+        const { getByText, getByTestId, queryByTestId } = render(<SourceToEntityMap {...data.mapProps} mappingVisible={true} entityTypeProperties={data.truncatedEntityProps} sourceData = {data.JSONSourceDataToTruncate}/>);
         let propNameExpression = getByText('testNameInExp');
-        let propAttributeExpression = getByText('placeholderAttribute')
+        let propAttributeExpression = getByText('placeholderAttribute');
 
         fireEvent.change(propNameExpression, { target: {value: "proteinID" }});
-        fireEvent.blur(propNameExpression)
+        fireEvent.blur(propNameExpression);
         fireEvent.change(propAttributeExpression, { target: {value: "proteinType" }});
-        fireEvent.blur(propAttributeExpression)
+        fireEvent.blur(propAttributeExpression);
 
         // Test button should be disabled before mapping expression is saved
-        expect(document.querySelector('#Test-btn')).toBeDisabled()
+        expect(document.querySelector('#Test-btn')).toBeDisabled();
 
         // waiting for success message before clicking on Test button
-        await(waitForElement(() => (getByTestId('successMessage'))))
+        await(waitForElement(() => (getByTestId('successMessage'))));
         if (queryByTestId('successMessage')) {
-            await (waitForElementToBeRemoved(() => (queryByTestId('successMessage'))))
+            await (waitForElementToBeRemoved(() => (queryByTestId('successMessage'))));
         }
 
         //Verify truncated text in Source table
-        await(waitForElement(() => getByTestId('proteinId-srcValue')))
-        expect(getByTestId('proteinId-srcValue')).toHaveTextContent('extremelylonguse...')
-        expect(getByTestId('proteinType-srcValue')).toHaveTextContent('s@ml.com (7 more)')
+        await(waitForElement(() => getByTestId('proteinId-srcValue')));
+        expect(getByTestId('proteinId-srcValue')).toHaveTextContent('extremelylongu...');
+        expect(getByTestId('proteinType-srcValue')).toHaveTextContent('s@ml.com (7 more)');
 
         //Verify tooltip shows full value when hovering Source values
-        fireEvent.mouseOver(getByText('extremelylonguse...'))
+        fireEvent.mouseOver(getByText('extremelylongu...'));
         await waitForElement(() => getByText('extremelylongusername@marklogic.com'));
 
         //Verify tooltip shows all values in a list when hovering values with multiple items
-        fireEvent.mouseOver(getByText((_, node) => node.textContent == '(7 more)'))
+        fireEvent.mouseOver(getByText((_, node) => node.textContent == '(7 more)'));
         await waitForElement(() => getByText('s@ml.com, , t@ml.com, u@ml.com, v@ml.com, w@ml.com, x@ml.com, y@ml.com, z@ml.com'));
 
         // Test button should be enabled after mapping expression is saved
-        expect(document.querySelector('#Test-btn')).toBeEnabled()
+        expect(document.querySelector('#Test-btn')).toBeEnabled();
 
         //Verify Test button click and truncated text in Entity table
-        fireEvent.click(getByText('Test'))
-        await(waitForElement(() => getByTestId('propName-value')))
-        expect(getByTestId('propName-value')).toHaveTextContent('extremelylongusername@m...')
-        expect(getByTestId('propAttribute-value')).toHaveTextContent('s@ml.com (7 more)')
+        fireEvent.click(getByText('Test'));
+        await(waitForElement(() => getByTestId('propName-value')));
+        expect(getByTestId('propName-value')).toHaveTextContent('extremelylongusername@m...');
+        expect(getByTestId('propAttribute-value')).toHaveTextContent('s@ml.com (7 more)');
 
         // Verify tooltip shows full value when hovering Test values
-        fireEvent.mouseOver(getByText('extremelylongusername@m...'))
+        fireEvent.mouseOver(getByText('extremelylongusername@m...'));
         await waitForElement(() => getByText('extremelylongusername@marklogic.com'));
-    })
+    });
 
     test('Verify evaluation of valid expression for mapping reader user', async () => {
         axiosMock.post['mockImplementation'](jest.fn(() => Promise.resolve({ status: 200, data: data.testJSONResponse })));
         //Updating mapping expression as a mapping writer user first
-        const { getByText, getByTestId, rerender } = render(<SourceToEntityMap {...data.mapProps} mappingVisible={true} />)
-        let propAttributeExpression = getByText('placeholderAttribute')
+        const { getByText, getByTestId, rerender } = render(<SourceToEntityMap {...data.mapProps} mappingVisible={true} />);
+        let propAttributeExpression = getByText('placeholderAttribute');
 
         fireEvent.change(propAttributeExpression, { target: {value: "proteinType" }});
-        fireEvent.blur(propAttributeExpression)
+        fireEvent.blur(propAttributeExpression);
 
         // waiting for success message before clicking on Test button
-        await(waitForElement(() => (getByTestId('successMessage'))))
+        await(waitForElement(() => (getByTestId('successMessage'))));
 
         //Rerendering as a mapping reader user
-        rerender(<SourceToEntityMap {...data.mapProps} canReadWrite={false} canReadOnly={true} mappingVisible={true}/>)
+        rerender(<SourceToEntityMap {...data.mapProps} canReadWrite={false} canReadOnly={true} mappingVisible={true}/>);
 
         //Verify Test button click
-        fireEvent.click(getByText('Test'))
-        await(waitForElement(() => getByTestId('propAttribute-value')))
-        expect(getByTestId('propAttribute-value')).toHaveTextContent('home')
+        fireEvent.click(getByText('Test'));
+        await(waitForElement(() => getByTestId('propAttribute-value')));
+        expect(getByTestId('propAttribute-value')).toHaveTextContent('home');
 
         //Verify Clear button click
-        fireEvent.click(getByText('Clear'))
-        expect(getByTestId('propAttribute-value')).not.toHaveTextContent('home')
+        fireEvent.click(getByText('Clear'));
+        expect(getByTestId('propAttribute-value')).not.toHaveTextContent('home');
 
         //Verify that fx/source-data list is disabled for mapping reader user
         expect(getByTestId('propId-1-functionIcon')).toBeDisabled();
-        expect(getByTestId('propId-listIcon1')).toHaveAttribute('disabled')
-    })
+        expect(getByTestId('propId-listIcon1')).toHaveAttribute('disabled');
+    });
 
     test('Verify evaluation of invalid expression for mapping writer user', async () => {
         axiosMock.post['mockImplementation'](jest.fn(() => Promise.resolve({ status: 200, data: data.errorJSONResponse })));
-        const { getByText, getByTestId, queryByTestId } = render(<SourceToEntityMap {...data.mapProps} mappingVisible={true} />)
-        let propIdExpression = getByText('id')
+        const { getByText, getByTestId, queryByTestId } = render(<SourceToEntityMap {...data.mapProps} mappingVisible={true} />);
+        let propIdExpression = getByText('id');
 
-        fireEvent.change(propIdExpression, { target: {value: "proteinID" }})
-        fireEvent.blur(propIdExpression)
+        fireEvent.change(propIdExpression, { target: {value: "proteinID" }});
+        fireEvent.blur(propIdExpression);
 
         // waiting for success message before clicking on Test button
-        await(waitForElement(() => (getByTestId('successMessage'))))
+        await(waitForElement(() => (getByTestId('successMessage'))));
 
         //Verify Test button click
-        fireEvent.click(getByText('Test'))
-        await(waitForElement(() => getByTestId('propId-expErr')))
+        fireEvent.click(getByText('Test'));
+        await(waitForElement(() => getByTestId('propId-expErr')));
 
         //debug(onClosestTableRow(getByTestId('propId-value')))
-        expect(getByTestId('propId-expErr')).toHaveTextContent(data.errorJSONResponse.properties.propId.errorMessage)
-        expect(getByTestId('propId-value')).toHaveTextContent('')
+        expect(getByTestId('propId-expErr')).toHaveTextContent(data.errorJSONResponse.properties.propId.errorMessage);
+        expect(getByTestId('propId-value')).toHaveTextContent('');
 
         //SCROLL TEST FOR BUG DHFPROD-4743
         //let element = document.querySelector('#entityContainer .ant-table-body')
@@ -551,52 +566,53 @@ describe('RTL Source-to-entity map tests', () => {
         //debug(document.querySelector('#entityContainer .ant-table-fixed-header'))
 
         //Verify Clear button click
-        fireEvent.click(getByText('Clear'))
-        expect(queryByTestId('propId-expErr')).toBeNull()
+        fireEvent.click(getByText('Clear'));
+        expect(queryByTestId('propId-expErr')).toBeNull();
 
         //Verify that fx/source-data list is enabled for mapping writer user
         expect(getByTestId('propId-1-functionIcon')).toBeEnabled();
-        expect(getByTestId('propId-listIcon1')).not.toHaveAttribute('disabled')
-    })
+        expect(getByTestId('propId-listIcon1')).not.toHaveAttribute('disabled');
+    });
 
     test('Verify evaluation of invalid expression for mapping reader user', async () => {
         axiosMock.post['mockImplementation'](jest.fn(() => Promise.resolve({ status: 200, data: data.errorJSONResponse })));
         //Updating mapping expression as a mapping writer user first
-        const { getByText, getByTestId, rerender, queryByTestId } = render(<SourceToEntityMap {...data.mapProps} mappingVisible={true} />)
-        let propIdExpression = getByText('id')
+        const { getByText, getByTestId, rerender, queryByTestId } = render(<SourceToEntityMap {...data.mapProps} mappingVisible={true} />);
+        let propIdExpression = getByText('id');
 
-        fireEvent.change(propIdExpression, { target: {value: "proteinID" }})
-        fireEvent.blur(propIdExpression)
+        fireEvent.change(propIdExpression, { target: {value: "proteinID" }});
+        fireEvent.blur(propIdExpression);
 
         // waiting for success message before clicking on Test button
-        await(waitForElement(() => (getByTestId('successMessage'))))
+        await(waitForElement(() => (getByTestId('successMessage'))));
 
         //Rerendering as a mapping reader user
-        rerender(<SourceToEntityMap {...data.mapProps} canReadWrite={false} canReadOnly={true} mappingVisible={true} />)
+        rerender(<SourceToEntityMap {...data.mapProps} canReadWrite={false} canReadOnly={true} mappingVisible={true} />);
 
         //Verify Test button click
-        fireEvent.click(getByText('Test'))
-        await(waitForElement(() => getByTestId('propId-expErr')))
+        fireEvent.click(getByText('Test'));
+        await(waitForElement(() => getByTestId('propId-expErr')));
 
         //debug(onClosestTableRow(getByTestId('propId-value')))
-        expect(getByTestId('propId-expErr')).toHaveTextContent(data.errorJSONResponse.properties.propId.errorMessage)
-        expect(getByTestId('propId-value')).toHaveTextContent('')
+        expect(getByTestId('propId-expErr')).toHaveTextContent(data.errorJSONResponse.properties.propId.errorMessage);
+        expect(getByTestId('propId-value')).toHaveTextContent('');
 
         //Verify Clear button click
-        fireEvent.click(getByText('Clear'))
-        expect(queryByTestId('propId-expErr')).toBeNull()
-    })
+        fireEvent.click(getByText('Clear'));
+        expect(queryByTestId('propId-expErr')).toBeNull();
+    });
 
     xtest('Verify evaluation of valid expression for XML source document', () => {
-        const { getByText } = render(<SourceToEntityMap {...data.mapProps} sourceData={data.xmlSourceData} mappingVisible={true} />)
+        // const { getByText } = render(<SourceToEntityMap {...data.mapProps} sourceData={data.xmlSourceData} mappingVisible={true} />);
         /**
          * TODO once DHFPROD-4845 is implemented
          */
-    })
+
+    });
 
     test('CollapseAll/Expand All feature in JSON Source data table and Entity table', () => {
 
-        const { getByTestId, getByText, queryByText } = render(<SourceToEntityMap {...data.mapProps}
+        const { getByTestId, getByText, queryByText, rerender, getByLabelText } = render(<SourceToEntityMap {...data.mapProps}
             mappingVisible={true}
         />);
 
@@ -607,20 +623,22 @@ describe('RTL Source-to-entity map tests', () => {
         expect(getByText('FirstNamePreferred')).toBeInTheDocument();
         expect(getByText('LastName')).toBeInTheDocument();
 
-        let expandCollapseBtn = getByTestId('expandCollapseBtn-source');
+        let expandCollapseBtnSrc = getByTestId('expandCollapseBtn-source');
 
-        expect(expandCollapseBtn.textContent).toBe('Expand'); // Validating the button label
+        expect(expandCollapseBtnSrc.textContent).toBe('Expand All'); // Validating the button label
 
-        fireEvent.click(expandCollapseBtn); //Expanding all nested levels
-        expect(expandCollapseBtn.textContent).toBe('Collapse'); // Validating the button label
+        fireEvent.click(expandCollapseBtnSrc); //Expanding all nested levels
+        expect(expandCollapseBtnSrc.textContent).toBe('Collapse All'); // Validating the button label
         expect(getByText('suffix')).toBeInTheDocument();
 
         //Check if indentation is right
         expect(getByText('suffix').closest('td')?.firstElementChild).toHaveStyle("padding-left: 40px;");
 
-        fireEvent.click(expandCollapseBtn); //Collapsing back to the default view (root and 1st level)
-        expect(expandCollapseBtn.textContent).toBe('Expand'); // Validating the button label
+        fireEvent.click(expandCollapseBtnSrc); //Collapsing all child levels
+        expect(expandCollapseBtnSrc.textContent).toBe('Expand All'); // Validating the button label
         expect(onClosestTableRow(getByText('suffix'))?.style.display).toBe('none'); // Checking if the row is marked hidden in DOM. All collapsed rows are marked hidden(display: none) once you click on Collapse All button.
+        expect(onClosestTableRow(getByText('FirstNamePreferred'))?.style.display).toBe('none');
+        expect(onClosestTableRow(getByText('LastName'))?.style.display).toBe('none');
 
         /* Validate collapse-expand in Entity table */
         //Check if the expected Entity table elements are present in the DOM before hittting the Expand/Collapse button
@@ -629,20 +647,35 @@ describe('RTL Source-to-entity map tests', () => {
         expect(getByText('itemTypes')).toBeInTheDocument();
         expect(getByText('itemCategory')).toBeInTheDocument();
 
-        expandCollapseBtn = getByTestId('expandCollapseBtn-entity');
+        let expandCollapseBtn = getByTestId('expandCollapseBtn-entity');
 
-        expect(expandCollapseBtn.textContent).toBe('Expand');
+        expect(expandCollapseBtn.textContent).toBe('Expand All');
 
         fireEvent.click(expandCollapseBtn); //Expanding all nested levels
-        expect(expandCollapseBtn.textContent).toBe('Collapse');
+        expect(expandCollapseBtn.textContent).toBe('Collapse All');
         expect(getByText('artCraft')).toBeInTheDocument();
 
         //Check if indentation is right
         expect(getByText('artCraft').closest('td')?.firstElementChild).toHaveStyle("padding-left: 28px;");
 
-        fireEvent.click(expandCollapseBtn); //Collapsing back to the default view (root and 1st level)
-        expect(expandCollapseBtn.textContent).toBe('Expand');
+        fireEvent.click(expandCollapseBtn); //Collapsing all child levels
+        expect(expandCollapseBtn.textContent).toBe('Expand All');
         expect(onClosestTableRow(getByText('artCraft'))?.style.display).toBe('none'); // Checking if the row is marked hidden(collapsed) in DOM. All collapsed rows are marked hidden(display: none) once you click on Collapse All button.
+        expect(onClosestTableRow(getByText('itemTypes'))?.style.display).toBe('none');
+        expect(onClosestTableRow(getByText('itemCategory'))?.style.display).toBe('none');
+
+        //Verify Expand/Collapse button for source and entity tables resets to 'Expand All' when Modal is closed and reoponed
+        fireEvent.click(expandCollapseBtn);
+        expect(expandCollapseBtn.textContent).toBe('Collapse All');
+        fireEvent.click(expandCollapseBtnSrc);
+        expect(expandCollapseBtnSrc.textContent).toBe('Collapse All');
+        fireEvent.click(getByLabelText('Close'));
+        rerender(<SourceToEntityMap {...data.mapProps}
+            mappingVisible={true}
+        />);
+        expect(expandCollapseBtn.textContent).toBe('Expand All');
+        expect(expandCollapseBtnSrc.textContent).toBe('Expand All');
+
     });
 
     test('CollapseAll/Expand All feature in XML Source data table', () => {
@@ -662,12 +695,13 @@ describe('RTL Source-to-entity map tests', () => {
 
         let expandCollapseBtn = getByTestId('expandCollapseBtn-source');
 
-        expect(expandCollapseBtn.textContent).toBe('Expand');
+        expect(expandCollapseBtn.textContent).toBe('Expand All');
 
         fireEvent.click(expandCollapseBtn); //Expanding all nested levels
-        expect(expandCollapseBtn.textContent).toBe('Collapse');
+        expect(expandCollapseBtn.textContent).toBe('Collapse All');
         let firstName = getByText('FirstNamePreferred');
         let lastName = getByText('LastName');
+        let proteinId = getByText('proteinId');
         expect(firstName).toBeInTheDocument();
         expect(firstName.closest('td')?.firstElementChild).toHaveStyle("padding-left: 40px;"); // Check if the indentation is right
 
@@ -675,7 +709,9 @@ describe('RTL Source-to-entity map tests', () => {
         expect(lastName.closest('td')?.firstElementChild).toHaveStyle("padding-left: 40px;"); // Check if the indentation is right
 
         fireEvent.click(expandCollapseBtn); //Collapsing back to the default view (root and 1st level)
-        expect(expandCollapseBtn.textContent).toBe('Expand');
+        expect(expandCollapseBtn.textContent).toBe('Expand All');
+        expect(expandCollapseBtn.textContent).toBe('Expand All');
+        expect(onClosestTableRow(proteinId)?.style.display).toBe('none');
         expect(onClosestTableRow(firstName)?.style.display).toBe('none');
         expect(onClosestTableRow(lastName)?.style.display).toBe('none');
     });
@@ -686,7 +722,7 @@ describe('RTL Source-to-entity map tests', () => {
         const { getByText, getByTestId, getAllByRole, queryByText, queryByTestId } = render(<SourceToEntityMap {...data.mapProps} mappingVisible={true} />);
 
         //Prepare the map expression field for function signature later
-        let propAttributeExpression = getByTestId('propAttribute-mapexpression')
+        let propAttributeExpression = getByTestId('propAttribute-mapexpression');
         fireEvent.change(propAttributeExpression, { target: { value: "" } });
         fireEvent.blur(propAttributeExpression);
 
@@ -698,11 +734,11 @@ describe('RTL Source-to-entity map tests', () => {
                 element.className === "ant-select-search__field"
         );
 
-        await (waitForElement(() => getAllByRole("option"), { "timeout": 200 }))
+        await (waitForElement(() => getAllByRole("option"), { "timeout": 200 }));
         expect(getByText('concat')).toBeInTheDocument();
         expect(getByText('documentLookup')).toBeInTheDocument();
 
-        fireEvent.click(inputBox) // focus on the search box
+        fireEvent.click(inputBox); // focus on the search box
 
         // Filter out the funcitons list to get to concat function
         fireEvent.change(inputBox, { target: { value: "conc" } });
@@ -710,16 +746,16 @@ describe('RTL Source-to-entity map tests', () => {
         expect(queryByText('documentLookup')).not.toBeInTheDocument();
 
         //Choose the concat function
-        fireEvent.keyDown(inputBox, { key: 'Enter', code: 'Enter', keyCode: 13, charCode: 13 })
+        fireEvent.keyDown(inputBox, { key: 'Enter', code: 'Enter', keyCode: 13, charCode: 13 });
 
         //Map Expression is populated with function signature
         expect(propAttributeExpression).toHaveTextContent("concat(xs:anyAtomicType?)");
         fireEvent.change(propAttributeExpression, { target: { value: "concat(proteinType,'-NEW')" } });
         fireEvent.blur(propAttributeExpression);
 
-        await (waitForElement(() => (getByTestId('successMessage'))))
+        await (waitForElement(() => (getByTestId('successMessage'))));
         if (queryByTestId('successMessage')) {
-            await (waitForElementToBeRemoved(() => (queryByTestId('successMessage'))))
+            await (waitForElementToBeRemoved(() => (queryByTestId('successMessage'))));
         }
 
         expect(propAttributeExpression).toHaveTextContent("concat(proteinType,'-NEW')");
@@ -740,9 +776,29 @@ describe('RTL Source-to-entity map tests', () => {
 
         //Verify if value appears in the Value column after clicking on Test button
         fireEvent.click(getByText('Test'));
-        await (waitForElement(() => getByTestId('propAttribute-value')))
-        expect(getByTestId('propAttribute-value')).toHaveTextContent('home-NEW') // home should be mapped as home-New
+        await (waitForElement(() => getByTestId('propAttribute-value')));
+        expect(getByTestId('propAttribute-value')).toHaveTextContent('home-NEW'); // home should be mapped as home-New
 
+    });
+
+    test('URI nav index resets on close of mapping',  async() => {
+        const { getByLabelText, getByTestId } = render(<SourceToEntityMap {...data.mapProps}  mappingVisible={true}/>);
+
+        // URI index starts at 1
+        let uriIndex = within(getByLabelText('uriIndex'));
+        expect(uriIndex.getByText('1')).toBeInTheDocument();
+
+        // Click next, URI index is 2
+        fireEvent.click(getByTestId('navigate-uris-right'));
+        uriIndex = within(getByLabelText('uriIndex'));
+        expect(uriIndex.getByText('2')).toBeInTheDocument();
+
+        // Close mapping modal
+        fireEvent.click(getByLabelText('icon: close'));
+
+        // URI index reset to 1
+        uriIndex = within(getByLabelText('uriIndex'));
+        expect(uriIndex.getByText('1')).toBeInTheDocument();
     });
 
 });
@@ -777,7 +833,7 @@ describe('Enzyme Source-to-entity map tests', () => {
         expect(splitPane.prop('primary')).toEqual('second');
         expect(splitPane.prop('allowResize')).toEqual(true);
         expect(wrapper.find(SplitPane).at(0).find('#srcContainer').length).toEqual(1);
-        expect(wrapper.find(SplitPane).at(0).find('#entityContainer').length).toEqual(1)
+        expect(wrapper.find(SplitPane).at(0).find('#entityContainer').length).toEqual(1);
     });
 
     test('Enzyme tests with no source data', () => {
@@ -830,7 +886,7 @@ describe('Enzyme Source-to-entity map tests', () => {
         //TO DO: Below tests can be done when working on E2E tests.
         //fireEvent.click(getByLabelText('icon: down'));
         //expect(queryByText('category')).not.toBeInTheDocument();
-    })
+    });
 });
 
 describe('RTL Source Selector/Source Search tests', () => {
@@ -850,12 +906,12 @@ describe('RTL Source Selector/Source Search tests', () => {
         //corresponds to 'itemTypes' source selector
         fireEvent.click(sourceSelector);
 
-        await(waitForElement(() =>  getAllByRole("option"),{"timeout":200}))
+        await(waitForElement(() =>  getAllByRole("option"),{"timeout":200}));
         let firstName = getAllByText("FirstNamePreferred");
-        expect(firstName.length).toEqual(2)
+        expect(firstName.length).toEqual(2);
 
         let lastName = getAllByText("LastName");
-        expect(lastName.length).toEqual(2)
+        expect(lastName.length).toEqual(2);
 
         let inputBox = getByText(
             (_content, element) =>
@@ -863,21 +919,21 @@ describe('RTL Source Selector/Source Search tests', () => {
                 element.className ==="ant-select-search__field"
         );
 
-        fireEvent.click(inputBox)
+        fireEvent.click(inputBox);
         fireEvent.change(inputBox, { target: {value: "Fir" }});
 
         //2 instances of 'firstName'
         firstName = getAllByText("FirstNamePreferred");
-        expect(firstName.length).toEqual(2)
+        expect(firstName.length).toEqual(2);
 
         //Only 1 instances of 'lastName' as search has narrowed the results
         lastName = getAllByText("LastName");
-        expect(lastName.length).toEqual(1)
+        expect(lastName.length).toEqual(1);
 
-        fireEvent.keyDown(inputBox, { key: 'Enter', code: 'Enter' , keyCode: 13, charCode: 13 })
+        fireEvent.keyDown(inputBox, { key: 'Enter', code: 'Enter' , keyCode: 13, charCode: 13 });
 
         //mapping is saved
-        expect(await(waitForElement(() => getByTestId("successMessage"),{"timeout":200})))
+        expect(await(waitForElement(() => getByTestId("successMessage"),{"timeout":200})));
 
         let mapExp = getByTestId("itemTypes-mapexpression");
         //Right Xpath is populated
@@ -903,9 +959,9 @@ describe('RTL Source Selector/Source Search tests', () => {
         expect(getByTestId('LastName-optionIcon')).toHaveAttribute('src', 'icon_array.png');
 
         //Verify tooltip for Array icon
-        fireEvent.mouseOver(getByTestId('LastName-optionIcon'))
+        fireEvent.mouseOver(getByTestId('LastName-optionIcon'));
         await waitForElement(() => getByText('Multiple'));
-        fireEvent.mouseOver(getByTestId('nutFreeName-optionIcon'))
+        fireEvent.mouseOver(getByTestId('nutFreeName-optionIcon'));
         await waitForElement(() => getByText('Multiple'));
 
     });
@@ -928,14 +984,14 @@ describe('RTL Source Selector/Source Search tests', () => {
         expect(getByTestId('nutFree:name-optionIcon')).toHaveAttribute('src', 'icon_array.png');
 
         //Verify tooltip for Array icon
-        fireEvent.mouseOver(getByTestId('nutFree:name-optionIcon'))
+        fireEvent.mouseOver(getByTestId('nutFree:name-optionIcon'));
         await waitForElement(() => getByText('Multiple'));
     });
 
 
     test('Nested JSON source data - Right XPATH expression',  async() => {
         axiosMock.post['mockImplementation'](data.mapProps.updateMappingArtifact);
-        const { getByText, getAllByText, getByTestId, getAllByTestId, getAllByRole } = render(<SourceToEntityMap {...data.mapProps}  mappingVisible={true}/>);
+        const { getByText, getAllByText, getByTestId, getAllByRole } = render(<SourceToEntityMap {...data.mapProps}  mappingVisible={true}/>);
         expect(getByText('Source Data')).toBeInTheDocument();
         expect(getByText('Entity: Person')).toBeInTheDocument();
         expect(getByText('Test')).toBeEnabled();
@@ -945,25 +1001,25 @@ describe('RTL Source Selector/Source Search tests', () => {
         //corresponds to 'itemTypes' source selector
         fireEvent.click(sourceSelector);
 
-        await(waitForElement(() =>  getAllByRole("option"),{"timeout":200}))
+        await(waitForElement(() =>  getAllByRole("option"),{"timeout":200}));
         let firstName = getAllByText("FirstNamePreferred");
-        expect(firstName.length).toEqual(2)
+        expect(firstName.length).toEqual(2);
 
         //Check if indentation is right
         expect(firstName[1]).toHaveStyle("line-height: 2vh; text-indent: 20px;");
 
         //Verify Array icon is present when item has no children but value was an Array of simple values.
-        expect(getByTestId('proteinDog-optionIcon')).toHaveAttribute('src', 'icon_array.png')
+        expect(getByTestId('proteinDog-optionIcon')).toHaveAttribute('src', 'icon_array.png');
 
         //Verify tooltip for Array icon
-        fireEvent.mouseOver(getByTestId('proteinDog-optionIcon'))
+        fireEvent.mouseOver(getByTestId('proteinDog-optionIcon'));
         await waitForElement(() => getByText('Multiple'));
 
         //Click on 'FirstNamePreferred'
         fireEvent.click(firstName[1]);
 
         //mapping is saved
-        expect(await(waitForElement(() => getByTestId("successMessage"),{"timeout":200})))
+        expect(await(waitForElement(() => getByTestId("successMessage"),{"timeout":200})));
 
         let mapExp = getByTestId("itemTypes-mapexpression");
         //Right Xpath is populated
@@ -983,21 +1039,21 @@ describe('RTL Source Selector/Source Search tests', () => {
         //corresponds to 'itemTypes' source selector
         fireEvent.click(sourceSelector);
 
-        await(waitForElement(() =>  getAllByRole("option"),{"timeout":200}))
+        await(waitForElement(() =>  getAllByRole("option"),{"timeout":200}));
         let lastName = getAllByText("LastName");
-        expect(lastName.length).toEqual(2)
+        expect(lastName.length).toEqual(2);
 
         //Check if indentation is right
         expect(lastName[1]).toHaveStyle("line-height: 2vh; text-indent: 40px;");
 
         //Verify Array icon is not present when item has no children
-        expect(getByTestId('FirstNamePreferred-optionIcon')).toHaveAttribute('src', '')
+        expect(getByTestId('FirstNamePreferred-optionIcon')).toHaveAttribute('src', '');
 
         //Verify Array icon is present when item has children
-        expect(getByTestId('sampleProtein-optionIcon')).toHaveAttribute('src', 'icon_array.png')
+        expect(getByTestId('sampleProtein-optionIcon')).toHaveAttribute('src', 'icon_array.png');
 
         //Verify Array icon is present when item has no children but value was an Array of simple values.
-        expect(getByTestId('nutFree:proteinDog-optionIcon')).toHaveAttribute('src', 'icon_array.png')
+        expect(getByTestId('nutFree:proteinDog-optionIcon')).toHaveAttribute('src', 'icon_array.png');
 
         //Verify option in source dropdown only appears once when value is an Array of simple values.
         let proteinDog = (getAllByTestId('nutFree:proteinDog-option'));
@@ -1008,14 +1064,14 @@ describe('RTL Source Selector/Source Search tests', () => {
         expect(nutFreeName.length).toEqual(1);
 
         //Verify tooltip for Array icon
-        fireEvent.mouseOver(getByTestId('LastName-optionIcon'))
+        fireEvent.mouseOver(getByTestId('LastName-optionIcon'));
         await waitForElement(() => getByText('Multiple'));
 
         //Click on 'FirstNamePreferred'
         fireEvent.click(lastName[1]);
 
         //mapping is saved
-        expect(await(waitForElement(() => getByTestId("successMessage"),{"timeout":200})))
+        expect(await(waitForElement(() => getByTestId("successMessage"),{"timeout":200})));
 
         let mapExp = getByTestId("itemTypes-mapexpression");
         //Right Xpath is populated
@@ -1024,7 +1080,7 @@ describe('RTL Source Selector/Source Search tests', () => {
         //Right Xpath population for namespaced option representing array of values
         sourceSelector = getByTestId("items-listIcon");
         fireEvent.click(sourceSelector);
-        await(waitForElement(() =>  getAllByRole("option"),{"timeout":200}))
+        await(waitForElement(() =>  getAllByRole("option"),{"timeout":200}));
         let proteinDogOption = (getAllByTestId('nutFree:proteinDog-option'));
         expect(proteinDogOption.length).toEqual(2);
         fireEvent.click(proteinDogOption[1]);
@@ -1042,12 +1098,12 @@ describe('RTL Source Selector/Source Search tests', () => {
         //corresponds to 'items' source selector
         fireEvent.click(sourceSelector);
 
-        await(waitForElement(() =>  getAllByRole("option"),{"timeout":600}))
+        await(waitForElement(() =>  getAllByRole("option"),{"timeout":600}));
         //Set 'sourceContext' to 'nutFreeName'
         let nutFreeName = getAllByText("nutFreeName");
         expect(nutFreeName.length).toEqual(2);
         fireEvent.click(getAllByText("nutFreeName")[1]);
-        expect(await(waitForElement(() => getByTestId("successMessage"),{"timeout":600})))
+        expect(await(waitForElement(() => getByTestId("successMessage"),{"timeout":600})));
 
         let mapExp = getByTestId("items-mapexpression");
         //Right Xpath is populated
@@ -1055,13 +1111,13 @@ describe('RTL Source Selector/Source Search tests', () => {
 
         sourceSelector = getByTestId("itemTypes-listIcon");
         fireEvent.click(sourceSelector);
-        await(waitForElement(() => getAllByRole("option"),{"timeout":600}))
+        await(waitForElement(() => getAllByRole("option"),{"timeout":600}));
         let firstName = getAllByText("FirstNamePreferred");
         fireEvent.click(firstName[2]);
         //mapping is saved
-        await (waitForElement(() => getByTestId("successMessage")))
+        await (waitForElement(() => getByTestId("successMessage")));
         if (queryByTestId('successMessage')) {
-            await (waitForElementToBeRemoved(() => (queryByTestId('successMessage'))))
+            await (waitForElementToBeRemoved(() => (queryByTestId('successMessage'))));
         }
 
         mapExp = getByTestId("itemTypes-mapexpression");

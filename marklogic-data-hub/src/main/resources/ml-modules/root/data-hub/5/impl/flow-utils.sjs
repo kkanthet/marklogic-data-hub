@@ -78,8 +78,11 @@ class FlowUtils {
   /**
    : Construct an envelope
    :
-   : @param map - a map with all the stuff in it
-   : @return - the newly constructed envelope
+   : @param content - A content object that's used to build "instance" section of the envelope
+   : @param headers - An object that goes into 'headers' section of envelope
+   : @param triples - An array of triples that goes into 'triples' section of envelope
+   : @param dataFormat - The format of the envelope. For example, "xml" or "json"
+   : @return - The envelope in the specified 'dataFormat'
    */
 
   makeEnvelope(content, headers, triples, dataFormat) {
@@ -542,6 +545,23 @@ class FlowUtils {
     }
     if(options.file) {
         headers["createdUsingFile"] = options.file;
+    }
+
+    const sourceName = options.sourceName ? options.sourceName : null;
+    const sourceType = options.sourceType ? options.sourceType : null;
+
+    if(headers["sources"] && !Array.isArray(headers["sources"])) {
+      headers.sources = [headers.sources];
+    }
+
+    if(sourceName || sourceType) {
+      if(!headers["sources"] || headers["sources"].length == 0) {
+        headers["sources"] = [];
+      }
+      headers["sources"].push({
+        "name": sourceName === null ? undefined : sourceName,
+        "datahubSourceType": sourceType === null ? undefined : sourceType
+      });
     }
     return headers;
   }

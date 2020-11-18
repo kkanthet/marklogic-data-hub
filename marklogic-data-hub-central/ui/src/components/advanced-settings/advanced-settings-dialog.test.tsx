@@ -3,8 +3,9 @@ import axiosMock from 'axios';
 import { fireEvent, render, wait, waitForElement, act, cleanup } from "@testing-library/react";
 import AdvancedSettingsDialog from './advanced-settings-dialog';
 import mocks from '../../api/__mocks__/mocks.data';
-import data from '../../assets/mock-data/advanced-settings.data';
+import data from '../../assets/mock-data/curation/advanced-settings.data';
 import {AdvancedSettings} from "../../config/tooltips.config";
+import {AdvancedSettingsMessages} from "../../config/messages.config";
 
 jest.mock('axios');
 
@@ -20,7 +21,7 @@ describe('Advanced Step Settings dialog', () => {
   });
 
   test('Verify settings for Load', async () => {
-    const { getByText, getAllByText, getAllByLabelText, queryByText } = render(
+    const { getByText, getAllByText, queryByText } = render(
       <AdvancedSettingsDialog {...data.advancedLoad} />
     );
 
@@ -148,8 +149,46 @@ describe('Advanced Step Settings dialog', () => {
 
   });
 
+  test('Verify settings for Matching', async () => {
+    const { getByText, getAllByText } = render(
+        <AdvancedSettingsDialog {...data.advancedMatching} />
+    );
+
+    expect(getByText('Advanced Step Settings')).toBeInTheDocument();
+
+    //Verify if the step name is available in the settings dialog
+    expect(document.querySelector('div p:nth-child(2)').textContent).toEqual(data.advancedMatching.stepData.name);
+
+    expect(getByText('Source Database')).toBeInTheDocument();
+    expect(getByText('data-hub-FINAL')).toBeInTheDocument();
+    expect(getByText('Target Database')).toBeInTheDocument();
+    expect(getByText('data-hub-FINAL')).toBeInTheDocument();
+
+    expect(getByText('Target Collections')).toBeInTheDocument();
+    expect(getByText('Please add target collections')).toBeInTheDocument();
+    expect(getByText('Default Collections')).toBeInTheDocument();
+    expect((await(waitForElement(() => getAllByText('AdvancedMatching')))).length > 0);
+
+    expect(getByText('Target Permissions')).toBeInTheDocument();
+
+    expect(getByText('Batch Size')).toBeInTheDocument();
+
+    expect(getByText('Provenance Granularity')).toBeInTheDocument();
+    expect(getByText('Coarse-grained')).toBeInTheDocument();
+
+    expect(getByText('Processors')).toBeInTheDocument();
+    expect(getByText('Custom Hook')).toBeInTheDocument();
+
+    fireEvent.click(getByText('Processors'));
+    expect(getByText('{ "processor": true }')).toBeInTheDocument();
+
+    fireEvent.click(getByText('Custom Hook'));
+    expect(getByText('{ "hook": true }')).toBeInTheDocument();
+
+  });
+
   test('Verify form fields can be input/selected', async () => {
-    let getByText, getAllByText, getByLabelText, getByTestId, getAllByTestId, getByPlaceholderText, debug;
+    let getByText, getAllByText, getByLabelText, getByTestId, getAllByTestId, getByPlaceholderText;
     await act(async () => {
       const renderResults = render(
         <AdvancedSettingsDialog {...data.advancedMapping} />
@@ -160,7 +199,6 @@ describe('Advanced Step Settings dialog', () => {
       getByTestId = renderResults.getByTestId;
       getAllByTestId = renderResults.getAllByTestId;
       getByPlaceholderText = renderResults.getByPlaceholderText;
-      debug = renderResults.debug;
     });
 
     fireEvent.click(getByLabelText('sourceDatabase-select'));
@@ -188,17 +226,26 @@ describe('Advanced Step Settings dialog', () => {
 
     //Verifying entity validation options select field
     fireEvent.click(getByText('Do not validate'));
-    const entValOptions = getAllByTestId('entityValOpts').map(li => li);
-    expect(entValOptions.map(li => li.textContent).toString()).toEqual('Do not validate,Store validation errors in entity headers,Skip documents with validation  errors');
-    fireEvent.select(entValOptions[1]);
+    fireEvent.select(getByTestId('entityValOpts-1'));
     expect(getByText('Store validation errors in entity headers')).toBeInTheDocument();
+    fireEvent.click(getByText('Store validation errors in entity headers'));
+    fireEvent.select(getByTestId('entityValOpts-2'));
+    expect(getByText('Skip documents with validation errors')).toBeInTheDocument();
 
     //Not able to send input to Additional collections. Test via e2e
     //https://github.com/testing-library/react-testing-library/issues/375
     //Solution in github wont work because our list for additional collection is empty to start with
 
-    fireEvent.change(getByPlaceholderText('Please enter target permissions'), { target: { value: 'permissions-changed' }});
-    expect(getByPlaceholderText('Please enter target permissions')).toHaveValue('permissions-changed');
+    fireEvent.change(getByPlaceholderText('Please enter target permissions'), { target: { value: 'data-hub-operator' }});
+    expect(getByPlaceholderText('Please enter target permissions')).toHaveValue('data-hub-operator');
+    fireEvent.blur(getByPlaceholderText('Please enter target permissions'));
+    expect(getByTestId('validationError')).toHaveTextContent(AdvancedSettingsMessages.targetPermissions.incorrectFormat);
+
+    fireEvent.change(getByPlaceholderText('Please enter target permissions'), { target: { value: 'data-hub-operator,read' }});
+    expect(getByPlaceholderText('Please enter target permissions')).toHaveValue('data-hub-operator,read');
+    fireEvent.blur(getByPlaceholderText('Please enter target permissions'));
+    expect(getByTestId('validationError')).toHaveTextContent('');
+
 
     fireEvent.change(getByLabelText('headers-textarea'), { target: { value: 'headers-changed' }});
     expect(getByLabelText('headers-textarea')).toHaveValue('headers-changed');
@@ -406,8 +453,8 @@ describe('Advanced Step Settings dialog', () => {
       'targetFormat', 'provGranularity','validateEntity', 'batchSize', 'headers', 'processors', 'customHook'];
     tips.forEach(async (tip, i) => {
       fireEvent.mouseOver(tipIcons[i]);
-      await waitForElement(() => getByText(AdvancedSettings[tip]))
-    })
+      await waitForElement(() => getByText(AdvancedSettings[tip]));
+    });
   });
 
 });

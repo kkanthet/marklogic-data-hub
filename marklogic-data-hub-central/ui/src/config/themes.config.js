@@ -1,4 +1,4 @@
-import Background from '../assets/Color_Large_Banner.jpg';
+import Background from '../assets/background-fast-lines.jpg';
 
 // Page themes
 let themes = {
@@ -34,7 +34,7 @@ let themes = {
         },
         bodyBg: 'bgColorWhite'
     }
-}
+};
 
 // Default theme if none mapped to pathname
 themes['default'] = themes['white'];
@@ -43,9 +43,9 @@ themes['default'] = themes['white'];
 const themeMap = {
     '/':         'image',
     '/install':  'image'
-}
+};
 
 export {
     themes,
     themeMap
-}
+};

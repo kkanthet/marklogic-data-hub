@@ -21,16 +21,15 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.marklogic.client.document.DocumentPage;
 import com.marklogic.client.document.GenericDocumentManager;
 import com.marklogic.hub.FlowManager;
-import com.marklogic.hub.HubConfig;
 import com.marklogic.hub.StepDefinitionManager;
 import com.marklogic.hub.flow.Flow;
 import com.marklogic.hub.step.StepDefinition;
 import com.marklogic.hub.step.impl.Step;
 import com.marklogic.hub.util.FileUtil;
+import com.marklogic.hub.web.AbstractWebTest;
 import com.marklogic.hub.web.model.MappingModel;
 import com.marklogic.hub.web.model.StepModel;
 import org.apache.commons.io.IOUtils;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -44,7 +43,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class FlowManagerServiceTest extends AbstractServiceTest {
+class FlowManagerServiceTest extends AbstractWebTest {
 
     private static String FLOW = "testFlow";
     private static String FLOWWITHCOMMONSTEPS = "testFlowWithStepsInOtherFlow";
@@ -80,23 +79,11 @@ class FlowManagerServiceTest extends AbstractServiceTest {
 
     @BeforeEach
     void setUp() {
-        Path flowDir = getHubProject().getFlowsDir();
-
-        FileUtil.copy(getResourceStream("flow-manager/flows/testFlow.flow.json"), flowDir.resolve("testFlow.flow.json").toFile());
-        FileUtil.copy(getResourceStream("flow-manager/flows/testFlowWithStepsInOtherFlow.flow.json"), flowDir.resolve("testFlowWithStepsInOtherFlow.flow.json").toFile());
-
-        installUserModules(getDataHubAdminConfig(), true);
-    }
-
-    @AfterEach
-    void teardownProject() {
-        clearUserModules();
-        deleteProjectDir();
-        clearDatabases(HubConfig.DEFAULT_FINAL_NAME, HubConfig.DEFAULT_STAGING_NAME, HubConfig.DEFAULT_JOB_NAME);
+        installProjectInFolder("flow-manager");
     }
 
     @Test
-    void deleteFlow() throws InterruptedException {
+    void deleteFlow() {
         List<String> flowList = flowManagerService.getFlowNames();
         assertEquals(2, flowList.size());
 
@@ -106,12 +93,9 @@ class FlowManagerServiceTest extends AbstractServiceTest {
         flowList = flowManagerService.getFlowNames();
         assertEquals(0, flowList.size());
 
-        // Adding sleep to delete artifacts from the db via async call
-        Thread.sleep(1000);
-
-        DocumentPage doc = stagingDocMgr.read("/flows/" + FLOW + ".flow.json");
+        DocumentPage doc = getHubClient().getStagingClient().newDocumentManager().read("/flows/" + FLOW + ".flow.json");
         assertFalse(doc.hasNext());
-        doc = finalDocMgr.read("/flows/" + FLOW + ".flow.json");
+        doc = getHubClient().getFinalClient().newDocumentManager().read("/flows/" + FLOW + ".flow.json");
         assertFalse(doc.hasNext());
     }
 
@@ -181,16 +165,16 @@ class FlowManagerServiceTest extends AbstractServiceTest {
         Step step = stepMap.get("5");
         assertTrue(step.isMappingStep());
         step.setName(mappingName);
-        ((ObjectNode)step.getOptions().get("mapping")).put("name", mappingName);
+        ((ObjectNode) step.getOptions().get("mapping")).put("name", mappingName);
         flowManager.saveFlow(flow);
 
         // Install artifacts so we can verify that the mappings are deleted
-        installHubArtifacts(getHubConfig(), true);
+        installHubArtifacts();
         installUserModules(getHubConfig(), true);
 
         // Verify the mappings exist
-        GenericDocumentManager stagingDocumentManager = stagingClient.newDocumentManager();
-        GenericDocumentManager finalDocumentManager = finalClient.newDocumentManager();
+        GenericDocumentManager stagingDocumentManager = getHubClient().getStagingClient().newDocumentManager();
+        GenericDocumentManager finalDocumentManager = getHubClient().getFinalClient().newDocumentManager();
         final String expectedMappingUri = "/mappings/testMapping/testMapping-1.mapping.json";
         assertNotNull(stagingDocumentManager.exists(expectedMappingUri));
         assertNotNull(finalDocumentManager.exists(expectedMappingUri));
@@ -208,7 +192,7 @@ class FlowManagerServiceTest extends AbstractServiceTest {
         String customStepName = "myTestCustomStep";
         InputStream inputStream = getResourceStream(
             "scaffolding-test/" + customStepName + StepDefinitionManager.STEP_DEFINITION_FILE_EXTENSION);
-        FileUtil.copy(inputStream, getDataHubAdminConfig().getStepDefinitionPath(StepDefinition.StepDefinitionType.CUSTOM)
+        FileUtil.copy(inputStream, getHubProject().getStepDefinitionPath(StepDefinition.StepDefinitionType.CUSTOM)
             .resolve(customStepName + "/" + customStepName + StepDefinitionManager.STEP_DEFINITION_FILE_EXTENSION).toFile());
         IOUtils.closeQuietly(inputStream);
         assertEquals(1, stepDefinitionManager.getStepDefinitions().size(),
@@ -225,12 +209,12 @@ class FlowManagerServiceTest extends AbstractServiceTest {
         flowManager.saveFlow(flow);
 
         // Install artifacts so we can verify that the step definition can be deleted
-        installHubArtifacts(getHubConfig(), true);
+        installHubArtifacts();
         installUserModules(getHubConfig(), true);
 
         // Verify the step exists
-        GenericDocumentManager stagingDocumentManager = stagingClient.newDocumentManager();
-        GenericDocumentManager finalDocumentManager = finalClient.newDocumentManager();
+        GenericDocumentManager stagingDocumentManager = getHubClient().getStagingClient().newDocumentManager();
+        GenericDocumentManager finalDocumentManager = getHubClient().getFinalClient().newDocumentManager();
         final String expectedStepUri = "/step-definitions/custom/myTestCustomStep/myTestCustomStep.step.json";
         assertNotNull(stagingDocumentManager.exists(expectedStepUri));
         assertNotNull(finalDocumentManager.exists(expectedStepUri));

@@ -18,11 +18,12 @@
 const Artifacts = require('/data-hub/5/artifacts/core.sjs');
 const Step = require("/data-hub/5/impl/step.sjs");
 const consts = require("/data-hub/5/impl/consts.sjs");
-const ds = require("/data-hub/5/data-services/ds-utils.sjs");
+const httpUtils = require("/data-hub/5/impl/http-utils.sjs");
 const entityLib = require("/data-hub/5/impl/entity-lib.sjs");
 
 var stepDefinitionType;
 var stepProperties;
+var overwrite;
 
 stepDefinitionType = stepDefinitionType.toLowerCase();
 
@@ -30,12 +31,14 @@ if ("ingestion" === stepDefinitionType) {
   xdmp.securityAssert("http://marklogic.com/data-hub/privileges/write-ingestion", "execute");
 } else if ("mapping" === stepDefinitionType) {
   xdmp.securityAssert("http://marklogic.com/data-hub/privileges/write-mapping", "execute");
+} else if ("matching" === stepDefinitionType || "merging" === stepDefinitionType) {
+  xdmp.securityAssert("http://marklogic.com/data-hub/privileges/write-match-merge", "execute");
 } else if ("custom" === stepDefinitionType) {
   xdmp.securityAssert("http://marklogic.com/data-hub/privileges/write-custom", "execute");
 } else if ("matching" === stepDefinitionType || "merging" === stepDefinitionType || "mastering" === stepDefinitionType) {
   xdmp.securityAssert("http://marklogic.com/data-hub/privileges/write-flow", "execute");
 } else {
-  ds.throwBadRequest("Unsupported step definition type: " + stepDefinitionType);
+  httpUtils.throwBadRequest("Unsupported step definition type: " + stepDefinitionType);
 }
 
 stepProperties = stepProperties.toObject();
@@ -50,8 +53,15 @@ let existingStep = fn.head(cts.search(cts.andQuery([
 ])));
 
 if (existingStep) {
-  xdmp.trace(consts.TRACE_STEP, `Step with name ${stepName} and type ${stepDefinitionType} already exists, so will update`);
-  let updatedStep = Object.assign(existingStep.toObject(), stepProperties);
+  let updatedStep;
+  if(overwrite){
+    xdmp.trace(consts.TRACE_STEP, `Step with name ${stepName} and type ${stepDefinitionType} already exists, the existing step will be overwritten`);
+    updatedStep = stepProperties;
+  }
+  else{
+    xdmp.trace(consts.TRACE_STEP, `Step with name ${stepName} and type ${stepDefinitionType} already exists, so will update`);
+    updatedStep = Object.assign(existingStep.toObject(), stepProperties);
+  }
   Artifacts.setArtifact(stepDefinitionType, stepName, updatedStep);
 }
 else {
@@ -62,6 +72,12 @@ else {
   let stepDefinitionName;
   if ("mapping" === stepDefinitionType) {
     stepDefinitionName = "entity-services-mapping";
+  }
+  else if("matching" === stepDefinitionType){
+    stepDefinitionName = "default-matching";
+  }
+  else if("merging" === stepDefinitionType){
+    stepDefinitionName = "default-merging";
   }
   else {
     // if 'stepDefinitionName' is not set for ingestion step, it will be set to 'default-ingestion'
@@ -96,7 +112,8 @@ else {
     const stepDefOptions = stepDef.options;
     Object.keys(stepDefOptions).forEach(key => {
       // Step artifact libraries are expected to apply their own concept of default collections
-      if (!stepProperties[key] && key !== "collections") {
+      // And outputFormat should not be included because HC expects to use targetFormat instead
+      if (!stepProperties[key] && key !== "collections" && key !== "outputFormat") {
         stepProperties[key] = stepDefOptions[key];
       }
     });

@@ -1,21 +1,21 @@
 import React from 'react';
-import { Router } from 'react-router'
-import { createMemoryHistory } from 'history'
-const history = createMemoryHistory()
-import { render, fireEvent, waitForElement, cleanup, wait } from '@testing-library/react'
-import '@testing-library/jest-dom/extend-expect'
+import { Router } from 'react-router';
+import { createMemoryHistory } from 'history';
+const history = createMemoryHistory();
+import { render, fireEvent, waitForElement, cleanup, wait } from '@testing-library/react';
+import '@testing-library/jest-dom/extend-expect';
 import TilesView from './TilesView';
 import {AuthoritiesContext, AuthoritiesService} from '../util/authorities';
 import axiosMock from 'axios';
 import mocks from '../api/__mocks__/mocks.data';
-import authorities from '../assets/authorities.testutils';
-import tiles from '../config/tiles.config'
+import authorities from '../assets/mock-data/authorities.testutils';
+import tiles from '../config/tiles.config';
 import { SearchContext } from '../util/search-context';
 import {
     setViewCurateFunction,
     setViewLoadFunction,
     setViewRunFunction
-} from '../assets/mock-data/search-context-mock';
+} from '../assets/mock-data/explore/search-context-mock';
 
 jest.mock('axios');
 jest.setTimeout(30000);
@@ -33,27 +33,27 @@ describe('Tiles View component tests for Developer user', () => {
     afterEach(() => {
         jest.clearAllMocks();
         cleanup();
-    })
+    });
 
     test('Verify TilesView renders with the toolbar', () => {
         const { getByLabelText } = render(<Router history={history}>
             <AuthoritiesContext.Provider value={mockDevRolesService}>
                 <TilesView/>
-            </AuthoritiesContext.Provider> />
+            </AuthoritiesContext.Provider>
         </Router>);
 
         expect(getByLabelText("toolbar")).toBeInTheDocument();
 
         expect(getByLabelText("tool-load")).toBeInTheDocument();
-        expect(getByLabelText('tool-load')).toHaveStyle('color: rgb(82, 3, 57);')
+        expect(getByLabelText('tool-load')).toHaveStyle('color: rgb(61, 64, 156);');
         expect(getByLabelText("tool-model")).toBeInTheDocument();
-        expect(getByLabelText('tool-model')).toHaveStyle('color: rgb(34, 7, 94);')
+        expect(getByLabelText('tool-model')).toHaveStyle('color: rgb(48, 79, 127);');
         expect(getByLabelText("tool-curate")).toBeInTheDocument();
-        expect(getByLabelText('tool-curate')).toHaveStyle('color: rgb(188, 129, 29);')
+        expect(getByLabelText('tool-curate')).toHaveStyle('color: rgb(24, 75, 90);');
         expect(getByLabelText("tool-run")).toBeInTheDocument();
-        expect(getByLabelText('tool-run')).toHaveStyle('color: rgb(6, 17, 120);')
+        expect(getByLabelText('tool-run')).toHaveStyle('color: rgb(130, 56, 138);');
         expect(getByLabelText("tool-explore")).toBeInTheDocument();
-        expect(getByLabelText('tool-explore')).toHaveStyle('color: rgb(0, 71, 79);')
+        expect(getByLabelText('tool-explore')).toHaveStyle('color: rgb(55, 111, 99);');
 
         expect(getByLabelText("overview")).toBeInTheDocument();
 
@@ -77,7 +77,7 @@ describe('Tiles View component tests for Developer user', () => {
             expect(await(waitForElement(() => getByLabelText("close")))).toBeInTheDocument();
             fireEvent.click(getByLabelText("close"));
             expect(getByLabelText("overview")).toBeInTheDocument();
-        })
+        });
 
     });
 
@@ -104,9 +104,8 @@ describe('Tiles View component tests for Developer user', () => {
 
         fireEvent.click(getByText('Customer'));
 
-        fireEvent.mouseOver(getByText('Mapping1'));
+        fireEvent.mouseOver(getByText('Mapping2'));
 
-        expect(getByText('Open step details'));
         expect(getByText('Add step to a new flow'));
         expect(getByText('Add step to an existing flow'));
     });
@@ -209,7 +208,7 @@ describe('Tiles View component tests for Developer user', () => {
     test('Verify Run tile displays from toolbar', async () => {
         const authorityService = new AuthoritiesService();
         authorityService.setAuthorities(['readFlow','writeFlow','runStep']);
-        const {getByLabelText, getByText, queryByText, getByTestId} = await render(<Router history={history}>
+        const {getByLabelText, getByText, queryByText, getByTestId, getAllByText} = await render(<Router history={history}>
             <AuthoritiesContext.Provider value={ authorityService}>
                 <SearchContext.Provider value={setViewRunFunction}>
                     <TilesView id='run'/>
@@ -228,7 +227,7 @@ describe('Tiles View component tests for Developer user', () => {
         expect(getByLabelText("title-run")).toBeInTheDocument();
         expect(document.querySelector('#flows-container')).toBeInTheDocument();
         expect(getByText('Create Flow')).toBeInTheDocument();
-        expect(getByText('testFlow')).toBeInTheDocument();
+        expect(getAllByText('testFlow')[0]).toBeInTheDocument();
         // delete should work
         fireEvent.click(getByTestId('deleteFlow-testFlow'));
         // testing that confirmation modal appears
@@ -236,7 +235,7 @@ describe('Tiles View component tests for Developer user', () => {
         fireEvent.click(getByText('No'));
 
         // test description
-        fireEvent.click(getByText('testFlow'));
+        fireEvent.click(getAllByText('testFlow')[0]);
         expect(getByText('Save')).not.toBeDisabled();
         fireEvent.click(getByText('Cancel'));
         // test run
@@ -274,8 +273,8 @@ describe('Tiles View component tests for Developer user', () => {
         expect(queryByText('Yes')).not.toBeInTheDocument();
         // test description
         fireEvent.click(getByText('testFlow'));
-        expect(queryByText('Save')).not.toBeInTheDocument();
-        fireEvent.click(getByText('Close'));
+        expect(queryByText('Save')).toBeDisabled();
+        fireEvent.click(getByText('Cancel'));
 
         // test run
         fireEvent.click(getByLabelText('icon: right'));
@@ -372,7 +371,7 @@ describe('Tiles View component tests for Operator user', () => {
     afterEach(() => {
         jest.clearAllMocks();
         cleanup();
-    })
+    });
 
     test('Verify Curate tile', async () => {
         const { getByLabelText, queryByText, getByText } = render(<Router history={history}>
@@ -396,7 +395,6 @@ describe('Tiles View component tests for Operator user', () => {
         fireEvent.click(getByText('Customer'));
         fireEvent.mouseOver(getByText('Mapping1'));
 
-        expect(getByText('Open step details'));
     });
 });
 

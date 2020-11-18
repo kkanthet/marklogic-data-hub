@@ -2,16 +2,13 @@ import {
   Modal,
   Form,
   Input,
-  Button,
-  Tooltip,
   Icon,
   Select,
 } from 'antd';
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect } from 'react';
 import styles from './advanced-settings-dialog.module.scss';
 import { AdvancedSettings } from '../../config/tooltips.config';
 import { AdvancedSettingsMessages } from '../../config/messages.config';
-import { UserContext } from '../../util/user-context';
 import Axios from 'axios';
 import { MLButton, MLTooltip } from '@marklogic/design-system';
 
@@ -46,6 +43,7 @@ const AdvancedSettingsDialog = (props) => {
   const validCapabilities = ['read', 'update', 'insert', 'execute'];
   const [targetPermissionsTouched, setTargetPermissionsTouched] = useState(false);
   const [permissionValidationError, setPermissionValidationError] = useState('');
+  const [targetPermissionsValid, setTargetPermissionsValid] = useState(true);
 
   const usesTargetFormat = stepType === 'mapping';
   const defaultTargetFormat = 'JSON';
@@ -103,6 +101,7 @@ const AdvancedSettingsDialog = (props) => {
       setHeadersTouched(false);
       setProcessorsTouched(false);
       setCustomHookTouched(false);
+      setTargetPermissionsTouched(false);
 
       setStepDefinitionName('');
       setIsCustomIngestion(false);
@@ -127,12 +126,13 @@ const AdvancedSettingsDialog = (props) => {
       setHeadersValid(true);
       setProcessorsValid(true);
       setCustomHookValid(true);
+      setTargetPermissionsValid(true);
     };
-  },[props.openAdvancedSettings  ,loading])
+  },[props.openAdvancedSettings  ,loading]);
 
   const isFormValid = () => {
-    return headersValid && processorsValid && customHookValid;
-  }
+    return headersValid && processorsValid && customHookValid && targetPermissionsValid;
+  };
 
   // Convert JSON from JavaScript object to formatted string
   const formatJSON = (json) => {
@@ -143,7 +143,7 @@ const AdvancedSettingsDialog = (props) => {
       console.error(error);
       return json;
     }
-  }
+  };
 
   // Convert JSON from string to JavaScript object
   const parseJSON = (json) => {
@@ -154,7 +154,7 @@ const AdvancedSettingsDialog = (props) => {
       console.error(error);
       return json;
     }
-  }
+  };
 
   // CREATE/POST settings Artifact
   const createSettingsArtifact = async (settingsObj) => {
@@ -167,11 +167,11 @@ const AdvancedSettingsDialog = (props) => {
         }
       } catch (error) {
         let message = error.response.data.message;
-        console.error('Error while creating the activity settings artifact', message)
+        console.error('Error while creating the activity settings artifact', message);
         setLoading(false);
       }
     }
-  }
+  };
 
   // GET the settings artifact
   const getSettingsArtifact = async () => {
@@ -230,19 +230,19 @@ const AdvancedSettingsDialog = (props) => {
         setAdditionalSettings('');
       }
     }
-  }
+  };
 
   const onCancel = () => {
     if(checkDeleteOpenEligibility()){
       setDeleteDialogVisible(true);
     } else {
-      props.setOpenAdvancedSettings(false)
+      props.setOpenAdvancedSettings(false);
     }
-  }
+  };
 
   const onOk = () => {
-    props.setOpenAdvancedSettings(false)
-  }
+    props.setOpenAdvancedSettings(false);
+  };
 
   //Check if Delete Confirmation dialog should be opened or not.
   const checkDeleteOpenEligibility = () => {
@@ -262,16 +262,16 @@ const AdvancedSettingsDialog = (props) => {
       } else {
         return true;
       }
-  }
+  };
 
   const onDelOk = () => {
-    props.setOpenAdvancedSettings(false)
-    setDeleteDialogVisible(false)
-  }
+    props.setOpenAdvancedSettings(false);
+    setDeleteDialogVisible(false);
+  };
 
   const onDelCancel = () => {
-    setDeleteDialogVisible(false)
-  }
+    setDeleteDialogVisible(false);
+  };
 
   const deleteConfirmation = <Modal
       visible={deleteDialogVisible}
@@ -305,16 +305,14 @@ const AdvancedSettingsDialog = (props) => {
         validateEntity: validateEntity,
         batchSize: batchSize,
         customHook: isEmptyString(customHook) ? {} : parseJSON(customHook),
-      }
-    if (isPermissionsValid()) {
-        createSettingsArtifact(dataPayload);
-        props.setOpenAdvancedSettings(false)
-    }
-  }
+      };
+      createSettingsArtifact(dataPayload);
+      props.setOpenAdvancedSettings(false);
+  };
 
   const isPermissionsValid = () => {
     if (targetPermissions && targetPermissions.trim().length === 0) {
-        setPermissionValidationError(AdvancedSettingsMessages.targetPermissions.incorrectFormat)
+        setPermissionValidationError(AdvancedSettingsMessages.targetPermissions.incorrectFormat);
         return false;
     }
 
@@ -323,7 +321,7 @@ const AdvancedSettingsDialog = (props) => {
         for (var i = 0; i < permissionArray.length; i += 2) {
             let role = permissionArray[i];
             if (i + 1 >= permissionArray.length || (!role ||!role.trim())) {
-                setPermissionValidationError(AdvancedSettingsMessages.targetPermissions.incorrectFormat)
+                setPermissionValidationError(AdvancedSettingsMessages.targetPermissions.incorrectFormat);
                 return false;
             }
             let capability = permissionArray[i + 1];
@@ -333,8 +331,9 @@ const AdvancedSettingsDialog = (props) => {
             }
         }
     }
+    setPermissionValidationError('');
     return true;
-  }
+  };
 
   const isValidJSON = (json) => {
     try {
@@ -343,19 +342,22 @@ const AdvancedSettingsDialog = (props) => {
     } catch (error) {
       return json.trim() === '';
     }
-  }
+  };
 
   const isEmptyString = (json) => {
       if(json !== undefined && json.trim().length === 0 ){
           return true;
       }
       return false;
-  }
+  };
 
   const handleChange = (event) => {
     if (event.target.id === 'targetPermissions') {
       setTargetPermissions(event.target.value);
       setTargetPermissionsTouched(true);
+      if(!targetPermissionsValid && isPermissionsValid()){
+          setTargetPermissionsValid(true);
+      }
     }
 
     if (event.target.id === 'headers') {
@@ -386,7 +388,7 @@ const AdvancedSettingsDialog = (props) => {
       setBatchSize(event.target.value);
       setBatchSizeTouched(true);
     }
-  }
+  };
 
   const handleBlur = (event) => {
     if (event.target.id === 'headers') {
@@ -405,7 +407,12 @@ const AdvancedSettingsDialog = (props) => {
       setBatchSize(event.target.value);
       setBatchSizeTouched(true);
     }
-  }
+
+    if (event.target.id === 'targetPermissions') {
+        setTargetPermissionsValid(isPermissionsValid());
+    }
+
+  };
 
   const handleSourceDatabase = (value) => {
     if (value === ' ') {
@@ -415,7 +422,7 @@ const AdvancedSettingsDialog = (props) => {
         setSourceDatabaseTouched(true);
         setSourceDatabase(value);
     }
-  }
+  };
 
   const handleTargetDatabase = (value) => {
     if (value === ' ') {
@@ -425,7 +432,7 @@ const AdvancedSettingsDialog = (props) => {
       setTargetDatabaseTouched(true);
       setTargetDatabase(value);
     }
-  }
+  };
 
   const handleAddColl = (value) => {
     if (value === ' ') {
@@ -436,7 +443,7 @@ const AdvancedSettingsDialog = (props) => {
       // default collections will come from default settings retrieved. Don't want them to be added to additionalCollections property
       setAdditionalCollections(value.filter((col) => !defaultCollections.includes(col)));
     }
-  }
+  };
 
   const handleTargetFormat = (value) => {
     if (value === ' ' || value === targetFormat) {
@@ -446,7 +453,7 @@ const AdvancedSettingsDialog = (props) => {
       setTargetFormat(value);
       setTargetFormatTouched(true);
     }
-  }
+  };
 
   const handleProvGranularity = (value) => {
     if (value === ' ') {
@@ -456,7 +463,7 @@ const AdvancedSettingsDialog = (props) => {
       setProvGranularityTouched(true);
       setProvGranularity(value);
     }
-  }
+  };
 
   const handleValidateEntity = (value) => {
      if (value === ' ') {
@@ -466,7 +473,7 @@ const AdvancedSettingsDialog = (props) => {
         setValidateEntityTouched(true);
         setValidateEntity(value);
       }
-  }
+  };
   const formItemLayout = {
     labelCol: {
       xs: { span: 24 },
@@ -482,7 +489,7 @@ const AdvancedSettingsDialog = (props) => {
   const targetDbOptions = databaseOptions.map(d => <Option data-testid={`targetDbOptions-${d}`} key={d}>{d}</Option>);
 
   const provGranOpts = Object.keys(provGranularityOptions).map(d => <Option data-testid={`provOptions-${d}`} key={provGranularityOptions[d]}>{d}</Option>);
-  const valEntityOpts = Object.keys(validateEntityOptions).map(d => <Option data-testid={'entityValOpts'} key={validateEntityOptions[d]}>{d}</Option>);
+  const valEntityOpts = Object.keys(validateEntityOptions).map( (d, index) => <Option data-testid={`entityValOpts-${index}`} key={validateEntityOptions[d]}>{d}</Option>);
   return <Modal
     visible={props.openAdvancedSettings}
     title={null}
@@ -496,7 +503,7 @@ const AdvancedSettingsDialog = (props) => {
     destroyOnClose={true}
   >
     <p className={styles.title}>Advanced Step Settings</p>
-    <p className={styles.stepName}>{props.stepData.name}</p><br/>
+    <p aria-label={`step-name-${props.stepData.name}`} className={styles.stepName}>{props.stepData.name}</p><br/>
     <div className={styles.newDataForm}>
       <Form {...formItemLayout} onSubmit={handleSubmit} colon={true}>
         {isCustomIngestion ? <Form.Item
@@ -520,7 +527,7 @@ const AdvancedSettingsDialog = (props) => {
             aria-label="sourceDatabase-select"
           >
             {sourceDbOptions}
-          </Select>&nbsp;&nbsp;
+          </Select>
           <div className={styles.selectTooltip}>
             <MLTooltip title={tooltips.sourceDatabase}>
               <Icon type="question-circle" className={styles.questionCircle} theme="filled"/>
@@ -580,7 +587,7 @@ const AdvancedSettingsDialog = (props) => {
           labelAlign="left"
           className={styles.formItem}
         >
-        <div className={styles.defaultCollections}>{defaultCollections.map((collection, i) => {return <div data-testid={`defaultCollections-${collection}`} key={i}>{collection}</div>})}</div>
+        <div className={styles.defaultCollections}>{defaultCollections.map((collection, i) => {return <div data-testid={`defaultCollections-${collection}`} key={i}>{collection}</div>;})}</div>
         </Form.Item>
         <Form.Item
           label={<span>Target Permissions</span>}
@@ -592,6 +599,7 @@ const AdvancedSettingsDialog = (props) => {
             placeholder="Please enter target permissions"
             value={targetPermissions}
             onChange={handleChange}
+            onBlur={handleBlur}
             disabled={!canReadWrite}
             className={styles.inputWithTooltip}
           />
@@ -600,7 +608,7 @@ const AdvancedSettingsDialog = (props) => {
               <Icon type="question-circle" className={styles.questionCircle} theme="filled"/>
             </MLTooltip>
           </div>
-          <div className={styles.validationError}>
+          <div className={styles.validationError} data-testid='validationError'>
               {permissionValidationError}
           </div>
         </Form.Item>
@@ -722,7 +730,7 @@ const AdvancedSettingsDialog = (props) => {
               onClick={() => setProcessorsExpanded(!processorsExpanded)}
               rotate={processorsExpanded ? 90 : 0}
             />
-            <span className={styles.expandLabel} onClick={() => setProcessorsExpanded(!processorsExpanded)}>Processors</span>
+            <span aria-label="processors-expand" className={styles.expandLabel} onClick={() => setProcessorsExpanded(!processorsExpanded)}>Processors</span>
           </span>}
           labelAlign="left"
           className={styles.formItem}
@@ -813,6 +821,6 @@ const AdvancedSettingsDialog = (props) => {
     </div>
     {deleteConfirmation}
   </Modal>;
-}
+};
 
 export default AdvancedSettingsDialog;

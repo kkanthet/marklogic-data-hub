@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { Table } from 'antd';
+import styles from './table-view.module.scss';
 
 interface Props {
   document: any;
   contentType: string;
   location: {};
-};
+  isEntityInstance: boolean;
+}
 
 const TableView: React.FC<Props> = (props) => {
   const [expanded, setExpanded] = useState(false);
@@ -32,46 +34,22 @@ const TableView: React.FC<Props> = (props) => {
       }
     }
     return parsedData;
-  }
+  };
 
   if (props.document) {
-    if (props.contentType === 'json') {
-      if(props.document.envelope){
-        Object.keys(props.document.envelope.instance).forEach(instance => {
-          if (instance !== 'info') {
-            data = parseJson(props.document.envelope.instance[instance]);
-          }
-        });
-      }
-    } else if (props.contentType === 'xml') {
-      if(props.document.content.envelope){
-        Object.keys(props.document.content.envelope.instance).forEach(instance => {
-          if (instance !== 'info') {
-            data = parseJson(props.document.content.envelope.instance[instance]);
-          }
-        });
-      }
-      else{
-        Object.keys(props.document.content['es:envelope']['es:instance']).forEach(instance => {
-          if (instance !== 'info') {
-            data = parseJson(props.document.content['es:envelope']['es:instance'][instance]);
-          }
-        });
-      }
-    }
+      data = parseJson(props.document);
   }
-
 
   const handleClick = () => {
-    expanded === false ? setExpanded(true) : setExpanded(false)
-  }
+    expanded === false ? setExpanded(true) : setExpanded(false);
+  };
 
 
   const columns = [
     {
       title: 'Property',
       dataIndex: 'property',
-      width: '20%',
+      width: props.isEntityInstance ? '20%' : '40%',
     },
     {
       title: 'Value',
@@ -85,17 +63,17 @@ const TableView: React.FC<Props> = (props) => {
           cursor: 'pointer',
           padding: '0',
           margin: '0'
-        } as React.CSSProperties
-        return <p onClick={() => handleClick()} style={pStyle}>{value}</p>
+        } as React.CSSProperties;
+        return <p onClick={() => handleClick()} style={pStyle}>{value}</p>;
       },
-      width: '80%',
+      width: props.isEntityInstance ? '80%' : '60%',
     }
   ];
 
 
   return (
       <Table
-          className="document-table-demo"
+          className={props.isEntityInstance ? "document-table-demo": styles.tableViewNonEntity}
           rowKey="key"
           dataSource={data}
           columns={columns}
@@ -103,7 +81,7 @@ const TableView: React.FC<Props> = (props) => {
           data-cy="document-table"
           defaultExpandedRowKeys={expandRow}
       />
-  )
-}
+  );
+};
 
 export default TableView;

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { faUndo } from "@fortawesome/free-solid-svg-icons";
+import {faSave, faUndo} from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { MLButton, MLTooltip, MLAlert } from '@marklogic/design-system';
 
@@ -13,21 +13,21 @@ import { UserContext } from '../util/user-context';
 import { ModelingContext } from '../util/modeling-context';
 import { ModelingTooltips } from '../config/tooltips.config';
 import { AuthoritiesContext } from '../util/authorities';
-import { ConfirmationType } from '../types/modeling-types';
+import { EntityModified } from '../types/modeling-types';
+import { ConfirmationType } from '../types/common-types';
+import tiles from '../config/tiles.config';
 
 const Modeling: React.FC = () => {
   const { handleError } = useContext(UserContext);
   const { modelingOptions, setEntityTypeNamesArray, clearEntityModified } = useContext(ModelingContext);
 
   const [entityTypes, setEntityTypes] = useState<any[]>([]);
-  const [modifiedEntityTypes, setModifiedEntityTypes] = useState<any[]>([]);
   const [showEntityModal, toggleShowEntityModal] = useState(false);
   const [isEditModal, toggleIsEditModal] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [autoExpand, setAutoExpand] = useState('');
   const [revertAllEntity, toggleRevertAllEntity] = useState(false);
-  const [useModifiedEntityTypesData, toggleModifiedEntityTypesData] = useState(false);
 
   const [showConfirmModal, toggleConfirmModal] = useState(false);
   const [confirmType, setConfirmType] = useState<ConfirmationType>(ConfirmationType.SaveAll);
@@ -38,102 +38,56 @@ const Modeling: React.FC = () => {
   const canWriteEntityModel = authorityService.canWriteEntityModel();
 
   useEffect(() => {
-    if (modelingOptions.isModified) {
-      setEntityTypesFromServerAndContext()
-    } else {
+    if (canReadEntityModel) {
       setEntityTypesFromServer();
     }
-
   }, []);
 
   const setEntityTypesFromServer = async () => {
-    const response = await getPrimaryEntityTypes();
-    if (response) {
-      setEntityTypes(response);
-      if (response.length > 0) {
-        setEntityTypeNamesArray(response.map(entity => {
-          return {name: entity.entityName, entityTypeId: entity.entityTypeId}
-        }));
-      }
-    }
-  }
-
-  const setEntityTypesFromServerAndContext = async () => {
-    const response = await getPrimaryEntityTypes();
-    if (response && modelingOptions.modifiedEntitiesArray.length > 0) {
-      let updatedEntityTypes = [...response];
-
-      modelingOptions.modifiedEntitiesArray.forEach( entity => {
-        let index = updatedEntityTypes.findIndex( item => item['entityName'] === entity.entityName );
-        updatedEntityTypes[index]['model']['definitions'] = entity.modelDefinition;
-      });
-
-      setEntityTypes(updatedEntityTypes);
-      if (response.length > 0) {
-        setEntityTypeNamesArray(response.map(entity => {
-          return {name: entity.entityName, entityTypeId: entity.entityTypeId}
-        }));
-      }
-    }
-  }
-
-  const getPrimaryEntityTypes = async () => {
     try {
       const response = await primaryEntityTypes();
-      return response['data'];
+
+      if (response) {
+        setEntityTypes(response['data']);
+        if (response['data'].length > 0) {
+          setEntityTypeNamesArray(response['data'].map(entity => {
+            return {name: entity.entityName, entityTypeId: entity.entityTypeId};
+          }));
+        }
+      }
     } catch (error) {
-      handleError(error)
+      handleError(error);
     }
-  }
+  };
 
   const saveAllEntitiesToServer = async () => {
     try {
       const response = await updateEntityModels(modelingOptions.modifiedEntitiesArray);
       if (response['status'] === 200) {
-        clearEntityModified();
+        await setEntityTypesFromServer();
       } 
     } catch (error) {
-      handleError(error)
+      handleError(error);
     } finally {
+      clearEntityModified();
       toggleConfirmModal(false);
     }
-  }
+  };
+
+  const updateSavedEntity = (entity: EntityModified) => {
+    let updatedEntityTypes = [...entityTypes];
+    let updateEntityIndex = updatedEntityTypes.findIndex((entityType) => entityType.entityName === entity.entityName);
+
+    updatedEntityTypes[updateEntityIndex]['model']['definitions'] = entity.modelDefinition;
+    setEntityTypes(updatedEntityTypes);
+  };
 
   const updateEntityTypesAndHideModal = async (entityName: string, description: string) => {
     if (!isEditModal) {
       setAutoExpand(entityName + ',' + description);
     }
     toggleShowEntityModal(false);
-
-    const primaryEntityTypes = await getPrimaryEntityTypes();
-    if (primaryEntityTypes && primaryEntityTypes.length > 0) {
-      const entityNameFilter = (entity) => entity.entityName === entityName;
-      const newEntity = primaryEntityTypes.find(entityNameFilter);
-
-
-      let modifiedEntitiesMap = {};
-      modelingOptions.modifiedEntitiesArray.forEach(entity => {modifiedEntitiesMap[entity.entityName]=entity.modelDefinition});
-
-      let newEntityTypes = [...entityTypes];
-      newEntityTypes.forEach(entity => {
-        if (modifiedEntitiesMap.hasOwnProperty(entity.entityName)){
-          entity.model.definitions = JSON.parse(JSON.stringify(modifiedEntitiesMap[entity.entityName]));
-        }
-      });
-
-      if (newEntityTypes.some(entityNameFilter)) {
-        // edit modal i.e. updated description
-        let updatedModel = newEntityTypes.find(entityNameFilter);
-        updatedModel.model.definitions[entityName].description = newEntity.model.definitions[entityName].description;
-      }
-      else {
-        // add modal
-        newEntityTypes.push(newEntity);
-      }
-      toggleModifiedEntityTypesData(true);
-      await setEntityTypesFromServer();
-      setModifiedEntityTypes(newEntityTypes);
-    }
+    await setEntityTypesFromServer();
   };
 
   const editEntityTypeDescription = (entityTypeName: string, entityTypeDescription: string) => {
@@ -151,14 +105,13 @@ const Modeling: React.FC = () => {
     } else if (confirmType === ConfirmationType.RevertAll) {
       resetAllEntityTypes();
     }
-  }
+  };
 
-  const resetAllEntityTypes = () => {
-    setEntityTypesFromServer().then(() => {
-      clearEntityModified();
-      toggleRevertAllEntity(true);
-      toggleConfirmModal(false);
-    })
+  const resetAllEntityTypes = async () => {
+    await setEntityTypesFromServer();
+    clearEntityModified();
+    toggleRevertAllEntity(true);
+    toggleConfirmModal(false);
   };
 
   const addButton = <MLButton 
@@ -170,87 +123,110 @@ const Modeling: React.FC = () => {
     }}
     disabled={!canWriteEntityModel}
     className={!canWriteEntityModel && styles.disabledButton}
-  >Add</MLButton>
+  >Add</MLButton>;
 
-  return (
-    <div className={styles.modelContainer}>
-      { modelingOptions.isModified && (
-        <MLAlert type="info" aria-label="entity-modified-alert" showIcon message={ModelingTooltips.entityEditedAlert}/>
-      )}
-      <div className={styles.header}>
-        <h1>Entity Types</h1>
-        <div className={styles.buttonContainer}>
-          {entityTypes.length == 0 ?
-            <MLTooltip title={ModelingTooltips.addNewEntity}>
-              {addButton}
-            </MLTooltip>
-            : 
-            canWriteEntityModel ?
-              addButton
-              :
-              <MLTooltip title={'Add Entity Type: ' + ModelingTooltips.noWriteAccess}>
-                <span>{addButton}</span>
-              </MLTooltip>
-          }
-          <MLButton 
-            disabled={!modelingOptions.isModified} 
-            aria-label="save-all"
-            onClick={() => {
-              setConfirmType(ConfirmationType.SaveAll);
-              toggleConfirmModal(true);
-            }}
-          >
-            <span className={styles.publishIcon}></span>
-            Save All
-          </MLButton>
-          <MLButton 
-            disabled={!modelingOptions.isModified}
-            aria-label="revert-all" 
-            onClick={() => {
-              setConfirmType(ConfirmationType.RevertAll);
-              toggleConfirmModal(true)
-            }}
-          >
-            <FontAwesomeIcon 
-              className={styles.icon} 
-              icon={faUndo} 
-              size="sm"
-            />
-            Revert All
-          </MLButton>
+  const saveAllButton = <MLButton
+    disabled={!modelingOptions.isModified}
+    aria-label="save-all"
+    onClick={() => {
+      setConfirmType(ConfirmationType.SaveAll);
+      toggleConfirmModal(true);
+    }}
+  >
+    <FontAwesomeIcon
+      icon={faSave}
+      className={styles.publishIcon}
+      size='sm'
+    />
+    Save All
+  </MLButton>;
+
+  const revertAllButton = <MLButton
+    disabled={!modelingOptions.isModified}
+    aria-label="revert-all"
+    onClick={() => {
+      setConfirmType(ConfirmationType.RevertAll);
+      toggleConfirmModal(true);
+    }}
+  >
+    <FontAwesomeIcon
+      className={styles.icon}
+      icon={faUndo}
+      size="sm"
+    />
+    Revert All
+  </MLButton>;
+
+  if (canReadEntityModel) {
+    return (
+      <div className={styles.modelContainer}>
+        <div className={styles.intro}>
+          <p>{tiles.model.intro}</p>
         </div>
+        { modelingOptions.isModified && (
+          <MLAlert type="info" aria-label="entity-modified-alert" showIcon message={ModelingTooltips.entityEditedAlert}/>
+        )}
+        <div className={styles.header}>
+          <h1>Entity Types</h1>
+          <div className={styles.buttonContainer}>
+            {entityTypes.length == 0 ?
+              <MLTooltip title={ModelingTooltips.addNewEntity}>
+                {addButton}
+              </MLTooltip>
+              :
+              canWriteEntityModel ?
+                addButton
+                :
+                <MLTooltip title={ModelingTooltips.noWriteAccess} overlayStyle={{maxWidth: '175px'}}>
+                  <span>{addButton}</span>
+                </MLTooltip>
+            }
+            {canWriteEntityModel ?
+              saveAllButton
+              :
+              <MLTooltip title={ModelingTooltips.noWriteAccess} overlayStyle={{maxWidth: '175px'}}>
+                <span style={{marginLeft: '5px'}}>{saveAllButton}</span>
+              </MLTooltip>
+            }
+            {canWriteEntityModel ?
+              revertAllButton
+              :
+              <MLTooltip title={ModelingTooltips.noWriteAccess} overlayStyle={{maxWidth: '175px'}}>
+                <span style={{marginLeft: '5px'}}>{revertAllButton}</span>
+              </MLTooltip>
+            }
+          </div>
+        </div>
+        <ConfirmationModal
+          isVisible={showConfirmModal}
+          type={confirmType}
+          boldTextArray={[]} 
+          arrayValues={[]}
+          toggleModal={toggleConfirmModal}
+          confirmAction={confirmAction}
+        />
+        <EntityTypeModal
+          isVisible={showEntityModal}
+          toggleModal={toggleShowEntityModal}
+          updateEntityTypesAndHideModal={updateEntityTypesAndHideModal}
+          isEditModal={isEditModal}
+          name={name}
+          description={description}
+        />
+        <EntityTypeTable 
+          canReadEntityModel={canReadEntityModel}
+          canWriteEntityModel={canWriteEntityModel}
+          allEntityTypesData={entityTypes}
+          editEntityTypeDescription={editEntityTypeDescription}
+          updateEntities={setEntityTypesFromServer}
+          updateSavedEntity={updateSavedEntity}
+          autoExpand={autoExpand}
+          revertAllEntity={revertAllEntity}
+          toggleRevertAllEntity={toggleRevertAllEntity}
+        />
       </div>
-      <ConfirmationModal
-        isVisible={showConfirmModal}
-        type={confirmType}
-        boldTextArray={[]} 
-        arrayValues={[]}
-        toggleModal={toggleConfirmModal}
-        confirmAction={confirmAction}
-      />
-      <EntityTypeModal
-        isVisible={showEntityModal}
-        toggleModal={toggleShowEntityModal}
-        updateEntityTypesAndHideModal={updateEntityTypesAndHideModal}
-        isEditModal={isEditModal}
-        name={name}
-        description={description}
-      />
-      <EntityTypeTable 
-        canReadEntityModel={canReadEntityModel}
-        canWriteEntityModel={canWriteEntityModel}
-        allEntityTypesData={entityTypes}
-        editEntityTypeDescription={editEntityTypeDescription}
-        updateEntities={setEntityTypesFromServer}
-        autoExpand={autoExpand}
-        revertAllEntity={revertAllEntity}
-        toggleRevertAllEntity={toggleRevertAllEntity}
-        modifiedEntityTypesData={modifiedEntityTypes}
-        useModifiedEntityTypesData={useModifiedEntityTypesData}
-        toggleModifiedEntityTypesData={toggleModifiedEntityTypesData}
-      />
-    </div>
-  );
-}
+    );
+  } else return null;
+};
 
 export default Modeling;

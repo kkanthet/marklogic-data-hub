@@ -25,7 +25,7 @@ const Mastering = require('./mastering');
 const StepDef = require('./stepDefinition');
 const CustomStep = require('./customStep')
 
-const ds = require("/data-hub/5/data-services/ds-utils.sjs");
+const httpUtils = require("/data-hub/5/impl/http-utils.sjs");
 const DataHubSingleton = require('/data-hub/5/datahub-singleton.sjs');
 const dataHub = DataHubSingleton.instance();
 
@@ -42,17 +42,15 @@ const registeredArtifactTypes = {
     custom: CustomStep
 };
 
-const entityServiceDrivenArtifactTypes = ['mapping', 'custom'];
+const entityServiceDrivenArtifactTypes = ['mapping', 'custom', 'matching', 'merging'];
 
 function getArtifacts(artifactType, groupByEntityType = entityServiceDrivenArtifactTypes.includes(artifactType)) {
     const queries = [];
     const artifactLibrary =  getArtifactTypeLibrary(artifactType);
 
-    // This is a temporary hack during the shift to mapping steps; it ensures that mapping.sjs can specify multiple
-    // collections, but only the first one is used for finding artifacts so that ./mappings mappings are still found.
     const artifactCollections = artifactLibrary.getCollections();
     if (artifactCollections != null && artifactCollections.length > 0) {
-      queries.push(cts.collectionQuery(artifactCollections[0]));
+      queries.push(cts.andQuery(artifactCollections.map(coll => cts.collectionQuery(coll))));
     }
 
     if (queries.length) {
@@ -99,14 +97,14 @@ function getArtifactsGroupByEntity(queries) {
 
   // Find all matching artifacts
   const artifacts = cts.search(cts.andQuery(
-    queries.concat(cts.jsonPropertyValueQuery("targetEntityType", entityNamesAndTypeIds))
+    queries.concat(cts.jsonPropertyValueQuery(["targetEntityType","targetEntity"], entityNamesAndTypeIds))
   )).toArray();
 
   // Figure out where each artifact goes in the entityNameMap
   const artifactMap = {};
   artifacts.forEach(artifact => {
     artifact = artifact.toObject();
-    const targetEntityType = artifact.targetEntityType;
+    const targetEntityType = artifact.targetEntityType || artifact.targetEntity;
     if (entityNameMap[targetEntityType]) {
       entityNameMap[targetEntityType].artifacts.push(artifact);
     } else {
@@ -250,7 +248,7 @@ function convertStepReferenceToInlineStep(stepId) {
     cts.jsonPropertyValueQuery("stepId", stepId, "case-insensitive")
   ])));
   if (!stepDoc) {
-    ds.throwServerError(`Could not find a step with ID ${stepId}, which was referenced in flow ${flowName}`);
+    httpUtils.throwBadRequest(`Could not find a step with ID ${stepId}, which was referenced in flow ${flowName}`);
   }
 
   const referencedStep = removeNullProperties(stepDoc.toObject());

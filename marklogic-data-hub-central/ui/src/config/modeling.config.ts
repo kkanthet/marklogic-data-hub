@@ -1,11 +1,11 @@
 export const COMMON_PROPERTY_TYPES = [
   {
-    label: 'integer',
-    value: 'integer'
-  },
-  {
     label: 'string',
     value: 'string'
+  },
+  {
+    label: 'integer',
+    value: 'integer'
   },
   {
     label: 'dateTime',
@@ -26,19 +26,11 @@ export const MORE_STRING_TYPES = {
       value: 'anyURI'
     },
     {
-      label: 'base64Binary',
-      value: 'base64Binary'
-    },
-    {
-      label: 'hexBinary',
-      value: 'hexBinary'
-    },
-    {
       label: 'iri',
       value: 'iri'
     }
   ]
-}
+};
 
 export const MORE_NUMBER_TYPES = {
   label: 'More number types',
@@ -105,7 +97,7 @@ export const MORE_NUMBER_TYPES = {
       value: 'unsignedShort'
     }
   ]
-}
+};
 
 export const MORE_DATE_TYPES = {
   label: 'More date types',
@@ -120,20 +112,12 @@ export const MORE_DATE_TYPES = {
       value: 'dayTimeDuration'
     },
     {
-      label: 'duration',
-      value: 'duration'
-    },
-    {
-      label: 'gDat',
-      value: 'gDat'
+      label: 'gDay',
+      value: 'gDay'
     },
     {
       label: 'gMonth',
       value: 'gMonth'
-    },
-    {
-      label: 'gMonthDay',
-      value: 'gMonthDay'
     },
     {
       label: 'gYear',
@@ -152,6 +136,6 @@ export const MORE_DATE_TYPES = {
       value: 'yearMonthDuration'
     }
   ]
-}
+};
 
-export const DROPDOWN_PLACEHOLDER = (key) => { return { label: '---------------------', value: key, disabled: true }}
+export const DROPDOWN_PLACEHOLDER = (key) => { return { label: '---------------------', value: key, disabled: true };};

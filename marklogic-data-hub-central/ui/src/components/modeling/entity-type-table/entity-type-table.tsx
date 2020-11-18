@@ -1,32 +1,31 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { Link } from 'react-router-dom';
 import { MLTable, MLTooltip } from '@marklogic/design-system';
-import { faUndo, faTrashAlt } from "@fortawesome/free-solid-svg-icons";
+import {faUndo, faTrashAlt, faSave} from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import styles from './entity-type-table.module.scss';
 
 import PropertyTable from '../property-table/property-table';
 import ConfirmationModal from '../../confirmation-modal/confirmation-modal';
 import { entityReferences, deleteEntity, updateEntityModels } from '../../../api/modeling';
-import { ConfirmationType } from '../../../types/modeling-types';
+import { EntityModified } from '../../../types/modeling-types';
+import { ConfirmationType } from '../../../types/common-types';
 import { UserContext } from '../../../util/user-context';
 import { ModelingContext } from '../../../util/modeling-context';
 import { queryDateConverter, relativeTimeConverter } from '../../../util/date-conversion';
 import { numberConverter } from '../../../util/number-conversion';
-import { ModelingTooltips } from '../../../config/tooltips.config';
+import { ModelingTooltips, SecurityTooltips } from '../../../config/tooltips.config';
 
 type Props = {
   allEntityTypesData: any[];
   canReadEntityModel: boolean;
   canWriteEntityModel: boolean;
   autoExpand: string;
+  revertAllEntity: boolean;
   editEntityTypeDescription: (entityTypeName: string, entityTypeDescription: string) => void;
   updateEntities: () => void;
-  revertAllEntity: boolean;
+  updateSavedEntity: (entity: EntityModified) => void;
   toggleRevertAllEntity: (state: boolean) => void;
-  modifiedEntityTypesData: any[];
-  useModifiedEntityTypesData: boolean;
-  toggleModifiedEntityTypesData: (state: boolean) => void;
 }
 
 const EntityTypeTable: React.FC<Props> = (props) => {
@@ -39,20 +38,38 @@ const EntityTypeTable: React.FC<Props> = (props) => {
   const [confirmBoldTextArray, setConfirmBoldTextArray] = useState<string[]>([]);
   const [arrayValues, setArrayValues] = useState<string[]>([]);
   const [confirmType, setConfirmType] = useState<ConfirmationType>(ConfirmationType.DeleteEntity);
-  const [isAnyEntityModified, toggleAnyEntityModified] = useState(modelingOptions.isModified);
 
   useEffect(() => {
     if (props.autoExpand){
-      setExpandedRows([props.autoExpand])
+      setExpandedRows([props.autoExpand]);
     }
   }, [props.autoExpand]);
 
   useEffect(() => {
-    if (!props.useModifiedEntityTypesData) {
-      // Deep copying props.allEntityTypesData since we dont want the prop to be mutated
-      setAllEntityTypes(deepCopy(props.allEntityTypesData));
+    // Deep copying props.allEntityTypesData since we dont want the prop to be mutated
+    if (props.allEntityTypesData.length > 0) {
+      let newEntityTypes = deepCopy(props.allEntityTypesData);
+
+      if (modelingOptions.isModified && modelingOptions.modifiedEntitiesArray.length > 0) {
+        let modifiedEntitiesMap = {};
+        modelingOptions.modifiedEntitiesArray.forEach(entity => { modifiedEntitiesMap[entity.entityName] = entity.modelDefinition; });
+
+        newEntityTypes.forEach(entity => {
+          if (modifiedEntitiesMap.hasOwnProperty(entity.entityName)) {
+            // modified entities doesn't update description, use description from payload
+            if (entity.model.definitions[entity.entityName].hasOwnProperty('description') &&
+            entity.model.definitions[entity.entityName]['description'] !== modifiedEntitiesMap[entity.entityName][entity.entityName]['description']) {
+              modifiedEntitiesMap[entity.entityName][entity.entityName]['description'] = entity.model.definitions[entity.entityName]['description'];
+            }
+            entity.model.definitions = JSON.parse(JSON.stringify(modifiedEntitiesMap[entity.entityName]));
+          }
+        });
+      }
+      setAllEntityTypes(newEntityTypes);
+    } else {
+      setAllEntityTypes([]);
     }
-  }, [JSON.stringify(props.allEntityTypesData)]);
+  }, [JSON.stringify(props.allEntityTypesData), JSON.stringify(modelingOptions.modifiedEntitiesArray)]);
 
   useEffect(() => {
     if (props.revertAllEntity) {
@@ -61,17 +78,6 @@ const EntityTypeTable: React.FC<Props> = (props) => {
       props.toggleRevertAllEntity(false);
     }
   }, [props.revertAllEntity]);
-
-  useEffect(() => {
-    toggleAnyEntityModified(modelingOptions.isModified);
-  }, [modelingOptions.isModified]);
-
-  useEffect(() => {
-    if (props.useModifiedEntityTypesData) {
-      setAllEntityTypes(props.modifiedEntityTypesData);
-      props.toggleModifiedEntityTypesData(false);
-    }
-  }, [JSON.stringify(props.modifiedEntityTypesData)]);
 
   const deepCopy = (object) => {
     return JSON.parse(JSON.stringify(object));
@@ -83,16 +89,16 @@ const EntityTypeTable: React.FC<Props> = (props) => {
       if (response['status'] === 200) {
         let newConfirmType = ConfirmationType.DeleteEntity;
 
-        if (isAnyEntityModified) {
+        if (modelingOptions.isModified) {
           newConfirmType = ConfirmationType.DeleteEntityNoRelationshipOutstandingEditWarn;
           setArrayValues(modelingOptions.modifiedEntitiesArray.map(entity => entity.entityName));
         }
 
-        if (response['data']['stepAndMappingNames'].length > 0) {
+        if (response['data']['stepNames'].length > 0) {
           newConfirmType = ConfirmationType.DeleteEntityStepWarn;
-          setArrayValues(response['data']['stepAndMappingNames']);
+          setArrayValues(response['data']['stepNames']);
         } else if (response['data']['entityNames'].length > 0) {
-          if (isAnyEntityModified) {
+          if (modelingOptions.isModified) {
             newConfirmType = ConfirmationType.DeleteEntityRelationshipOutstandingEditWarn;
             setArrayValues(modelingOptions.modifiedEntitiesArray.map(entity => entity.entityName));
           }
@@ -106,9 +112,9 @@ const EntityTypeTable: React.FC<Props> = (props) => {
         toggleConfirmModal(true);
       }
     } catch (error) {
-      handleError(error)
+      handleError(error);
     }
-  }
+  };
 
   const deleteEntityFromServer = async () => {
     try {
@@ -118,29 +124,30 @@ const EntityTypeTable: React.FC<Props> = (props) => {
         props.updateEntities();
       }
     } catch (error) {
-      handleError(error)
+      handleError(error);
     } finally {
       toggleConfirmModal(false);
     }
-  }
+  };
 
   const saveEntityToServer = async () => {
     try {
-      let modifiedEntity = modelingOptions.modifiedEntitiesArray.filter( entity => entity.entityName === confirmBoldTextArray[0])
+      let modifiedEntity = modelingOptions.modifiedEntitiesArray.filter( entity => entity.entityName === confirmBoldTextArray[0]);
       const response = await updateEntityModels(modifiedEntity);
       if (response['status'] === 200) {
         removeEntityModified(modifiedEntity[0]);
+        props.updateSavedEntity(modifiedEntity[0]);
       }
     } catch (error) {
-      handleError(error)
+      handleError(error);
     } finally {
       toggleConfirmModal(false);
     }
-  }
+  };
 
   const saveAllEntitiesThenDeleteFromServer = async () => {
     try {
-      const response = await updateEntityModels(modelingOptions.modifiedEntitiesArray)
+      const response = await updateEntityModels(modelingOptions.modifiedEntitiesArray);
       if (response['status'] === 200) {
         try {
           let entityName = confirmBoldTextArray.length ? confirmBoldTextArray[0] : '';
@@ -156,39 +163,40 @@ const EntityTypeTable: React.FC<Props> = (props) => {
     } catch (error) {
       handleError(error);
     }
-  }
+  };
 
   const confirmSaveEntity = (entityName: string) => {
     setConfirmBoldTextArray([entityName]);
     setArrayValues([]);
     setConfirmType(ConfirmationType.SaveEntity);
     toggleConfirmModal(true);
-  }
+  };
 
   const revertEntity = async () => {
     const entityName = confirmBoldTextArray[0];
     const entityNameFilter = (entity) => entity.entityName === entityName;
-    const originalEntity = props.allEntityTypesData.find(entityNameFilter);
-    const updatedEntity = allEntityTypes.find(entityNameFilter);
-
-    // revert entity model definition
-    updatedEntity.model.definitions = originalEntity.model.definitions;
-
+    const originalEntity = deepCopy(props.allEntityTypesData.find(entityNameFilter));
     const modifiedEntity = modelingOptions.modifiedEntitiesArray.filter(entityNameFilter)[0];
+    let updatedEntities = deepCopy(allEntityTypes);
+    let updatedEntityIndex = updatedEntities.findIndex(entityNameFilter);
+
+    updatedEntities[updatedEntityIndex] = originalEntity;
+
     removeEntityModified(modifiedEntity);
+    setAllEntityTypes(updatedEntities);
     toggleConfirmModal(false);
-  }
+  };
 
   const confirmRevertEntity = (entityName: string) => {
     setConfirmBoldTextArray([entityName]);
     setArrayValues([]);
     setConfirmType(ConfirmationType.RevertEntity);
     toggleConfirmModal(true);
-  }
+  };
 
   const isEntityModified = (entityName: string) => {
-    return modelingOptions.modifiedEntitiesArray.some(entity => entity.entityName === entityName)
-  }
+    return modelingOptions.modifiedEntitiesArray.some(entity => entity.entityName === entityName);
+  };
 
   const confirmAction = () => {
     if (confirmType === ConfirmationType.SaveEntity) {
@@ -203,11 +211,11 @@ const EntityTypeTable: React.FC<Props> = (props) => {
     else {
       deleteEntityFromServer();
     }
-  }
+  };
 
   const columns = [
     {
-      title: 'Name',
+      title: <span data-testid="entityName">Name</span>,
       dataIndex: 'entityName',
       className: styles.tableText,
       width: 400,
@@ -228,14 +236,15 @@ const EntityTypeTable: React.FC<Props> = (props) => {
               </MLTooltip>
             ) : <span data-testid={parseText[0] + '-span'}>{entityName}</span>}
           </>
-        )
+        );
       },
+      sortDirections: ["ascend", "descend", "ascend"],
       sorter: (a, b) => {
-        return a['entityName'].split(',')[0].localeCompare(b['entityName'].split(',')[0])
+        return a['entityName'].split(',')[0].localeCompare(b['entityName'].split(',')[0]);
       }
     },
     {
-      title: 'Instances',
+      title: <span data-testid="Instances">Instances</span>,
       dataIndex: 'instances',
       className: styles.rightHeader,
       width: 100,
@@ -260,8 +269,9 @@ const EntityTypeTable: React.FC<Props> = (props) => {
               )
             }
          </> 
-        )
+        );
       },
+      sortDirections: ["ascend", "descend", "ascend"],
       sorter: (a, b) => {
         let splitA = a['instances'].split(',');
         let aCount = parseInt(splitA[1]);
@@ -272,14 +282,14 @@ const EntityTypeTable: React.FC<Props> = (props) => {
       }
     },
     {
-      title: 'Last Processed',
+      title: <span data-testid="lastProcessed">Last Processed</span>,
       dataIndex: 'lastProcessed',
       className: styles.tableText,
       width: 100,
       render: text => {
         let parseText = text.split(',');
         if (parseText[1] === 'undefined') {
-          return 'n/a'
+          return 'n/a';
         } else {
           let displayDate = relativeTimeConverter(parseText[2]);
           return (
@@ -295,13 +305,15 @@ const EntityTypeTable: React.FC<Props> = (props) => {
               </Link>
             </MLTooltip>
 
-          )
+          );
         }
       },
+      sortDirections: ["ascend", "descend", "ascend"],
+      defaultSortOrder: "descend",
       sorter: (a, b) => {
         let splitA = a['lastProcessed'].split(',');
         let splitB = b['lastProcessed'].split(',');
-        return splitA[2].localeCompare(splitB[2])
+        return splitA[2].localeCompare(splitB[2]);
       }
     },
     {
@@ -311,33 +323,34 @@ const EntityTypeTable: React.FC<Props> = (props) => {
       width: 100,
       render: text => {
 
-        const saveIcon = props.canWriteEntityModel ? (
-          <MLTooltip title={ModelingTooltips.saveIcon}>
-            <span
+        const saveIcon =
+          <MLTooltip title={props.canWriteEntityModel ? ModelingTooltips.saveIcon : 'Save Entity: ' + SecurityTooltips.missingPermission} overlayStyle={{maxWidth: '225px'}}>
+            <FontAwesomeIcon
+              icon={faSave}
               data-testid={text + '-save-icon'}
-              className={!isAnyEntityModified || !isEntityModified(text) ? styles.iconSaveReadOnly : styles.iconSave}
+              className={!modelingOptions.isModified || !isEntityModified(text) ? styles.iconSaveReadOnly : styles.iconSave}
               onClick={(event) => {
                 if (!props.canWriteEntityModel && props.canReadEntityModel || !isEntityModified(text)) {
-                  return event.preventDefault()
+                  return event.preventDefault();
                 } else {
-                  confirmSaveEntity(text)
+                  confirmSaveEntity(text);
                 }
               }}
+              size='2x'
             />
-          </MLTooltip>
-        ) : <span data-testid={text + '-save-icon'} className={styles.iconSaveReadOnly}/>
+          </MLTooltip>;
 
         return (
           <div className={styles.iconContainer}>
             {saveIcon}
-            <MLTooltip title={ModelingTooltips.revertIcon}>
+            <MLTooltip title={props.canWriteEntityModel ? ModelingTooltips.revertIcon : 'Discard Changes: ' + SecurityTooltips.missingPermission} overlayStyle={{maxWidth: '225px'}}>
               <FontAwesomeIcon
                 data-testid={text + '-revert-icon'} 
-                className={(!props.canWriteEntityModel && props.canReadEntityModel) || !isAnyEntityModified || !isEntityModified(text) ? styles.iconRevertReadOnly : styles.iconRevert}
+                className={(!props.canWriteEntityModel && props.canReadEntityModel) || !modelingOptions.isModified || !isEntityModified(text) ? styles.iconRevertReadOnly : styles.iconRevert}
                 icon={faUndo}
                 onClick={(event) => {
-                  if (!props.canWriteEntityModel && props.canReadEntityModel) {
-                    return event.preventDefault()
+                  if (!props.canWriteEntityModel && props.canReadEntityModel || !isEntityModified(text)) {
+                    return event.preventDefault();
                   } else {
                     confirmRevertEntity(text);
                   }
@@ -345,21 +358,23 @@ const EntityTypeTable: React.FC<Props> = (props) => {
                 size="2x"
               />
             </MLTooltip>
-            <FontAwesomeIcon
-              data-testid={text + '-trash-icon'}
-              className={!props.canWriteEntityModel && props.canReadEntityModel ? styles.iconTrashReadOnly : styles.iconTrash}
-              icon={faTrashAlt}
-              onClick={(event) => {
-                if (!props.canWriteEntityModel && props.canReadEntityModel) {
-                  return event.preventDefault()
-                } else {
-                  getEntityReferences(text);
-                }
-              }}
-              size="2x"
-            />
+            <MLTooltip title={props.canWriteEntityModel ? ModelingTooltips.deleteIcon : 'Delete Entity: ' + SecurityTooltips.missingPermission} overlayStyle={{maxWidth: '225px'}}>
+              <FontAwesomeIcon
+                data-testid={text + '-trash-icon'}
+                className={!props.canWriteEntityModel && props.canReadEntityModel ? styles.iconTrashReadOnly : styles.iconTrash}
+                icon={faTrashAlt}
+                onClick={(event) => {
+                  if (!props.canWriteEntityModel && props.canReadEntityModel) {
+                    return event.preventDefault();
+                  } else {
+                    getEntityReferences(text);
+                  }
+                }}
+                size="2x"
+              />
+            </MLTooltip>
           </div>
-        )
+        );
       }
     }
   ];
@@ -377,11 +392,11 @@ const EntityTypeTable: React.FC<Props> = (props) => {
               definitions={entity.definitions}
               canReadEntityModel={props.canReadEntityModel}
               canWriteEntityModel={props.canWriteEntityModel}
-            />
+            />;
   };
 
   const onExpand = (expanded, record) => {
-    let newExpandedRows =  [...expandedRows]
+    let newExpandedRows =  [...expandedRows];
     if (expanded) {
       if ( newExpandedRows.indexOf(record.entityName) === -1) {
         newExpandedRows.push(record.entityName);
@@ -390,7 +405,7 @@ const EntityTypeTable: React.FC<Props> = (props) => {
       newExpandedRows = newExpandedRows.filter(row => row !== record.entityName);
     }
     setExpandedRows(newExpandedRows);
-  }
+  };
 
   const renderTableData = allEntityTypes.map((entity) => {
     return {
@@ -426,6 +441,6 @@ const EntityTypeTable: React.FC<Props> = (props) => {
       />
     </>
   );
-}
+};
 
 export default EntityTypeTable;

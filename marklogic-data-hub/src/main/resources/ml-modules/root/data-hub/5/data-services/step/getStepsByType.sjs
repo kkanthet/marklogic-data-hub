@@ -17,6 +17,7 @@
 
 xdmp.securityAssert("http://marklogic.com/data-hub/privileges/read-ingestion", "execute");
 xdmp.securityAssert("http://marklogic.com/data-hub/privileges/read-mapping", "execute");
+xdmp.securityAssert("http://marklogic.com/data-hub/privileges/read-match-merge", "execute");
 
 const Artifacts = require('/data-hub/5/artifacts/core.sjs');
 
@@ -38,6 +39,17 @@ function removeAllPropertiesExcept(step) {
 
 for (const stepType of stepTypes) {
     const stepsOfType = Artifacts.getArtifacts(stepType, false).map((step) => removeAllPropertiesExcept(step));
+    stepsOfType.sort((stepA, stepB) => {
+      var stepAName = stepA.name.toLowerCase();
+      var stepBName = stepB.name.toLowerCase();
+      if (stepAName < stepBName) {
+        return -1;
+      }
+      if (stepAName > stepBName) {
+        return 1;
+      }
+      return 0;
+    });
     response[`${stepType}Steps`] = stepsOfType;
 }
 

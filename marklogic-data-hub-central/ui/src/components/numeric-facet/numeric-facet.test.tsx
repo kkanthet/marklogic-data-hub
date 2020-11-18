@@ -1,9 +1,8 @@
 import React from 'react';
 import { act } from 'react-dom/test-utils';
-import { render } from '@testing-library/react';
+import { render, fireEvent, wait } from '@testing-library/react';
 import NumericFacet from './numeric-facet';
-
-jest.mock('../../api/facets')
+jest.mock('../../api/facets');
 
 describe("<NumericFacet/>", () => {
     test("Numeric component renders without crashing, has range slider", async () => {
@@ -20,11 +19,11 @@ describe("<NumericFacet/>", () => {
 
         await act(async () => {
             expect(getByTestId("numeric-slider")).toBeInTheDocument();
-        })
-    })
+        });
+    });
 
     test("Numeric component renders with mock data", async (done) => {
-        const { getByTestId, getByDisplayValue, debug } = render(<NumericFacet
+        const { getByTestId, getByDisplayValue } = render(<NumericFacet
             name={'age'}
             step={1}
             constraint={'age'}
@@ -44,10 +43,9 @@ describe("<NumericFacet/>", () => {
                 //verify range slider max value
                 expect(getByDisplayValue("110")).toBeInTheDocument();
                 done();
-            })
+            });
         });
-    })
-
+    });
 });
 
 

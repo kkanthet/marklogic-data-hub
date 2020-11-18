@@ -1,4 +1,4 @@
-import { Modal, Form, Input, Button, Tooltip, Icon, Select } from "antd";
+import { Modal, Form, Input, Icon, Select } from "antd";
 import React, { useState, useEffect } from "react";
 import styles from './new-load-dialog.module.scss';
 import { srcOptions, tgtOptions, fieldSeparatorOptions } from '../../../config/formats.config';
@@ -11,6 +11,8 @@ const NewLoadDialog = (props) => {
   const [description, setDescription] = useState(props.stepData && props.stepData != {} ? props.stepData.description : '');
   const [srcFormat, setSrcFormat] = useState(props.stepData && props.stepData != {} ? props.stepData.sourceFormat : 'json');
   const [tgtFormat, setTgtFormat] = useState(props.stepData && props.stepData != {} ? props.stepData.targetFormat : 'json');
+  const [sourceName, setSourceName] = useState(props.stepData && props.stepData != {} ? props.stepData.sourceName : '');
+  const [sourceType, setSourceType] = useState(props.stepData && props.stepData != {} ? props.stepData.sourceType : '');
   const [outputUriPrefix, setOutputUriPrefix] = useState(props.stepData && props.stepData != {} ? props.stepData.outputURIPrefix : '');
   const [fieldSeparator, setFieldSeparator] = useState(props.stepData && props.stepData != {} ? props.stepData.fieldSeparator : ',');
   const [otherSeparator, setOtherSeparator] = useState('');
@@ -35,6 +37,8 @@ const NewLoadDialog = (props) => {
       }
 
       setTgtFormat(props.stepData.targetFormat);
+      setSourceName(props.stepData.sourceName);
+      setSourceType(props.stepData.sourceType);
       setOutputUriPrefix(props.stepData.outputURIPrefix);
       setIsValid(true);
       setTobeDisabled(true);
@@ -46,6 +50,8 @@ const NewLoadDialog = (props) => {
       setFieldSeparator(',');
       setOtherSeparator('');
       setTgtFormat('json');
+      setSourceName('');
+      setSourceType('');
       setOutputUriPrefix('');
       setIsValid(false);
     }
@@ -59,9 +65,11 @@ const NewLoadDialog = (props) => {
       setFieldSeparator(',');
       setOtherSeparator('');
       setTgtFormat('json');
+      setSourceName('');
+      setSourceType('');
       setOutputUriPrefix('');
       setTobeDisabled(false);
-    })
+    });
 
   }, [props.stepData, props.title, props.newLoad]);
 
@@ -71,7 +79,7 @@ const NewLoadDialog = (props) => {
     } else {
       props.setNewLoad(false);
     }
-  }
+  };
 
   const checkDeleteOpenEligibility = () => {
     if (props.stepData && JSON.stringify(props.stepData) != JSON.stringify({}) && props.title === 'Edit Loading Step'){
@@ -88,7 +96,7 @@ const NewLoadDialog = (props) => {
         }
       }
       else {
-          return true
+          return true;
       }
     }
     else {
@@ -104,20 +112,20 @@ const NewLoadDialog = (props) => {
         return true;
       }
     }
-  }
+  };
 
   const onOk = () => {
     props.setNewLoad(false);
-  }
+  };
 
   const onDelOk = () => {
     props.setNewLoad(false);
-    setDeleteDialogVisible(false)
-  }
+    setDeleteDialogVisible(false);
+  };
 
   const onDelCancel = () => {
-    setDeleteDialogVisible(false)
-  }
+    setDeleteDialogVisible(false);
+  };
 
   const deleteConfirmation = <Modal
         visible={deleteDialogVisible}
@@ -136,8 +144,16 @@ const NewLoadDialog = (props) => {
             <MLButton aria-label="Yes" type="primary" htmlType="submit" onClick={onDelOk}>Yes</MLButton>
           </div>
     </Modal>;
-
+  
   const handleSubmit = async (event: { preventDefault: () => void; }) => {
+    if (!stepName) {
+      // missing name
+      setStepNameTouched(true);
+      event.preventDefault();
+      return;
+    }
+    // else: submit handle
+
     if (event) event.preventDefault();
 
     let dataPayload;
@@ -148,16 +164,20 @@ const NewLoadDialog = (props) => {
         sourceFormat: srcFormat,
         separator: fieldSeparator === 'Other'? otherSeparator : fieldSeparator,
         targetFormat: tgtFormat,
+        sourceName: sourceName,
+        sourceType: sourceType,
         outputURIPrefix: outputUriPrefix,
-      }
+      };
     } else {
        dataPayload = {
         name: stepName,
         description: description,
         sourceFormat: srcFormat,
         targetFormat: tgtFormat,
+        sourceName: sourceName,
+        sourceType: sourceType,
         outputURIPrefix: outputUriPrefix
-      }
+      };
       if(props.stepData.separator){
         dataPayload.separator = null;
       }
@@ -167,7 +187,7 @@ const NewLoadDialog = (props) => {
     //Call create data load artifact API function
     props.createLoadArtifact(dataPayload);
     props.setNewLoad(false);
-  }
+  };
 
   const handleChange = (event) => {
     if (event.target.id === 'name') {
@@ -187,16 +207,23 @@ const NewLoadDialog = (props) => {
     }
 
     if (event.target.id === 'description') {
-      setDescription(event.target.value)
+      setDescription(event.target.value);
     }
 
-  }
+    if (event.target.id === 'sourceName') {
+      setSourceName(event.target.value);
+    }
+
+    if (event.target.id === 'sourceType') {
+      setSourceType(event.target.value);
+    }
+  };
 
   const handleOutputUriPrefix = (event) => {
     if (event.target.id === 'outputUriPrefix') {
       setOutputUriPrefix(event.target.value);
     }
-  }
+  };
 
   const handleSrcFormat = (value) => {
     if (value !== ' ') {
@@ -205,7 +232,7 @@ const NewLoadDialog = (props) => {
         setFieldSeparator(',');
       }
     }
-  }
+  };
 
   const handleFieldSeparator = (value) => {
     if (value !== ' ') {
@@ -214,19 +241,23 @@ const NewLoadDialog = (props) => {
         setOtherSeparator('');
       }
     }
-  }
+  };
 
   const handleOtherSeparator = (event) => {
     if (event.target.id === 'otherSeparator') {
       setOtherSeparator(event.target.value);
     }
-  }
+  };
 
   const handleTgtFormat = (value) => {
     if (value !== ' ') {
       setTgtFormat(value);
+      if(value !== 'json' && value !== 'xml') {
+        setSourceName('');
+        setSourceType('');
+      }
     }
-  }
+  };
 
   const formItemLayout = {
     labelCol: {
@@ -258,6 +289,7 @@ const NewLoadDialog = (props) => {
     <p className={styles.title}>{props.title}</p>
     <br/>
     <div className={styles.newDataLoadForm}>
+        <div className={styles.newLoadCardTitle} aria-label={'newLoadCardTitle'}>Configure the new Loading step. Then, add the new step to a flow and run it to load your data.</div>
       <Form {...formItemLayout} onSubmit={handleSubmit} colon={false}>
         <Form.Item label={<span>
           Name:&nbsp;<span className={styles.asterisk}>*</span>&nbsp;
@@ -273,7 +305,7 @@ const NewLoadDialog = (props) => {
             value={stepName}
             onChange={handleChange}
             disabled={tobeDisabled}
-           className={styles.input}
+            className={styles.input}
           />&nbsp;&nbsp;<MLTooltip title={NewLoadTooltips.name}>
             <Icon type="question-circle" className={styles.questionCircle} theme="filled" />
           </MLTooltip>
@@ -355,6 +387,34 @@ const NewLoadDialog = (props) => {
             <Icon type="question-circle" className={styles.questionCircle} theme="filled" />
           </MLTooltip>
         </Form.Item>
+        {(tgtFormat === 'json' || tgtFormat === 'xml') && <Form.Item label={<span>
+          Source Name:&nbsp;
+            </span>} labelAlign="left">
+          <Input
+              id="sourceName"
+              placeholder="Enter Source Name"
+              value={sourceName}
+              onChange={handleChange}
+              disabled={props.canReadOnly && !props.canReadWrite}
+              className={styles.input}
+          />&nbsp;&nbsp;<MLTooltip title={NewLoadTooltips.sourceName}>
+          <Icon type="question-circle" className={styles.questionCircle} theme="filled" />
+        </MLTooltip>
+        </Form.Item>}
+        {(tgtFormat === 'json' || tgtFormat === 'xml') && <Form.Item label={<span>
+          Source Type:&nbsp;
+            </span>} labelAlign="left">
+          <Input
+              id="sourceType"
+              placeholder="Enter Source Type"
+              value={sourceType}
+              onChange={handleChange}
+              disabled={props.canReadOnly && !props.canReadWrite}
+              className={styles.input}
+          />&nbsp;&nbsp;<MLTooltip title={NewLoadTooltips.sourceType}>
+          <Icon type="question-circle" className={styles.questionCircle} theme="filled" />
+        </MLTooltip>
+        </Form.Item>}
         <Form.Item label={<span>
           Target URI Prefix:&nbsp;
             </span>} labelAlign="left">
@@ -374,14 +434,19 @@ const NewLoadDialog = (props) => {
           <div className={styles.submitButtons}>
             <MLButton aria-label="Cancel" onClick={() => onCancel()}>Cancel</MLButton>
             &nbsp;&nbsp;
-            <MLButton aria-label="Save" type="primary" htmlType="submit" disabled={!isValid || !props.canReadWrite} onClick={handleSubmit}>Save</MLButton>
+            <MLButton 
+              aria-label="Save" 
+              type="primary" 
+              htmlType="submit" 
+              disabled={!props.canReadWrite} 
+              onClick={handleSubmit}
+            >Save</MLButton>
           </div>
         </Form.Item>
       </Form>
     </div>
     {deleteConfirmation}
-  </Modal>)
-}
+  </Modal>);
+};
 
 export default NewLoadDialog;
-

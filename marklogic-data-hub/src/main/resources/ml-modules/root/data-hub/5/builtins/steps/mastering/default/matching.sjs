@@ -17,8 +17,10 @@ const DataHubSingleton = require("/data-hub/5/datahub-singleton.sjs");
 const datahub = DataHubSingleton.instance();
 const mastering = require("/com.marklogic.smart-mastering/process-records.xqy");
 const masteringStepLib = require("/data-hub/5/builtins/steps/mastering/default/lib.sjs");
-const requiredOptionProperties = ['matchOptions'];
+const quickStartRequiredOptionProperty = 'matchOptions';
+const hubCentralRequiredOptionProperty = 'matchRulesets';
 const emptySequence = Sequence.from([]);
+const httpUtils = require("/data-hub/5/impl/http-utils.sjs");
 
 /**
  * Filters out content that has either already been processed by the running Job or are side-car documents not intended for matching against
@@ -49,22 +51,33 @@ function filterContentAlreadyProcessed(content, summaryCollection, collectionInf
 }
 
 function main(content, options) {
-  const collectionInfo = masteringStepLib.checkOptions(null, options, null, requiredOptionProperties);
+  if (options.stepId) {
+    const stepDoc = fn.head(cts.search(cts.andQuery([
+      cts.collectionQuery("http://marklogic.com/data-hub/steps"),
+      cts.jsonPropertyValueQuery("stepId", options.stepId, "case-insensitive")
+    ])));
+    if (stepDoc) {
+      options = stepDoc.toObject();
+    } else {
+      httpUtils.throwBadRequestWithArray([`Could not find step with stepId ${options.stepId}`]);
+    }
+  }
+  const collectionInfo = masteringStepLib.checkOptions(null, options, null, [[quickStartRequiredOptionProperty,hubCentralRequiredOptionProperty]]);
   const collections = ['datahubMasteringMatchSummary'];
-  if (options.targetEntity) {
-    collections.push(`datahubMasteringMatchSummary-${options.targetEntity}`);
+  let targetEntityType = options.targetEntity || options.targetEntityType;
+  if (targetEntityType) {
+    collections.push(`datahubMasteringMatchSummary-${targetEntityType}`);
   }
   const summaryCollection = collections[collections.length - 1];
   const filteredContent = filterContentAlreadyProcessed(content, summaryCollection, collectionInfo);
-  const matchOptions = new NodeBuilder().addNode({ options: options.matchOptions }).toNode();
   if (fn.count(filteredContent) === 0) {
     return emptySequence;
   }
   let matchSummaryJson = mastering.buildMatchSummary(
     filteredContent,
-    matchOptions,
+    options,
     options.filterQuery ? cts.query(options.filterQuery) : cts.trueQuery(),
-    datahub.prov.granularityLevel() === datahub.prov.FINE_LEVEL
+    datahub.prov.granularityLevel() === datahub.prov.FINE_LEVEL || options.provenanceGranularityLevel === datahub.prov.FINE_LEVEL
   );
 
   return buildResult(matchSummaryJson, options, collections);

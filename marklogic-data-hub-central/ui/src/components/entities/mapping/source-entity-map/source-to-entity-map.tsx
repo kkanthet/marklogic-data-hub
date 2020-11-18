@@ -6,7 +6,7 @@ import './source-to-entity-map.scss';
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faObjectUngroup, faList, faPencilAlt, faSearch } from "@fortawesome/free-solid-svg-icons";
 import { getInitialChars, convertDateFromISO, getLastChars } from "../../../../util/conversionFunctions";
-import { getMappingValidationResp } from "../../../../util/manageArtifacts-service"
+import { getMappingValidationResp } from "../../../../util/manageArtifacts-service";
 import DropDownWithSearch from "../../../common/dropdown-with-search/dropdownWithSearch";
 import SplitPane from 'react-split-pane';
 import Highlighter from 'react-highlight-words';
@@ -18,7 +18,7 @@ const SourceToEntityMap = (props) => {
     const [sourceContext, setSourceContext] = useState({});
     let mapExpUI: any = {};
     let tempMapExp: any = {};
-    let tempSourceContext: any = {}
+    let tempSourceContext: any = {};
     let trackUniqueKeys: any = [];
     /*-------------------*/
 
@@ -41,9 +41,9 @@ const SourceToEntityMap = (props) => {
     const [mapSaved, setMapSaved] = useState(false);
     const [errorInSaving, setErrorInSaving] = useState('');
 
-    const [srcURI, setSrcURI] = useState(props.sourceURI);
-
     const [srcData, setSrcData] = useState<any[]>([]);
+    const [srcURI, setSrcURI] = useState(props.sourceURI);
+    const [srcFormat, setSrcFormat] = useState(props.sourceFormat);
 
     //For source dropdown search menu
     const [flatArray, setFlatArray]   = useState<any[]>([]);
@@ -106,30 +106,30 @@ const SourceToEntityMap = (props) => {
 
     const handleEditIconClick = () => {
         setEditingUri(true);
-    }
+    };
 
     const handleURIEditing = (e) => {
         setSrcURI(e.target.value);
 
-    }
+    };
 
     const handleMouseOver = (e) => {
         setShowEditURIOption(true);
-    }
+    };
 
     const handleCloseEditOption = (srcURI) => {
         setSrcURI(srcURI);
         setEditingUri(false);
-    }
+    };
 
     const handleSubmitUri = (uri) => {
         props.getMappingArtifactByMapName(props.mapData.targetEntityType,props.mapData.name);
-        props.fetchSrcDocFromUri(uri,props.mapIndex);
+        props.fetchSrcDocFromUri(props.mapData.name, uri, props.mapIndex);
         if(isTestClicked) {
             getMapValidationResp(uri);
         }
         setEditingUri(false);
-    }
+    };
 
     const srcDetails = props.mapData && props.mapData.sourceQuery && props.mapData.selectedSource ? <div className={styles.xpathDoc}>
         {props.mapData.selectedSource === 'collection' ? <div className={styles.sourceQuery}>Collection: {props.extractCollectionFromSrcQuery(props.mapData.sourceQuery)}</div> : <div className={styles.sourceQuery}>Source Query: {getInitialChars(props.mapData.sourceQuery,32,'...')}</div>}
@@ -153,26 +153,29 @@ const SourceToEntityMap = (props) => {
             setSearchedSourceColumn('');
             setSearchEntityText('');
             setSearchedEntityColumn('');
-        })
-    }, [props.mappingVisible]);
+        });
+    }, [props.mappingVisible, props.entityTypeProperties]);
 
+    useEffect(() => {
+        setSrcData([...props.sourceData]);
+        setFlatArray(flattenSourceDoc([...props.sourceData], [], ''));
+    }, [props.sourceData]);
 
     useEffect(() => {
         if (props.sourceURI) {
             setSrcURI(props.sourceURI);
         }
-
     }, [props.sourceURI]);
 
     useEffect(() => {
-        setSrcData([...props.sourceData])
-        setFlatArray(flattenSourceDoc([...props.sourceData], [], ''))
-
-    }, [props.sourceData]);
+        if (props.sourceFormat) {
+            setSrcFormat(props.sourceFormat);
+        }
+    }, [props.sourceFormat]);
 
     useEffect(()=> {
         initializeSourceExpandKeys();
-    }, [srcData])
+    }, [srcData]);
 
     //Set the collapse/Expand options for Source table, when mapping opens up.
     const initializeSourceExpandKeys = () => {
@@ -180,12 +183,12 @@ const SourceToEntityMap = (props) => {
         props.sourceData.map(obj => {
             if (obj.hasOwnProperty('children')) {
                 initialKeysToExpand.push(obj.rowKey);
-            };
+            }
         });
         setSourceExpandedKeys([...initialKeysToExpand]);
         setInitialSourceKeys([...initialKeysToExpand]);
         setAllSourceKeys([...getKeysToExpandFromTable(srcData,'rowKey')]);
-    }
+    };
 
     //Set the collapse/Expand options for Entity table, when mapping opens up.
     const initializeEntityExpandKeys = () => {
@@ -193,12 +196,12 @@ const SourceToEntityMap = (props) => {
         props.entityTypeProperties.map(obj => {
             if (obj.hasOwnProperty('children')) {
                 initialKeysToExpand.push(obj.key);
-            };
+            }
         });
         setEntityExpandedKeys([...initialKeysToExpand]);
         setInitialEntityKeys([...initialKeysToExpand]);
-        setAllEntityKeys([...getKeysToExpandFromTable(props.entityTypeProperties,'key')])
-    }
+        setAllEntityKeys([...getKeysToExpandFromTable(props.entityTypeProperties,'key')]);
+    };
 
     //To handle navigation buttons
     const onNavigateURIList = (index) => {
@@ -239,25 +242,25 @@ const SourceToEntityMap = (props) => {
                 props.setDisableURINavRight(true);
             }
         }
-    }
+    };
     const onUpdateURINavButtons = (uri) => {
-        props.fetchSrcDocFromUri(uri,props.mapIndex);
+        props.fetchSrcDocFromUri(props.mapData.name, uri,props.mapIndex);
         if(isTestClicked) {
             getMapValidationResp(uri);
         }
-    }
+    };
 
     const navigationButtons = <span className={styles.navigate_source_uris}>
         <MLButton className={styles.navigate_uris_left} data-testid="navigate-uris-left" onClick={() => onNavigateURIList(uriIndex - 1)} disabled={props.disableURINavLeft}>
             <Icon type="left" className={styles.navigateIcon} />
         </MLButton>
         &nbsp;
-        <div className={styles.URI_Index}><p>{uriIndex + 1}</p></div>
+        <div aria-label="uriIndex" className={styles.URI_Index}><p>{uriIndex + 1}</p></div>
         &nbsp;
         <MLButton className={styles.navigate_uris_right} data-testid="navigate-uris-right" onClick={() => onNavigateURIList(uriIndex + 1)} disabled={props.disableURINavRight}>
             <Icon type="right" className={styles.navigateIcon} />
         </MLButton>
-    </span>
+    </span>;
 
     //Code for navigation buttons ends here
 
@@ -266,10 +269,10 @@ const SourceToEntityMap = (props) => {
         if (props.mapData && props.mapData.properties) {
             initializeMapExpForUI(props.mapData.properties);
             setMapExp({ ...mapExpUI });
-            updateSourceContext({ ...mapExpUI },props.entityTypeProperties)
-            setSourceContext({... tempSourceContext})
+            updateSourceContext({ ...mapExpUI },props.entityTypeProperties);
+            setSourceContext({... tempSourceContext});
         }
-    }
+    };
 
     /*  The source context is updated when mapping is saved/loaded, this function does a level order traversal of entity
      json and updates the sourceContext for every entity property */
@@ -305,8 +308,8 @@ const SourceToEntityMap = (props) => {
                 }
                 element.children.forEach(ele => {
                     ele.parentVal = parentVal;
-                    queue.push(ele)
-                })
+                    queue.push(ele);
+                });
             }
             else {
                 if(parentVal){
@@ -317,7 +320,7 @@ const SourceToEntityMap = (props) => {
                 }
             }
         }
-    }
+    };
 
     //Refresh the UI mapExp from the the one saved in the database
     const initializeMapExpForUI  = (mapExp,parentKey = '') => {
@@ -327,22 +330,21 @@ const SourceToEntityMap = (props) => {
             parentKey = parentKey ? parentKey + '/' + key : key;
             mapExpUI[parentKey] = mapExp[key]['sourcedFrom'];
             initializeMapExpForUI(val.properties,parentKey);
-            parentKey = (parentKey.indexOf("/")!=-1) ? parentKey.substring(0,parentKey.lastIndexOf('/')):''
+            parentKey = (parentKey.indexOf("/")!=-1) ? parentKey.substring(0,parentKey.lastIndexOf('/')):'';
           }
           else {
             let tempKey = parentKey ? parentKey + '/' + key : key;
             mapExpUI[tempKey] = mapExp[key]['sourcedFrom'];
           }
-        })
-    }
-
-    const onOk = () => {
-        props.setMappingVisible(false)
-    }
+        });
+    };
 
     const onCancel = () => {
-        props.setMappingVisible(false)
-    }
+        setExpandedSourceFlag(false);
+        setExpandedEntityFlag(false);
+        props.setMappingVisible(false);
+        setUriIndex(0);
+    };
 
     const convertMapExpToMapArt = (obj, path, val) => {
         const propPath = path.replace(/\//g,'/properties/');
@@ -366,30 +368,30 @@ const SourceToEntityMap = (props) => {
               getTgtEntityTypesInMap(val.properties, tempKey);
             }
           }
-        })
-      }
+        });
+      };
 
     const handleExpSubmit = async () => {
         if (mapExpTouched) {
            await saveMapping(mapExp);
         }
         setMapExpTouched(false);
-    }
+    };
 
 
     const handleMapExp = (name, event) => {
         setCaretPosition(event.target.selectionStart);
         setMapExpTouched(true);
         setMapExp({...mapExp, [name]: event.target.value});
-    }
+    };
 
     const handleClickInTextArea = async (e) => {
         await setCaretPosition(e.target.selectionStart);
-    }
+    };
 
     const getDataForValueField = (name) => {
         return !checkFieldInErrors(name) ? displayResp(name) : '';
-    }
+    };
 
     const getTextForTooltip = (name) => {
         if(!checkFieldInErrors(name)){
@@ -400,7 +402,7 @@ const SourceToEntityMap = (props) => {
                 return item;
             }
         }
-    }
+    };
 
     const mapExpressionStyle = (propName) => {
         const mapStyle: CSSProperties = {
@@ -408,9 +410,9 @@ const SourceToEntityMap = (props) => {
             verticalAlign: 'top',
             justifyContent: 'top',
             borderColor: checkFieldInErrors(propName) ? 'red' : ''
-        }
+        };
         return mapStyle;
-    }
+    };
 
     //For filter search in source table
     let searchInput: any;
@@ -507,13 +509,13 @@ const SourceToEntityMap = (props) => {
         if(record.hasOwnProperty('children')){
           res = '-'+record[index];
           record['children'].map(obj => {
-            res = res + getPropValueFromDataIndex(obj,index)
+            res = res + getPropValueFromDataIndex(obj,index);
             });
           return res;
         } else {
           return '-'+record[index];
         }
-    }
+    };
 
     const getRenderOutput = (textToSearchInto,valueToDisplay,columnName,searchedCol,searchTxt) => {
         if(searchedCol === columnName) {
@@ -522,11 +524,11 @@ const SourceToEntityMap = (props) => {
             searchWords={[searchTxt]}
             autoEscape
             textToHighlight={textToSearchInto}
-          />
+          />;
         } else {
             return valueToDisplay;
         }
-    }
+    };
 
     //Get the expandKeys for the tables based on teh applied filter
     const getKeysToExpandForFilter = (dataArr,rowKey,searchText,allKeysToExpand:any = [],parentRowKey = 0) => {
@@ -550,7 +552,7 @@ const SourceToEntityMap = (props) => {
             }
         });
         return allKeysToExpand;
-    }
+    };
 
     const columns = [
         {
@@ -563,7 +565,7 @@ const SourceToEntityMap = (props) => {
             defaultFilteredValue: searchSourceText ? [searchSourceText] : [],
             render: (text) => {
                 let textToSearchInto = text?.split(':').length > 1 ? text?.split(':')[0]+': '+text?.split(':')[1] : text;
-                let valueToDisplay = <span>{text?.split(':').length > 1 ? <span><MLTooltip title={text?.split(':')[0]+' = "'+props.namespaces[text?.split(':')[0]]+'"'}><span id="namespace" className={styles.namespace}>{text?.split(':')[0]+': '}</span></MLTooltip><span>{text?.split(':')[1]}</span></span> : text}</span>;
+                let valueToDisplay = <span className={styles.sourceName}>{text?.split(':').length > 1 ? <span><MLTooltip title={text?.split(':')[0]+' = "'+props.namespaces[text?.split(':')[0]]+'"'}><span className={styles.namespace}>{text?.split(':')[0]+': '}</span></MLTooltip><span>{text?.split(':')[1]}</span></span> : text}</span>;
                 return getRenderOutput(textToSearchInto,valueToDisplay,'key',searchedSourceColumn,searchSourceText);
             }
         },
@@ -574,7 +576,7 @@ const SourceToEntityMap = (props) => {
             ellipsis: true,
             sorter: (a: any, b: any) => a.val?.localeCompare(b.val),
             width: '40%',
-            render: (text, row) => (<div data-testid = {row.key +'-srcValue'} className = {styles.sourceValue}>{text ? <MLTooltip title={text}>{getTextforSourceValue(text)}</MLTooltip> : ''}</div>)
+            render: (text, row) => (<div data-testid = {row.key +'-srcValue'} className = {styles.sourceValue}>{(text || text === '') ? <MLTooltip title={text}>{getTextforSourceValue(text, row)}</MLTooltip> : ''}</div>)
         }
     ];
 
@@ -608,14 +610,15 @@ const SourceToEntityMap = (props) => {
                 content={contextHelp}
                 trigger="click"
                 placement="right"><Icon type="question-circle" className={styles.questionCircle} theme="filled" /></Popover><p className={styles.typeText}>{dType}</p></div> : text}
-                </div>
+                </div>;
             }
         },
         {
             title: <span>XPath Expression <Popover
                 content={xPathDocLinks}
                 trigger="click"
-                placement="top" ><Icon type="question-circle" className={styles.questionCircle} theme="filled" /></Popover>
+                placement="top"
+                getPopupContainer={() => document.getElementById('parentContainer') || document.body}><Icon type="question-circle" className={styles.questionCircle} theme="filled" /></Popover>
             </span>,
             dataIndex: 'key',
             key: 'key',
@@ -649,24 +652,36 @@ const SourceToEntityMap = (props) => {
             sorter: (a: any, b: any) => getDataForValueField(a.name)?.localeCompare(getDataForValueField(b.name)),
             render: (text, row) => (<div data-testid={row.name.split('/').pop()+'-value'} className={styles.mapValue}><MLTooltip title={getTextForTooltip(row.name)}>{getTextForValueField(row)}</MLTooltip></div>)
         }
-    ]
+    ];
 
-    const getTextforSourceValue = (text) => {
-        let arr = text.split(', ')
-        if (arr.length >= 2){
-            let xMore = '(' + (arr.length - 2) + ' more)';
-            let itemOne = arr[0].length > 16 ? getInitialChars(arr[0], 16, '...\n') : arr[0] + '\n';
-            let itemTwo = arr[1].length > 16 ? getInitialChars(arr[1], 16, '...\n') : arr[1] + '\n';
-            let fullItem = itemOne.concat(itemTwo);
-            if(arr.length == 2){
-                return <p>{fullItem}</p>;
+    const getClassNames = (format, datatype) => {
+        let classNames : string[] = [];
+        if (format) classNames.push('format-'.concat(format));
+        if (datatype) classNames.push('datatype-'.concat(datatype));
+        return classNames.join(' ');
+    };
+
+    const getTextforSourceValue = (text, row) => {
+        let arr = typeof(text) === 'string' ? text.split(', ') : text;
+        if (Array.isArray(arr)){
+            if(arr.length >= 2){
+                let xMore = <span className="moreVal">{'(' + (arr.length - 2) + ' more)'}</span>;
+                let itemOne = <span className={getClassNames(srcFormat, row.datatype)}>{getInitialChars(arr[0], 14, '...')}</span>;
+                let itemTwo = <span className={getClassNames(srcFormat, row.datatype)}>{getInitialChars(arr[1], 14, '...')}</span>;
+                let fullItem = <span>{itemOne}{'\n'}{itemTwo}</span>;
+                if (arr.length == 2){
+                    return <p>{fullItem}</p>;
+                } else {
+                    return <p>{fullItem}{'\n'}{xMore}</p>;
+                }
             }else{
-                return <p>{fullItem}<span style= {{color: 'grey'}}>{xMore}</span></p>;
+                return <span className={getClassNames(srcFormat, row.datatype)}>{getInitialChars(arr[0], 14, '...')}</span>;
             }
-        }else{
-            return getInitialChars(arr[0],16,'...')
+
+        } else {
+            return <span className={getClassNames(srcFormat, row.datatype)}>{getInitialChars(text, 14, '...')}</span>;
         }
-    }
+    };
 
     //Response from server already is an array for multiple values, string for single value
     //truncation in case array values
@@ -674,54 +689,54 @@ const SourceToEntityMap = (props) => {
         let respFromServer = getDataForValueField(row.name);
         //if array of values and more than 2 values
         if(respFromServer && Array.isArray(respFromServer) && respFromServer.length >= 2){
-            let xMore = '(' + (respFromServer.length - 2) + ' more)';
+            let xMore = <span className="moreVal">{'(' + (respFromServer.length - 2) + ' more)'}</span>;
             let itemOne = respFromServer[0].length > 23 ? getInitialChars(respFromServer[0], 23, '...\n') : respFromServer[0] + '\n';
             let itemTwo = respFromServer[1].length > 23 ? getInitialChars(respFromServer[1], 23, '...\n') : respFromServer[1] + '\n';
             let fullItem = itemOne.concat(itemTwo);
             if(respFromServer.length == 2){
                 return <p>{fullItem}</p>;
             }else{
-                return <p>{fullItem}<span style= {{color: 'grey'}}>{xMore}</span></p>;
+                return <p>{fullItem}{xMore}</p>;
             }
         }else{
-            return getInitialChars(respFromServer,23,'...')
+            return getInitialChars(respFromServer,23,'...');
         }
-    }
+    };
 
     const getEntityDataType = (prop) => {
         return prop.startsWith('parent-') ? prop.slice(prop.indexOf('-')+1) : prop;
-    }
+    };
 
     const customExpandIcon = (props) => {
         if (props.expandable) {
             if (props.expanded) {
                 return <a className={styles.expandIcon} onClick={e => {
                     props.onExpand(props.record, e);
-                }}><Icon type="down" /> </a>
+                }}><Icon type="down" /> </a>;
             } else {
                 return <a  className={styles.expandIcon} onClick={e => {
                     props.onExpand(props.record, e);
-                }}><Icon type="right" data-testid="expandedIcon"/> </a>
+                }}><Icon type="right" data-testid="expandedIcon"/> </a>;
             }
         } else {
             return <span style={{ color: 'black' }} onClick={e => {
                 props.onExpand(props.record, e);
-            }}></span>
+            }}></span>;
         }
-    }
+    };
 
     // CSS properties for the alert message after saving the mapping
     const saveMessageCSS: CSSProperties = {
         border: errorInSaving === 'noError' ? '1px solid #008000' : '1px solid #ff0000',
         marginLeft: '25vw'
-    }
+    };
 
     const success = () => {
-        let mesg = `All changes are saved on ${convertDateFromISO(new Date())}`
-        let errorMesg = `An error occured while saving the changes.`
+        let mesg = `All changes are saved on ${convertDateFromISO(new Date())}`;
+        let errorMesg = `An error occured while saving the changes.`;
 
-        let msg = <span data-testid="successMessage" id="successMessage"><Alert type="success" message={mesg} banner style={saveMessageCSS} /></span>
-        let errorMsg = <span  id="errorMessage"><Alert type="error" message={errorMesg} banner style={saveMessageCSS} /></span>
+        let msg = <span data-testid="successMessage" id="successMessage"><Alert type="success" message={mesg} banner style={saveMessageCSS} /></span>;
+        let errorMsg = <span  id="errorMessage"><Alert type="error" message={errorMesg} banner style={saveMessageCSS} /></span>;
         setTimeout(() => {
             setErrorInSaving('');
         }, 2000);
@@ -745,7 +760,7 @@ const SourceToEntityMap = (props) => {
                 return prop["output"];
             }
         }
-    }
+    };
 
     const checkFieldInErrors = (field) => {
         const finalProp = field.replace(/\//g,'.properties.');
@@ -760,7 +775,7 @@ const SourceToEntityMap = (props) => {
         } else {
             return false;
         }
-    }
+    };
 
     //Logic for Test and Clear buttons
     const getMapValidationResp = async (uri) => {
@@ -772,20 +787,20 @@ const SourceToEntityMap = (props) => {
             }
         }
         catch (err) {
-            console.error('Error while applying validation on current URI!', err)
+            console.error('Error while applying validation on current URI!', err);
         }
-    }
+    };
 
     const onClear = () => {
         setMapResp({});
         setIsTestClicked(false);
-    }
+    };
     /* Insert Function signature in map expressions */
 
     const handleFunctionsList = async (name) => {
         let funcArr: any[]= [];
-        Object.keys(props.mapFunctions).forEach(element => {
-            funcArr.push({'key':element, 'value':element});
+        props.mapFunctions.forEach(element => {
+            funcArr.push({'key':element.functionName, 'value':element.functionName});
         });
         setPropListForDropDown(funcArr);
 
@@ -799,11 +814,14 @@ const SourceToEntityMap = (props) => {
             await setDisplaySelectList(false);
             await setDisplayFuncMenu(false);
         }
-    }
+    };
 
-    const functionsDef = (funcName) => {
-        return props.mapFunctions[funcName].signature
-    }
+    const functionsDef = (functionName) => {
+        return props.mapFunctions.find(func => {
+            return func.functionName == functionName;
+        }).signature;
+
+    };
 
     const insertContent = async (content, propName) => {
         if(!mapExp[propName]){
@@ -816,8 +834,8 @@ const SourceToEntityMap = (props) => {
         setDisplaySelectList(prev => false);
         setDisplayFuncMenu(prev => false);
         //simulate a click event to handle simultaneous event propagation of dropdown and select
-        simulateMouseClick(dummyNode.current)
-    }
+        simulateMouseClick(dummyNode.current);
+    };
 
 
     //simulate a click event to destroy both dropdown and select on option select
@@ -833,12 +851,12 @@ const SourceToEntityMap = (props) => {
                 })
             )
         );
-    }
+    };
 
     const onFunctionSelect = (e) => {
         setFunctionValue(e);
         insertContent(functionsDef(e), propName);
-    }
+    };
 
     const menu = (
         <DropDownWithSearch
@@ -858,9 +876,9 @@ const SourceToEntityMap = (props) => {
     const flattenSourceDoc = (sourceData, flatArray, flatArrayKey) => {
         sourceData.forEach(element =>{
             let flatArrayVal = element.key;
-            if(!element.children && element.val) {
-                if(!flatArrayKey&& flatArrayKey.indexOf('/') == -1){
-                    trackUniqueKeys.push(element.key)
+            if (!element.children && (element.val || element.val === '')) {
+                if (!flatArrayKey&& flatArrayKey.indexOf('/') == -1){
+                    trackUniqueKeys.push(element.key);
                     flatArray.push({'value':flatArrayVal, 'key':element.key, 'struct': element.array ? true : false});
                 }
                 else {
@@ -872,30 +890,30 @@ const SourceToEntityMap = (props) => {
                 }
             }
             else{
-                if(!flatArrayKey){
-                    flatArrayKey =element.key
+                if (!flatArrayKey){
+                    flatArrayKey =element.key;
                 }
                 else {
-                    flatArrayKey = flatArrayKey +'/'+ element.key
+                    flatArrayKey = flatArrayKey +'/'+ element.key;
                 }
                 if (!trackUniqueKeys.includes(flatArrayKey)){
                     trackUniqueKeys.push(flatArrayKey);
                     flatArray.push({'value':flatArrayVal, 'key':flatArrayKey, 'struct': true});
                 }
             }
-            if(element.children) {
+            if (element.children) {
                 flattenSourceDoc(element.children, flatArray, flatArrayKey);
-                flatArrayKey = (flatArrayKey.indexOf("/")==-1)?'':flatArrayKey.substring(0,flatArrayKey.lastIndexOf("/"))
+                flatArrayKey = (flatArrayKey.indexOf("/")==-1)?'':flatArrayKey.substring(0,flatArrayKey.lastIndexOf("/"));
             }
-        })
+        });
         return flatArray;
-    }
+    };
 
     const handleSourceList = async (row) => {
         setSelectedRow(row);
         let name = row.name;
-        let propList: any = []
-        let indentList:any = []
+        let propList: any = [];
+        let indentList:any = [];
         setPropName(name);
         //flatArray.forEach(element => propList.push(element.key));
         flatArray.forEach(element => indentList.push(20*(element.key.split('/').length - 1)));
@@ -911,7 +929,7 @@ const SourceToEntityMap = (props) => {
             await setDisplaySourceList(false);
             await setDisplaySourceMenu(false);
         }
-    }
+    };
 
     const insertSource = async  (content, propName) => {
         if(!mapExp[propName]){
@@ -939,8 +957,8 @@ const SourceToEntityMap = (props) => {
         setDisplaySourceMenu(false);
 
         //simulate a click event to handle simultaneous event propagation of dropdown and select
-        simulateMouseClick(dummyNode.current)
-    }
+        simulateMouseClick(dummyNode.current);
+    };
 
     function escapeXML(input = '') {
         return input
@@ -966,7 +984,7 @@ const SourceToEntityMap = (props) => {
         let mapSavedResult = await props.updateMappingArtifact(dataPayload);
         tempSourceContext = {};
         updateSourceContext(mapObject, props.entityTypeProperties);
-        setSourceContext({... tempSourceContext})
+        setSourceContext({... tempSourceContext});
         if (mapSavedResult) {
             setErrorInSaving('noError');
         } else {
@@ -974,16 +992,16 @@ const SourceToEntityMap = (props) => {
         }
         let mapArt = await props.getMappingArtifactByMapName(dataPayload.targetEntityType,props.mapName);
         if(mapArt){
-            await setSavedMappingArt({...mapArt})
+            await setSavedMappingArt({...mapArt});
         }
         setMapSaved(mapSavedResult);
-    }
+    };
 
 
     const onSourceSelect = (e) => {
         setSourceValue(e);
         insertSource(e, propName);
-    }
+    };
 
     const sourceSearchMenu = (
         <DropDownWithSearch
@@ -1008,12 +1026,12 @@ const SourceToEntityMap = (props) => {
     const splitStyle:CSSProperties= {
         position: 'relative',
         height: 'none',
-    }
+    };
     const resizerStyle:CSSProperties = {
         border: '1px solid rgba(1, 22, 39, 0.21)',
         cursor: 'col-resize',
         height: 'auto',
-    }
+    };
 
     //Code for handling column selector in Entity table
 
@@ -1032,7 +1050,7 @@ const SourceToEntityMap = (props) => {
         let obj = checkedEntityColumns;
         obj[e.target.value] = e.target.checked;
         await setCheckedEntityColumns({...obj});
-    }
+    };
 
     const columnOptionsDropdown = (
         <div className={styles.menuParentDiv}>
@@ -1060,11 +1078,11 @@ const SourceToEntityMap = (props) => {
         placement="bottomRight"
         overlayClassName={styles.columnSelectorOverlay}><a onClick={e => e.preventDefault()}>
         Column Options <Icon type="down" theme="outlined"/>
-      </a></Dropdown>
+      </a></Dropdown>;
 
     const getColumnsForEntityTable:any = () => {
         return entityColumns.map(el => checkedEntityColumns[el.key] ? el : '').filter(item => item);
-    }
+    };
 
     //Collapse all-Expand All button
 
@@ -1076,30 +1094,32 @@ const SourceToEntityMap = (props) => {
                 if((rowKey === 'key' && !expandedEntityFlag) || (rowKey === 'rowKey' && !expandedSourceFlag)){
                     getKeysToExpandFromTable(obj['children'],rowKey,allKeysToExpand);
                 }
-            };
+            }
         });
         return allKeysToExpand;
-    }
+    };
 
     const handleExpandCollapse = (rowKey) => {
         if(rowKey === 'rowKey'){
         let keys = getKeysToExpandFromTable(srcData,rowKey);
-            setSourceExpandedKeys([...keys]);
             if(expandedSourceFlag) {
+                setSourceExpandedKeys([]);
                 setExpandedSourceFlag(false);
             } else {
+                setSourceExpandedKeys([...keys]);
                 setExpandedSourceFlag(true);
             }
         } else {
         let keys = getKeysToExpandFromTable(props.entityTypeProperties,rowKey);
-            setEntityExpandedKeys([...keys]);
             if(expandedEntityFlag) {
+                setEntityExpandedKeys([]);
                 setExpandedEntityFlag(false);
             } else {
+                setEntityExpandedKeys([...keys]);
                 setExpandedEntityFlag(true);
             }
         }
-    }
+    };
 
     const toggleRowExpanded = (expanded, record, rowKey) => {
 
@@ -1118,12 +1138,12 @@ const SourceToEntityMap = (props) => {
                     if(!initialEntityKeys.some(item => finalKeys.includes(item))){
                         setExpandedEntityFlag(false);
                     }
-                    return finalKeys});
+                    return finalKeys;});
             }
         } else {
             if (!sourceExpandedKeys.includes(record.rowKey)) {
                 setSourceExpandedKeys(prevState => {
-                    let finalKeys = prevState.concat([record['rowKey']])
+                    let finalKeys = prevState.concat([record['rowKey']]);
 
                     if(allSourceKeys.every(item => finalKeys.includes(item))){
                         setExpandedSourceFlag(true);
@@ -1141,11 +1161,10 @@ const SourceToEntityMap = (props) => {
                 });
             }
         }
-    }
+    };
 
     return (<Modal
             visible={props.mappingVisible}
-            onOk={() => onOk()}
             onCancel={() => onCancel()}
             width={'96vw'}
             maskClosable={false}
@@ -1164,13 +1183,13 @@ const SourceToEntityMap = (props) => {
                         Clear
                     </MLButton>
                 &nbsp;&nbsp;
-                <MLButton id="Test-btn" mat-raised-button="true" type="primary" disabled={emptyData || mapExpTouched} onClick={() => getMapValidationResp(srcURI)}>
+                <MLButton className={styles.btn_test} id="Test-btn" mat-raised-button="true" type="primary" disabled={emptyData || mapExpTouched} onClick={() => getMapValidationResp(srcURI)}>
                         Test
                     </MLButton>
             </span>
             <br/>
             <hr/>
-            <div className={styles.parentContainer}>
+            <div id="parentContainer" className={styles.parentContainer}>
                 <SplitPane
                     style={splitStyle}
                     paneStyle={splitPaneStyles.pane}
@@ -1193,6 +1212,7 @@ const SourceToEntityMap = (props) => {
                                 content={srcDetails}
                                 trigger="click"
                                 placement="right"
+                                getPopupContainer={() => document.getElementById('parentContainer') || document.body}
                             ><Icon type="question-circle" className={styles.questionCircle} theme="filled" /></Popover></p>
                         </div>
                         {props.isLoading === true ? <div className={styles.spinRunning}>
@@ -1212,7 +1232,7 @@ const SourceToEntityMap = (props) => {
                             :
                             <div id="dataPresent">
 
-                                <div className={styles.navigationCollapseButtons}><span><MLButton data-testid="expandCollapseBtn-source" onClick={() => handleExpandCollapse('rowKey')} className={styles.expandCollapseBtn}>{expandedSourceFlag ? 'Collapse' : 'Expand'}</MLButton></span><span>{navigationButtons}</span></div>
+                                <div className={styles.navigationCollapseButtons}><span><MLButton data-testid="expandCollapseBtn-source" onClick={() => handleExpandCollapse('rowKey')} className={styles.expandCollapseBtn}>{expandedSourceFlag ? 'Collapse All' : 'Expand All'}</MLButton></span><span>{navigationButtons}</span></div>
                                     <Table
                                         pagination={false}
                                         expandIcon={(props) => customExpandIcon(props)}
@@ -1228,6 +1248,7 @@ const SourceToEntityMap = (props) => {
                                         dataSource={srcData}
                                         tableLayout="unset"
                                         rowKey={(record) => record.rowKey}
+                                        getPopupContainer={() => document.getElementById('srcContainer') || document.body}
                                     />
                             </div> }
                     </div>
@@ -1240,7 +1261,7 @@ const SourceToEntityMap = (props) => {
                         </div>
                         <div ref={dummyNode}></div>
                         <div className={styles.columnOptionsSelectorContainer}>
-                            <span><MLButton data-testid="expandCollapseBtn-entity" onClick={() => handleExpandCollapse('key')} className={styles.expandCollapseBtn}>{expandedEntityFlag ? 'Collapse' : 'Expand'}</MLButton></span><span className={styles.columnOptionsSelector}>{columnOptionsSelector}</span></div>
+                            <span><MLButton data-testid="expandCollapseBtn-entity" onClick={() => handleExpandCollapse('key')} className={styles.expandCollapseBtn}>{expandedEntityFlag ? 'Collapse All' : 'Expand All'}</MLButton></span><span className={styles.columnOptionsSelector}>{columnOptionsSelector}</span></div>
                         <Table
                             pagination={false}
                             className={styles.entityTable}
@@ -1254,6 +1275,7 @@ const SourceToEntityMap = (props) => {
                             dataSource={props.entityTypeProperties}
                             tableLayout="unset"
                             rowKey={(record: any) => record.key}
+                            getPopupContainer={() => document.getElementById('entityContainer') || document.body}
                         />
                     </div>
                 </SplitPane>
@@ -1262,7 +1284,7 @@ const SourceToEntityMap = (props) => {
 
     );
 
-}
+};
 
 export default SourceToEntityMap;
 

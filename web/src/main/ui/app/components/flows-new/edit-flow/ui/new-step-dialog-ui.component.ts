@@ -350,7 +350,7 @@ export class NewStepDialogUiComponent implements OnInit {
       this.newStep.stepDefinitionName = this.newStep.name;
 
     } else {
-      if(this.newStep.stepDefType === StepType.MAPPING && this.envService.settings.isVersionCompatibleWithES){
+      if(this.newStep.stepDefType === StepType.MAPPING ){
         this.newStep.stepDefinitionName = 'entity-services-' + (this.newStep.stepDefType || '').toLowerCase();
       }
       else {

@@ -5,7 +5,7 @@ import userEvent from "@testing-library/user-event";
 
 import EntityTypeModal from './entity-type-modal';
 import { ModelingTooltips } from '../../../config/tooltips.config';
-import { createModelErrorResponse, createModelResponse } from '../../../assets/mock-data/modeling';
+import { createModelErrorResponse, createModelResponse } from '../../../assets/mock-data/modeling/modeling';
 
 jest.mock('axios');
 const axiosMock = axios as jest.Mocked<typeof axios>;
@@ -49,7 +49,7 @@ describe('EntityTypeModal Component', () => {
       userEvent.click(getByText('Add'));
     });
 
-    let url = "/api/models"
+    let url = "/api/models";
     let payload = { "name": "AnotherModel", "description": "Testing" };
     expect(axiosMock.post).toHaveBeenCalledWith(url, payload);
     expect(axiosMock.post).toHaveBeenCalledTimes(1);
@@ -68,7 +68,7 @@ describe('EntityTypeModal Component', () => {
     expect(getByText(/Add Entity Type/i)).toBeInTheDocument();
 
     userEvent.type(getByPlaceholderText('Enter name'), '123-Box');
-    userEvent.type(getByPlaceholderText('Enter description'), 'Product entity desription');;
+    userEvent.type(getByPlaceholderText('Enter description'), 'Product entity desription');
 
     await wait(() => {
       userEvent.click(getByText('Add'));
@@ -78,7 +78,7 @@ describe('EntityTypeModal Component', () => {
   });
 
   test('Creating duplicate entity shows error message', async () => {
-    axiosMock.post['mockImplementationOnce'](jest.fn(() => 
+    axiosMock.post['mockImplementationOnce'](jest.fn(() =>
       Promise.reject({ response: {status: 400, data: createModelErrorResponse } })));
 
     const { getByText, getByPlaceholderText } = render(
@@ -99,7 +99,7 @@ describe('EntityTypeModal Component', () => {
       userEvent.click(getByText('Add'));
     });
 
-    let url = "/api/models"
+    let url = "/api/models";
     let payload = { "name": "Testing", "description": "" };
     expect(axiosMock.post).toHaveBeenCalledWith(url, payload);
     expect(axiosMock.post).toHaveBeenCalledTimes(1);
@@ -122,7 +122,7 @@ describe('EntityTypeModal Component', () => {
   });
 
   test('Edit modal is visible', () => {
-    const { getByText, getByDisplayValue, getByPlaceholderText, queryByText } = render(
+    const { getByText, getByDisplayValue, queryByText } = render(
       <EntityTypeModal
         isVisible={true}
         toggleModal={jest.fn()}

@@ -1,23 +1,25 @@
 import React, { useContext, useEffect, useState } from 'react';
-import {Select, Input, Modal} from 'antd';
+import {Select, Input, Modal, Divider} from 'antd';
 import styles from './search-bar.module.scss';
 import { SearchContext } from '../../util/search-context';
 
 interface Props {
   entities: any;
+  cardView: boolean;
 }
 
 const SearchBar: React.FC<Props> = props => {
     const { Search } = Input;
     const { Option } = Select;
-    const { searchOptions, setQuery, setEntity, setNextEntity } = useContext(SearchContext);
+    const { searchOptions, setQuery, setNextEntity } = useContext(SearchContext);
     const [ searchString, setSearchString] = useState(searchOptions.query);
     const [dropDownValue, setDropdownValue] = useState('All Entities');
-    const dropdownOptions = ['All Entities', ...props.entities];
-
+    const dividerOption = <Divider className={styles.dividerOption}/>;
+    const dropdownOptions = ['All Data',dividerOption,'All Entities',dividerOption, ...props.entities];
 
     const options = dropdownOptions.map((entity, index) =>
-      <Option value={entity} key={index} data-cy={`entity-option-${entity}`}>{entity}</Option>
+      index === 1 || index === 3 ? <Option value={index} key={index} disabled={true} style={{cursor: 'default'}}>{entity}</Option>
+      : <Option value={entity} key={index} data-cy={`entity-option-${entity}`}>{entity}</Option>
     );
 
     const entityMenu = (
@@ -34,19 +36,19 @@ const SearchBar: React.FC<Props> = props => {
     );
 
     const handleOptionSelect = (option: any) => {
-        setNextEntity(option);
-    }
+      setNextEntity(option);
+    };
 
     const handleSearch = (searchString: string) => {
       setQuery(searchString);
-    }
+    };
 
     const onChange = (e) => {
       setSearchString(e.target.value);
       if (searchOptions.query !== '' && e.target.value === '') {
         setQuery(e.target.value);
       }
-    }
+    };
 
     useEffect(() => {
       if (searchString !== searchOptions.query) {
@@ -57,9 +59,10 @@ const SearchBar: React.FC<Props> = props => {
           setDropdownValue(searchOptions.entityTypeIds[0]);
         }
       } else {
-        setDropdownValue('All Entities');
+        setDropdownValue(!props.cardView ? 'All Entities' : 'All Data');
       }
     }, [searchOptions]);
+
 
     return (
         <div className={styles.searchBar}>
@@ -68,7 +71,7 @@ const SearchBar: React.FC<Props> = props => {
                   value={searchString}
                   onChange={onChange}
                   addonBefore={entityMenu}
-                  placeholder="Type search text"
+                  placeholder="Enter text to search for"
                   enterButton="Search"
                   size="large"
                   allowClear
@@ -78,7 +81,7 @@ const SearchBar: React.FC<Props> = props => {
                 />
             </div>
         </div>
-    )
-}
+    );
+};
 
 export default SearchBar;

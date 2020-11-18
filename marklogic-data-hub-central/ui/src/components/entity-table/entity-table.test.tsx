@@ -4,7 +4,7 @@ import { render } from '@testing-library/react';
 
 import EntityTable from './entity-table';
 import { entityFromJSON } from '../../util/data-conversion';
-import { entityModel, latestJobs, facetValues } from '../../assets/mock-data/entity-table';
+import { entityModel, latestJobs, facetValues } from '../../assets/mock-data/modeling/entity-table';
 
 describe("Entity Table component", () => {
   test('Entity table with data renders', () => {
@@ -12,12 +12,12 @@ describe("Entity Table component", () => {
     const { getByTestId, getByText } = render(
       <Router>
         <EntityTable
-          entities={entities} 
+          entities={entities}
           facetValues={facetValues}
           lastHarmonized={latestJobs}
         />
       </Router>,
-    )
+    );
     // Check for Entity Column
     expect(getByTestId('OrderDetail')).toBeInTheDocument();
     expect(getByTestId('CustomerType')).toBeInTheDocument();
@@ -43,15 +43,15 @@ describe("Entity Table component", () => {
     const { getByText } = render(
       <Router>
         <EntityTable
-          entities={[]} 
+          entities={[]}
           facetValues={[]}
           lastHarmonized={[]}
         />
       </Router>,
-    )
+    );
     // Check for Empty Table
     expect(getByText(/Entity Name/i)).toBeInTheDocument();
     expect(getByText(/Documents/i)).toBeInTheDocument();
     expect(getByText(/No Data/i)).toBeInTheDocument();
   });
-})
+});

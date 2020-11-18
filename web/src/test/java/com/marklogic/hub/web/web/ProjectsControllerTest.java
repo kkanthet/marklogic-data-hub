@@ -18,8 +18,8 @@
 package com.marklogic.hub.web.web;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.marklogic.hub.AbstractHubCoreTest;
-import com.marklogic.hub.web.WebApplication;
+import com.marklogic.hub.impl.HubConfigImpl;
+import com.marklogic.hub.web.AbstractWebTest;
 import com.marklogic.hub.web.model.HubSettings;
 import com.marklogic.hub.web.model.Project;
 import com.marklogic.hub.web.model.ProjectInfo;
@@ -29,7 +29,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.rules.TemporaryFolder;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -37,8 +36,7 @@ import java.util.Collection;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-@SpringBootTest(classes = {WebApplication.class})
-public class ProjectsControllerTest extends AbstractHubCoreTest {
+public class ProjectsControllerTest extends AbstractWebTest {
 
     @Autowired
     ProjectsController pc;
@@ -56,8 +54,7 @@ public class ProjectsControllerTest extends AbstractHubCoreTest {
         temporaryFolder = new TemporaryFolder();
         temporaryFolder.create();
         projectPath = temporaryFolder.newFolder("my-project").toString();
-        createProjectDir(projectPath);
-        adminHubConfig.createProject(projectPath);
+        getHubProject().createProject(projectPath);
     }
 
     @AfterEach
@@ -78,13 +75,13 @@ public class ProjectsControllerTest extends AbstractHubCoreTest {
 
     @Test
     @SuppressWarnings("unchecked")
-    public void addProject() throws IOException {
+    public void addProject() {
         assertEquals(0, ((Collection<ProjectInfo>)pc.getProjects().get("projects")).size());
 
         Project project = pc.addProject(projectPath);
         assertEquals(projectPath, project.path);
         assertEquals(1, project.id);
-        assertEquals(false, adminHubConfig.getHubProject().isInitialized());
+        assertEquals(false, getHubProject().isInitialized());
     }
 
     @Test
@@ -98,7 +95,7 @@ public class ProjectsControllerTest extends AbstractHubCoreTest {
         Project project = pc.getProject(1);
         assertEquals(projectPath, project.path);
         assertEquals(1, project.id);
-        assertEquals(false, adminHubConfig.getHubProject().isInitialized());
+        assertEquals(false, getHubProject().isInitialized());
     }
 
     @Test
@@ -117,16 +114,24 @@ public class ProjectsControllerTest extends AbstractHubCoreTest {
     @Test
     @SuppressWarnings("unchecked")
     public void initializeProject() {
-        assertEquals(0, ((Collection<ProjectInfo>)pc.getProjects().get("projects")).size());
+        try {
+            // Need to use the "real" HubConfigImpl, as the initializeProject method isn't happy with the
+            // CGLIB-enhanced HubConfigImpl that's used for testing
+            HubConfigImpl proxiedHubConfig = hubConfigInterceptor.getProxiedHubConfig(Thread.currentThread().getName());
 
-        pc.addProject(projectPath);
-        assertEquals(1, ((Collection<ProjectInfo>)pc.getProjects().get("projects")).size());
+            pc.setHubConfig(proxiedHubConfig);
+            assertEquals(0, ((Collection<ProjectInfo>) pc.getProjects().get("projects")).size());
 
-        ObjectMapper objectMapper = new ObjectMapper();
-        pc.initializeProject(1, objectMapper.valueToTree(adminHubConfig));
+            pc.addProject(projectPath);
+            assertEquals(1, ((Collection<ProjectInfo>) pc.getProjects().get("projects")).size());
 
-        //  assertTrue(pc.getProject(1).isInitialized());
-        assertTrue(adminHubConfig.getHubProject().isInitialized());
+            ObjectMapper objectMapper = new ObjectMapper();
+            pc.initializeProject(1, objectMapper.valueToTree(proxiedHubConfig));
+
+            assertTrue(proxiedHubConfig.getHubProject().isInitialized());
+        } finally {
+            pc.setHubConfig(getHubConfig());
+        }
     }
 
     @Test

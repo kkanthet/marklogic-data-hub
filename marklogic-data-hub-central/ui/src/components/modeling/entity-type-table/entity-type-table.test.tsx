@@ -1,25 +1,27 @@
 import React from 'react';
 import { BrowserRouter as Router } from 'react-router-dom';
-import { render, wait, screen, within } from '@testing-library/react';
+import { render, wait, screen, within, fireEvent } from '@testing-library/react';
 import userEvent from "@testing-library/user-event";
 import EntityTypeTable from './entity-type-table';
+import {ModelingTooltips, SecurityTooltips} from '../../../config/tooltips.config';
+import { validateTableRow } from '../../../util/test-utils';
 
-import { 
+import {
   entityReferences,
   deleteEntity,
   updateEntityModels
 } from '../../../api/modeling';
 
-import { 
+import {
   getEntityTypes,
   referencePayloadEmpty,
   referencePayloadRelationships,
-  referencePayloadSteps 
-} from '../../../assets/mock-data/modeling';
+  referencePayloadSteps
+} from '../../../assets/mock-data/modeling/modeling';
 
-import { ConfirmationType } from '../../../types/modeling-types';
+import { ConfirmationType } from '../../../types/common-types';
 import { ModelingContext } from '../../../util/modeling-context';
-import { isModified } from '../../../assets/mock-data/modeling-context-mock';
+import { isModified } from '../../../assets/mock-data/modeling/modeling-context-mock';
 
 jest.mock('../../../api/modeling');
 
@@ -31,12 +33,12 @@ describe('EntityTypeModal Component', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
-  })
+  });
 
   test('Table renders with empty array prop', () => {
     const { getByText } =  render(
       <Router>
-        <EntityTypeTable 
+        <EntityTypeTable
           allEntityTypesData={[]}
           canReadEntityModel={true}
           canWriteEntityModel={true}
@@ -45,9 +47,7 @@ describe('EntityTypeModal Component', () => {
           updateEntities={jest.fn()}
           revertAllEntity={false}
           toggleRevertAllEntity={jest.fn()}
-          modifiedEntityTypesData={[]}
-          useModifiedEntityTypesData={false}
-          toggleModifiedEntityTypesData={jest.fn()}
+          updateSavedEntity={jest.fn()}
         />
       </Router>);
 
@@ -56,10 +56,10 @@ describe('EntityTypeModal Component', () => {
     expect(getByText('Last Processed')).toBeInTheDocument();
   });
 
-  test('Table renders with mock data, no writer role', () => {
-    const { getByText, getByTestId, getAllByRole, getByLabelText } =  render(
+  test('Table renders with mock data, no writer role', async () => {
+    const { getByText, getByTestId, getByLabelText } =  render(
       <Router>
-        <EntityTypeTable 
+        <EntityTypeTable
           allEntityTypesData={getEntityTypes}
           canReadEntityModel={true}
           canWriteEntityModel={false}
@@ -68,9 +68,7 @@ describe('EntityTypeModal Component', () => {
           updateEntities={jest.fn()}
           revertAllEntity={false}
           toggleRevertAllEntity={jest.fn()}
-          modifiedEntityTypesData={[]}
-          useModifiedEntityTypesData={false}
-          toggleModifiedEntityTypesData={jest.fn()}
+          updateSavedEntity={jest.fn()}
         />
       </Router>);
 
@@ -82,26 +80,70 @@ describe('EntityTypeModal Component', () => {
     expect(getByTestId('Customer-revert-icon')).toHaveClass('iconRevertReadOnly');
     expect(getByTestId('Customer-trash-icon')).toHaveClass('iconTrashReadOnly');
 
+    // test save, delete, trash icons display correct tooltip when disabled
+    fireEvent.mouseOver(getByTestId('Customer-save-icon'));
+    await wait (() => expect(getByText('Save Entity: ' + SecurityTooltips.missingPermission)).toBeInTheDocument());
+    fireEvent.mouseOver(getByTestId('Customer-revert-icon'));
+    await wait (() => expect(getByText('Discard Changes: ' + SecurityTooltips.missingPermission)).toBeInTheDocument());
+    fireEvent.mouseOver(getByTestId('Customer-trash-icon'));
+    await wait (() => expect(getByText('Delete Entity: ' + SecurityTooltips.missingPermission)).toBeInTheDocument());
+
     expect(getByText(/Order/i)).toBeInTheDocument();
     expect(getByText(/2,384/i)).toBeInTheDocument();
     expect(getByTestId('Order-last-processed')).toBeInTheDocument();
-
-    // Verify sorting doesn't crash the component
-    userEvent.click(getByText('Name'));
-    userEvent.click(getByText('Last Processed'));
-    userEvent.click(getByText('Instances'));
 
     const anotherModelExpandIcon = getByTestId('mltable-expand-AnotherModel');
     userEvent.click(within(anotherModelExpandIcon).getByRole('img'));
 
     expect(getByLabelText('AnotherModel-add-property')).toBeDisabled();
+
+    //Verify sorting works as expected in entity table
+    let entityTable = document.querySelectorAll('.ant-table-row-level-0');
+
+    //Initial sort should be in descending 'Last Processed' order
+    validateTableRow(entityTable, ['AnotherModel,Testing','Protein,','Product,','Provider,','TestEntityForMapping,The TestEntityForMapping entity root.','Order,','Customer,']);
+    //verify sort by ascending 'Last Processed' order is next and works
+    fireEvent.click(getByTestId('lastProcessed'));
+    entityTable = document.querySelectorAll('.ant-table-row-level-0');
+    validateTableRow(entityTable, ['Customer,','Order,','AnotherModel,Testing','Protein,','Product,','Provider,', 'TestEntityForMapping,The TestEntityForMapping entity root.']);
+    //verify third click does not return to default, but returns to descending order
+    fireEvent.click(getByTestId('lastProcessed'));
+    entityTable = document.querySelectorAll('.ant-table-row-level-0');
+    validateTableRow(entityTable, ['AnotherModel,Testing','Protein,','Product,','Provider,','TestEntityForMapping,The TestEntityForMapping entity root.','Order,','Customer,']);
+
+    //verify sort by name alphabetically works in ascending order
+    fireEvent.click(getByTestId('entityName'));
+    entityTable = document.querySelectorAll('.ant-table-row-level-0');
+    validateTableRow(entityTable, ['AnotherModel,Testing', 'Customer,', 'Order,', 'Product,', 'Protein,','Provider,','TestEntityForMapping,The TestEntityForMapping entity root.']);
+    //verify sort by name alphabetically works in descending order
+    fireEvent.click(getByTestId('entityName'));
+    entityTable = document.querySelectorAll('.ant-table-row-level-0');
+    validateTableRow(entityTable, ['TestEntityForMapping,The TestEntityForMapping entity root.','Provider,','Protein,','Product,','Order,','Customer,','AnotherModel,Testing']);
+    //verify third click does not return to default, but returns to ascending order
+    fireEvent.click(getByTestId('entityName'));
+    entityTable = document.querySelectorAll('.ant-table-row-level-0');
+    validateTableRow(entityTable, ['AnotherModel,Testing', 'Customer,', 'Order,', 'Product,', 'Protein,','Provider,','TestEntityForMapping,The TestEntityForMapping entity root.']);
+
+    //verify sort by instances works in ascending order
+    fireEvent.click(getByTestId('Instances'));
+    entityTable = document.querySelectorAll('.ant-table-row-level-0');
+    validateTableRow(entityTable, ['AnotherModel,Testing', 'Protein,', 'Product,','Provider,', 'TestEntityForMapping,The TestEntityForMapping entity root.', 'Customer,', 'Order,']);
+    //verify sort by instances works in descending order
+    fireEvent.click(getByTestId('Instances'));
+    entityTable = document.querySelectorAll('.ant-table-row-level-0');
+    validateTableRow(entityTable, ['Order,','Customer,','AnotherModel,Testing','Protein,','Product,','Provider,', 'TestEntityForMapping,The TestEntityForMapping entity root.', 'Order,','Customer,']);
+    //verify third click does not return to default, but returns to ascending order
+    fireEvent.click(getByTestId('Instances'));
+    entityTable = document.querySelectorAll('.ant-table-row-level-0');
+    validateTableRow(entityTable, ['AnotherModel,Testing', 'Protein,', 'Product,','Provider,', 'TestEntityForMapping,The TestEntityForMapping entity root.', 'Customer,', 'Order,']);
+
   });
 
   test('Table renders with mock data, with writer role, with auto expanded entity, and can click edit', () => {
     const editMock = jest.fn();
-    const { getByTestId, getByLabelText } =  render(
+    const { getByTestId } =  render(
       <Router>
-        <EntityTypeTable 
+        <EntityTypeTable
           allEntityTypesData={getEntityTypes}
           canReadEntityModel={true}
           canWriteEntityModel={true}
@@ -110,9 +152,7 @@ describe('EntityTypeModal Component', () => {
           updateEntities={jest.fn()}
           revertAllEntity={false}
           toggleRevertAllEntity={jest.fn()}
-          modifiedEntityTypesData={[]}
-          useModifiedEntityTypesData={false}
-          toggleModifiedEntityTypesData={jest.fn()}
+          updateSavedEntity={jest.fn()}
         />
       </Router>);
 
@@ -131,9 +171,9 @@ describe('EntityTypeModal Component', () => {
 
     const updateMock = jest.fn();
 
-    const { getByTestId, getByLabelText, getByText, debug } =  render(
+    const { getByTestId } =  render(
       <Router>
-        <EntityTypeTable 
+        <EntityTypeTable
           allEntityTypesData={getEntityTypes}
           canReadEntityModel={true}
           canWriteEntityModel={true}
@@ -142,11 +182,13 @@ describe('EntityTypeModal Component', () => {
           updateEntities={updateMock}
           revertAllEntity={false}
           toggleRevertAllEntity={jest.fn()}
-          modifiedEntityTypesData={[]}
-          useModifiedEntityTypesData={false}
-          toggleModifiedEntityTypesData={jest.fn()}
+          updateSavedEntity={jest.fn()}
         />
       </Router>);
+
+      // check if delete tooltip appears
+      fireEvent.mouseOver(getByTestId('Order-trash-icon'));
+      await wait (() => expect(screen.getByText(ModelingTooltips.deleteIcon)).toBeInTheDocument());
 
       userEvent.click(getByTestId('Order-trash-icon'));
       expect(mockEntityReferences).toBeCalledWith('Order');
@@ -154,7 +196,7 @@ describe('EntityTypeModal Component', () => {
 
       await wait(() =>
         expect(screen.getByLabelText('delete-text')).toBeInTheDocument(),
-      )
+      );
 
       userEvent.click(screen.getByLabelText(`confirm-${ConfirmationType.DeleteEntity}-yes`));
 
@@ -167,9 +209,9 @@ describe('EntityTypeModal Component', () => {
 
     const updateMock = jest.fn();
 
-    const { getByTestId, getByLabelText, getByText } =  render(
+    const { getByTestId } =  render(
       <Router>
-        <EntityTypeTable 
+        <EntityTypeTable
           allEntityTypesData={getEntityTypes}
           canReadEntityModel={true}
           canWriteEntityModel={true}
@@ -178,9 +220,7 @@ describe('EntityTypeModal Component', () => {
           updateEntities={updateMock}
           revertAllEntity={false}
           toggleRevertAllEntity={jest.fn()}
-          modifiedEntityTypesData={[]}
-          useModifiedEntityTypesData={false}
-          toggleModifiedEntityTypesData={jest.fn()}
+          updateSavedEntity={jest.fn()}
         />
       </Router>);
 
@@ -190,10 +230,10 @@ describe('EntityTypeModal Component', () => {
 
       await wait(() =>
         expect(screen.getByLabelText('delete-relationship-text')).toBeInTheDocument()
-      )
+      );
       expect(screen.getByText('Existing entity type relationships.')).toBeInTheDocument();
       userEvent.click(screen.getByLabelText(`confirm-${ConfirmationType.DeleteEntityRelationshipWarn}-yes`));
-      expect(mockDeleteEntity).toBeCalledTimes(1)
+      expect(mockDeleteEntity).toBeCalledTimes(1);
   });
 
   test('can show confirm modal for delete steps', async () => {
@@ -202,9 +242,9 @@ describe('EntityTypeModal Component', () => {
 
     const updateMock = jest.fn();
 
-    const { getByTestId, getByLabelText, getByText } =  render(
+    const { getByTestId } =  render(
       <Router>
-        <EntityTypeTable 
+        <EntityTypeTable
           allEntityTypesData={getEntityTypes}
           canReadEntityModel={true}
           canWriteEntityModel={true}
@@ -213,9 +253,7 @@ describe('EntityTypeModal Component', () => {
           updateEntities={updateMock}
           revertAllEntity={false}
           toggleRevertAllEntity={jest.fn()}
-          modifiedEntityTypesData={[]}
-          useModifiedEntityTypesData={false}
-          toggleModifiedEntityTypesData={jest.fn()}
+          updateSavedEntity={jest.fn()}
         />
       </Router>);
 
@@ -225,49 +263,18 @@ describe('EntityTypeModal Component', () => {
 
       await wait(() =>
         expect(screen.getByLabelText('delete-step-text')).toBeInTheDocument()
-      )
+      );
       expect(screen.getByText('Entity type is used in one or more steps.')).toBeInTheDocument();
       userEvent.click(screen.getByLabelText(`confirm-${ConfirmationType.DeleteEntityStepWarn}-close`));
-      expect(mockDeleteEntity).toBeCalledTimes(0)
+      expect(mockDeleteEntity).toBeCalledTimes(0);
   });
 
   test('Table can mock save an entity', async () => {
     mockUpdateEntityModels.mockResolvedValueOnce({ status: 200 });
 
-    const { getByTestId, getByLabelText, getByText, debug } =  render(
-      <Router>
-        <ModelingContext.Provider value={isModified}>  
-          <EntityTypeTable 
-            allEntityTypesData={getEntityTypes}
-            canReadEntityModel={true}
-            canWriteEntityModel={true}
-            autoExpand=''
-            editEntityTypeDescription={jest.fn()}
-            updateEntities={jest.fn()}
-            revertAllEntity={false}
-            toggleRevertAllEntity={jest.fn()}
-            modifiedEntityTypesData={[]}
-            useModifiedEntityTypesData={false}
-            toggleModifiedEntityTypesData={jest.fn()}
-          />
-        </ModelingContext.Provider>
-      </Router>);
-
-      userEvent.click(getByTestId('Order-save-icon'));
-
-      await wait(() =>
-        expect(screen.getByLabelText('save-text')).toBeInTheDocument(),
-      )
-      userEvent.click(screen.getByLabelText(`confirm-${ConfirmationType.SaveEntity}-yes`));
-      expect(mockUpdateEntityModels).toBeCalledTimes(1);
-  });
-
-  test('Table can mock revert an entity', async () => {
-    mockUpdateEntityModels.mockResolvedValueOnce({ status: 200 });
-
     const { getByTestId } =  render(
       <Router>
-        <ModelingContext.Provider value={isModified}>  
+        <ModelingContext.Provider value={isModified}>
           <EntityTypeTable
             allEntityTypesData={getEntityTypes}
             canReadEntityModel={true}
@@ -277,9 +284,36 @@ describe('EntityTypeModal Component', () => {
             updateEntities={jest.fn()}
             revertAllEntity={false}
             toggleRevertAllEntity={jest.fn()}
-            modifiedEntityTypesData={[]}
-            useModifiedEntityTypesData={false}
-            toggleModifiedEntityTypesData={jest.fn()}
+            updateSavedEntity={jest.fn()}
+          />
+        </ModelingContext.Provider>
+      </Router>);
+
+      userEvent.click(getByTestId('Order-save-icon'));
+
+      await wait(() =>
+        expect(screen.getByLabelText('save-text')).toBeInTheDocument(),
+      );
+      userEvent.click(screen.getByLabelText(`confirm-${ConfirmationType.SaveEntity}-yes`));
+      expect(mockUpdateEntityModels).toBeCalledTimes(1);
+  });
+
+  test('Table can mock revert an entity', async () => {
+    mockUpdateEntityModels.mockResolvedValueOnce({ status: 200 });
+
+    const { getByTestId } =  render(
+      <Router>
+        <ModelingContext.Provider value={isModified}>
+          <EntityTypeTable
+            allEntityTypesData={getEntityTypes}
+            canReadEntityModel={true}
+            canWriteEntityModel={true}
+            autoExpand=''
+            editEntityTypeDescription={jest.fn()}
+            updateEntities={jest.fn()}
+            revertAllEntity={false}
+            toggleRevertAllEntity={jest.fn()}
+            updateSavedEntity={jest.fn()}
           />
         </ModelingContext.Provider>
       </Router>);
@@ -288,7 +322,7 @@ describe('EntityTypeModal Component', () => {
 
     await wait(() =>
       expect(screen.getByLabelText('revert-text')).toBeInTheDocument(),
-    )
+    );
   });
 
   test('Table can mock delete entity with no relations and outstanding edits', async () => {
@@ -307,9 +341,7 @@ describe('EntityTypeModal Component', () => {
           updateEntities={jest.fn()}
           revertAllEntity={false}
           toggleRevertAllEntity={jest.fn()}
-          modifiedEntityTypesData={[]}
-          useModifiedEntityTypesData={false}
-          toggleModifiedEntityTypesData={jest.fn()}
+          updateSavedEntity={jest.fn()}
         />
       </Router>
       </ModelingContext.Provider>
@@ -321,7 +353,7 @@ describe('EntityTypeModal Component', () => {
 
     await wait(() =>
       expect(screen.getByLabelText('delete-no-relationship-edit-text')).toBeInTheDocument(),
-  )
+  );
     userEvent.click(screen.getByLabelText(`confirm-${ConfirmationType.DeleteEntityNoRelationshipOutstandingEditWarn}-yes`));
     expect(mockUpdateEntityModels).toBeCalledTimes(1);
   });
@@ -342,9 +374,7 @@ describe('EntityTypeModal Component', () => {
             updateEntities={jest.fn()}
             revertAllEntity={false}
             toggleRevertAllEntity={jest.fn()}
-            modifiedEntityTypesData={[]}
-            useModifiedEntityTypesData={false}
-            toggleModifiedEntityTypesData={jest.fn()}
+            updateSavedEntity={jest.fn()}
           />
         </Router>
       </ModelingContext.Provider>
@@ -356,7 +386,7 @@ describe('EntityTypeModal Component', () => {
 
     await wait(() =>
       expect(screen.getByLabelText('delete-relationship-edit-text')).toBeInTheDocument(),
-    )
+    );
     userEvent.click(screen.getByLabelText(`confirm-${ConfirmationType.DeleteEntityRelationshipOutstandingEditWarn}-yes`));
     expect(mockUpdateEntityModels).toBeCalledTimes(1);
   });

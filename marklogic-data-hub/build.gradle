@@ -1,25 +1,35 @@
 plugins {
-    id 'net.saliman.properties' version '1.4.6'
+    id 'net.saliman.properties'
     id 'java'
     id 'java-test-fixtures'
     id 'maven-publish'
     id 'com.jfrog.bintray' version '1.7.2'
-    id 'com.marklogic.ml-gradle' version '4.0.4'
-    //id 'com.moowork.node' version '1.1.1'
+    id 'com.marklogic.ml-gradle' version '4.1.0'
     id "com.github.node-gradle.node" version "2.2.4"
     id 'org.springframework.boot' version '2.1.15.RELEASE'
     id "io.spring.dependency-management" version "1.0.7.RELEASE"
-    id 'com.marklogic.ml-development-tools' version '5.2.0'
+    id 'com.marklogic.ml-development-tools' version '5.3.0'
+
+    // Declaring this at each subproject level, as declaring it at root level resulted in an error about the plugin
+    // not being able to resolve its "dataFiles" configuration
+    id "io.snyk.gradle.plugin.snykplugin" version "0.4"
 }
 
 // Disabling javadoc warnings, as we have hundreds of them, and until we want to do something about them,
 // seeing them when running a Gradle task (like publishToMavenLocal) is just useless noise
 javadoc.options.addStringOption('Xdoclint:none', '-quiet')
 
-mainClassName='com.marklogic.hub.ApplicationConfig'
+// See https://github.com/snyk/gradle-plugin for docs
+snyk {
+    severity = 'medium'
+    api = snykToken
+    autoDownload = true
+    autoUpdate = true
+}
+
 repositories {
     jcenter()
-    maven { url 'http://repo.spring.io/milestone' }
+    maven { url 'https://repo.spring.io/milestone' }
     maven { url 'https://developer.marklogic.com/maven2/' }
 
     // Needed for marklogic-junit
@@ -31,30 +41,34 @@ group = 'com.marklogic'
 sourceCompatibility = "9"
 targetCompatibility = "9"
 
-ext.junit4Version        = '4.12'
-ext.junitVintageVersion  = '4.12.0-RC3'
-ext.junitPlatformVersion = '1.4.0'
-ext.junitJupiterVersion  = '5.4.0'
+ext {
+    // Something changed with 5.5.0 such that "test --tests" doesn't work with Gradle 6.2 or 6.5
+    junitPlatformVersion = '1.4.2'
+    junitJupiterVersion  = '5.4.2'
+
+    dataServicesGroup = "Data Services"
+    dataServicesPath = "src/main/resources/ml-modules/root/data-hub/5/data-services"
+
+    thirdPartySourcePath = "src/main/resources/ml-modules/root/data-hub/third-party"
+}
+
+// This enables including a logging jar in the application artifacts produced by this project - the installer and the client jars
+// without that jar ending up in the library artifact.
+configurations {
+    datahubLogging
+}
 
 dependencies {
-    // Forcing use of 1.3.61 - which is what OkHttp 4.4.0 wants - so that 1.2.x versions don't come onto the classpath
-    compile "org.jetbrains.kotlin:kotlin-stdlib:1.3.61"
-    compile "org.jetbrains.kotlin:kotlin-stdlib-common:1.3.61"
+    // Forcing use of 1.3.71 - which is what OkHttp 4.7.2 wants, which is what Java Client 5.3 uses - so that 1.2.x
+    // versions don't come onto the classpath
+    compile "org.jetbrains.kotlin:kotlin-stdlib:1.3.71"
+    compile "org.jetbrains.kotlin:kotlin-stdlib-common:1.3.71"
 
-    compile ('com.marklogic:marklogic-client-api:5.2.0') {
-        // Inclusion of woodstox causes legacy flow runner tests to fail, so it's being excluded
-        exclude group: 'com.fasterxml.woodstox', module: 'woodstox-core'
-
-        // Oddly, the OkHttp 4.4.0 dependency includes version 1.2.70 and 1.3.61 of these dependencies. This causes
-        // class conflict errors. So they're excluded from here, and we force inclusion of 1.3.61 above.
+    compile(project(":marklogic-data-hub-api")) {
+        // Oddly, the OkHttp 4.4.0 dependency includes version 1.2.70 and 1.3.x of these dependencies. This causes
+        // class conflict errors. So they're excluded from here, and we force inclusion of 1.3.x below.
         exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib'
         exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-common'
-    }
-
-    compile('com.marklogic:ml-app-deployer:4.0.3'){
-        exclude group: 'org.springframework', module: 'http'
-        // prefer the version declared above
-        exclude group: 'com.marklogic', module: 'marklogic-client-api'
     }
 
     compile group: 'org.springframework.boot', name: 'spring-boot', version: '2.1.15.RELEASE'
@@ -62,27 +76,26 @@ dependencies {
     compile group: 'org.springframework.boot', name: 'spring-boot-autoconfigure', version: '2.1.15.RELEASE'
 
     compile 'com.marklogic:mlcp-util:0.9.0'
-    compile ('com.marklogic:marklogic-data-movement-components:2.0.0') {
-        // prefer the version declared above
-        exclude group: 'com.marklogic', module: 'marklogic-client-api'
-    }
+    compile 'com.marklogic:marklogic-data-movement-components:2.2.0'
 
     compile 'commons-io:commons-io:2.4'
     compile 'org.apache.commons:commons-text:1.1'
-
+    datahubLogging 'ch.qos.logback:logback-classic:1.2.3'
     // For installer program
     compile "com.beust:jcommander:1.72"
 
-    // JUnit Jupiter API and TestEngine implementation
+    testFixturesApi(testFixtures(project(":marklogic-data-hub-api")))
+
+    // Still need these; trying to bring them in via marklogic-data-hub-api leads to compile errors
     testCompile "org.junit.jupiter:junit-jupiter-api:${junitJupiterVersion}"
     testCompile "org.junit.jupiter:junit-jupiter-params:${junitJupiterVersion}"
     testCompile "org.junit.platform:junit-platform-commons:${junitPlatformVersion}"
     testRuntime "org.junit.jupiter:junit-jupiter-engine:${junitJupiterVersion}"
 
-    // Only needed to run tests in an (IntelliJ) IDE(A) that bundles an older version
-    testRuntime "org.junit.platform:junit-platform-launcher:${junitPlatformVersion}"
-
     testCompile group: 'org.springframework', name: 'spring-test', version: '5.1.16.RELEASE'
+
+    // For managing a pool of HubConfigImpl objects
+    testFixturesApi "org.apache.commons:commons-pool2:2.8.1"
 
     testFixturesApi 'xmlunit:xmlunit:1.3'
     testCompile 'org.skyscreamer:jsonassert:1.5.0'
@@ -96,11 +109,11 @@ dependencies {
     }
 
     // Provides support for invoking marklogic-unit-test tests via JUnit
-    testCompile ("com.marklogic:marklogic-junit:1.0.beta") {
+    testCompile ("com.marklogic:marklogic-junit5:1.0.0") {
         // prefer the version declared above
         exclude group: 'com.marklogic', module: 'marklogic-client-api'
     }
-    mlBundle "com.marklogic:marklogic-unit-test-modules:1.0.beta"
+    mlBundle "com.marklogic:marklogic-unit-test-modules:1.0.0"
 }
 
 import com.marklogic.mgmt.ManageClient
@@ -112,11 +125,32 @@ configurations.all {
     exclude group: "log4j", module: "log4j"
 }
 
+task extractFastXmlParserZip(type: Copy) {
+    doFirst {
+        new File(thirdPartySourcePath).mkdirs()
+    }
+    description = "Extract fast-xml-parser.zip so that its files will be available when bootstrapping the test app and when building the DHF core JAR"
+    from zipTree('src/main/third-party/fast-xml-parser-3.17.1.zip')
+    destinationDir = new File(thirdPartySourcePath)
+}
+
+// Ensure that the fast-xml-parser files are available before any DHF jars are built
+processResources.dependsOn extractFastXmlParserZip
+
+
 // The Spring Boot bootJar task produces an executable jar with all dependencies that runs the DHF installer
 // This jar is only meant to be used by the DHS team for installing DHF into DHS
 bootJar {
     archiveClassifier = "installer"
     mainClassName = "com.marklogic.hub.dhs.installer.Main"
+    from("src/main/installer") {
+        include "logback.xml"
+    }
+    from(configurations.datahubLogging.collect { it.isDirectory() ? it : zipTree(it) }) {
+        exclude "META-INF/*.SF"
+        exclude "META-INF/*.DSA"
+        exclude "META-INF/*.RSA"
+    }
 }
 
 task clientJar(type: Jar) {
@@ -125,12 +159,20 @@ task clientJar(type: Jar) {
         attributes "Main-Class": "com.marklogic.hub.cli.client.Main"
     }
     archiveClassifier = "client"
+    from(configurations.datahubLogging.collect { it.isDirectory() ? it : zipTree(it) }) {
+        exclude "META-INF/*.SF"
+        exclude "META-INF/*.DSA"
+        exclude "META-INF/*.RSA"
+    }
     from(configurations.compile.collect { it.isDirectory() ? it : zipTree(it) }) {
         exclude "META-INF/*.SF"
         exclude "META-INF/*.DSA"
         exclude "META-INF/*.RSA"
     }
     exclude "spring-boot*.jar"
+    from("src/main/clientJar") {
+        include "logback.xml"
+    }
     with jar
 }
 build.dependsOn clientJar
@@ -186,16 +228,6 @@ processResources {
     filesMatching("**/version.properties") {
         expand(project: project)
     }
-
-    // Includes installer-specific files into the jar produced by bootJar
-    from ("src/installer") {
-        into "."
-    }
-}
-
-ext {
-    dataServicesGroup = "Data Services"
-    dataServicesPath = "src/main/resources/ml-modules/root/data-hub/5/data-services"
 }
 
 task generateDataService(type: JavaExec) {
@@ -207,6 +239,7 @@ task generateDataService(type: JavaExec) {
         project.hasProperty("endpointName") ? project.findProperty("endpointName") : ""
     ]
 }
+
 
 // Dynamically generate a task for each data-service directory, where the task can generate a Java interface for the data service
 new File("src/main/resources/ml-modules/root/data-hub/5/data-services").listFiles().each { file ->
@@ -225,26 +258,16 @@ task generateDataServiceInterfaces {
     }
 }
 
-if (!(
-    gradle.startParameter.taskNames*.toLowerCase().contains("bootrun") ||
-        gradle.startParameter.taskNames*.toLowerCase().contains("test") ||
-        gradle.startParameter.taskNames*.toLowerCase().contains("testunit") ||
-        gradle.startParameter.taskNames*.toLowerCase().contains("publishplugins") ||
-        gradle.startParameter.taskNames*.toLowerCase().contains("publishtomavenlocal") ||
-        gradle.startParameter.taskNames*.toLowerCase().contains("bintrayupload") ||
-        gradle.startParameter.taskNames*.toLowerCase().contains("javadoc") ||
-        gradle.startParameter.taskNames*.toLowerCase().contains("bootjar") ||
-        gradle.startParameter.taskNames*.toLowerCase().contains("marklogic-data-hub:bootjar") ||
-        gradle.startParameter.taskNames*.toLowerCase().contains("clientjar") ||
-        gradle.startParameter.taskNames*.toLowerCase().contains("marklogic-data-hub:clientjar") ||
-        gradle.startParameter.taskNames*.toLowerCase().contains("generatedataservice") ||
-        // Added for Hub Central
-        gradle.startParameter.taskNames*.toLowerCase().contains("bootrun") ||
-        gradle.startParameter.taskNames*.toLowerCase().contains("buildrpm") ||
+task generateSparkInterface(type: com.marklogic.client.tools.gradle.EndpointProxiesGenTask, group: dataServicesGroup) {
+    description = "Must run this from the ./marklogic-data-hub directory"
+    serviceDeclarationFile = "src/main/resources/ml-modules/root/marklogic-data-hub-spark-connector/service.json"
+    javaBaseDirectory = "../marklogic-data-hub-spark-connector/src/main/java"
+}
 
-        project.hasProperty('skipui')
-)
-) {
+// When publishing the DHF core jar, or building it for release, it needs to have the compiled trace-ui files in it so
+// that the trace-ui feature is available for those users that are aware of it. Otherwise, copyUIAssets is not executed as it can take a couple
+// minutes to finish, and it's not typically needed during local development.
+if (gradle.startParameter.taskNames*.toLowerCase().contains("publish") || gradle.startParameter.taskNames*.toLowerCase().contains("build")) {
     processResources.dependsOn copyUIAssets
 }
 
@@ -390,10 +413,12 @@ propFile.withInputStream { props.load(it) }
 
 task bootstrap(type: JavaExec) {
     classpath = sourceSets.test.runtimeClasspath
-    main = 'com.marklogic.bootstrap.Installer'
+    main = 'com.marklogic.bootstrap.TestAppInstaller'
+    systemProperty "mlHost", mlHost
 }
 
 test {
+    systemProperty "mlHost", mlHost
     useJUnitPlatform()
     minHeapSize = "128m"
     maxHeapSize = "256m"
@@ -402,6 +427,7 @@ test {
 }
 
 task testAcceptance(type: Test) {
+    systemProperty "mlHost", mlHost
     useJUnitPlatform  {
         include 'com/marklogic/hub_unit_test/RunMarkLogicUnitTestsTest*'
         include 'com/marklogic/hub/**'
@@ -412,6 +438,7 @@ task testAcceptance(type: Test) {
 }
 
 task testIntegration(type: Test) {
+    systemProperty "mlHost", mlHost
     useJUnitPlatform  {
         include 'com/marklogic/hub_integration/**'
     }
@@ -474,6 +501,7 @@ task setupSSL{
     }
 }
 
+bootstrap.dependsOn extractFastXmlParserZip
 bootstrap.finalizedBy mlPrepareBundles // ensures that marklogic-unit-test is downloaded
 
 setupSSL.dependsOn(testClasses)

@@ -1,10 +1,10 @@
 import React from 'react';
 import ColumnSelector from './column-selector';
 import { render, fireEvent, waitForElement } from '@testing-library/react';
-import { entityPropertyDefinitions, selectedPropertyDefinitions } from "../../assets/mock-data/entity-search";
+import { entityPropertyDefinitions, selectedPropertyDefinitions } from "../../assets/mock-data/explore/entity-search";
 
-let defaultProps = { 
-  popoverVisibility: true, 
+let defaultProps = {
+  popoverVisibility: true,
   setPopoverVisibility: jest.fn(),
   entityPropertyDefinitions: entityPropertyDefinitions,
   selectedPropertyDefinitions: selectedPropertyDefinitions,
@@ -29,8 +29,8 @@ describe('Column selector component', () => {
     const { getByPlaceholderText, getByText } = render(<ColumnSelector {...defaultProps} />);
     const searchInput = getByPlaceholderText('Search') as HTMLInputElement;
     expect(searchInput).toBeInTheDocument();
-    fireEvent.change(searchInput, { target: { value: 'customerSince' } })
-    expect(searchInput.value).toBe('customerSince')
+    fireEvent.change(searchInput, { target: { value: 'customerSince' } });
+    expect(searchInput.value).toBe('customerSince');
     expect(getByText('customerSince')).toBeInTheDocument();
   });
 
@@ -48,6 +48,12 @@ describe('Column selector component', () => {
     applyButton.onclick = jest.fn();
     fireEvent.click(applyButton);
     expect(applyButton.onclick).toHaveBeenCalledTimes(1);
+  });
+
+  test('Verify apply button is disabled when no properties selected', () => {
+    const { getByText } = render(<ColumnSelector {...{...defaultProps, selectedPropertyDefinitions: [] }} />);
+    const applyButton = getByText('Apply');
+    expect(applyButton).toBeDisabled();
   });
 
   test('Verify primaryKey and column selector tooltips render', async () => {

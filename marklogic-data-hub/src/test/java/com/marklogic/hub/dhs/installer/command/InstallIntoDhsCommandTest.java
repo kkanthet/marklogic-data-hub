@@ -8,6 +8,7 @@ import com.marklogic.appdeployer.command.security.DeployAmpsCommand;
 import com.marklogic.appdeployer.command.security.DeployPrivilegesCommand;
 import com.marklogic.appdeployer.command.security.DeployRolesCommand;
 import com.marklogic.appdeployer.command.triggers.DeployTriggersCommand;
+import com.marklogic.client.document.GenericDocumentManager;
 import com.marklogic.client.io.DocumentMetadataHandle;
 import com.marklogic.hub.AbstractHubCoreTest;
 import com.marklogic.hub.HubConfig;
@@ -81,7 +82,7 @@ public class InstallIntoDhsCommandTest extends AbstractHubCoreTest {
     @Test
     public void buildCommandList() {
         InstallIntoDhsCommand command = new InstallIntoDhsCommand();
-        command.hubConfig = super.adminHubConfig;
+        command.hubConfig = super.getHubConfig();
 
         Options options = new Options();
         options.setGroupNames("Evaluator,Curator");
@@ -152,8 +153,10 @@ public class InstallIntoDhsCommandTest extends AbstractHubCoreTest {
     @Test
     public void testUpdateDhsResourcePermissions() {
         try {
-            HubConfigImpl adminConfig = runAsUser("admin", "admin");
-            new UpdateDhsModulesPermissionsCommand(adminConfig).execute(newCommandContext(adminConfig));
+            runAsAdmin();
+            new UpdateDhsModulesPermissionsCommand(getHubConfig()).execute(newCommandContext());
+
+            GenericDocumentManager modMgr = getHubClient().getModulesClient().newDocumentManager();
 
             DocumentMetadataHandle metadataHandle = new DocumentMetadataHandle();
             modMgr.readMetadata("/marklogic.rest.resource/mlDbConfigs/assets/metadata.xml", metadataHandle);
@@ -190,9 +193,9 @@ public class InstallIntoDhsCommandTest extends AbstractHubCoreTest {
             Assertions.assertEquals(DocumentMetadataHandle.Capability.UPDATE, modulePerms.get("data-hub-environment-manager").iterator().next());
             Assertions.assertNull(modulePerms.get("rest-admin-internal"));
         } finally {
-            new DatabaseManager(getDataHubAdminConfig().getManageClient()).clearDatabase(HubConfig.DEFAULT_MODULES_DB_NAME);
+            new DatabaseManager(getHubClient().getManageClient()).clearDatabase(HubConfig.DEFAULT_MODULES_DB_NAME);
             installHubModules();
-            installHubArtifacts(adminHubConfig, true);
+            installHubArtifacts();
         }
 
     }

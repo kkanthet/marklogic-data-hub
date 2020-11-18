@@ -1,20 +1,23 @@
-import { Modal, Form, Input, Button, Tooltip, Icon, Select, Radio } from "antd";
-import React, { useState, useEffect } from "react";
+import { Modal, Form, Input, Icon, Radio, AutoComplete } from "antd";
+import React, { useState, useEffect, useContext } from "react";
 import styles from './create-edit-mapping-dialog.module.scss';
 import { NewMapTooltips } from '../../../../config/tooltips.config';
-import Axios from "axios";
+import { UserContext } from '../../../../util/user-context';
 import { MLButton, MLTooltip } from '@marklogic/design-system';
-
+import axios from "axios"; 
 
 const CreateEditMappingDialog = (props) => {
 
+  const { handleError } = useContext(UserContext)
   const [mapName, setMapName] = useState('');
   const [description, setDescription] = useState(props.mapData && props.mapData != {} ? props.mapData.description : '');
   //const [collections, setCollections] = useState<any[]>([]);
   const [collections, setCollections] = useState('');
+  const [collectionOptions, setCollectionOptions] = useState(['a','b']);
   const [selectedSource, setSelectedSource] = useState(props.mapData && props.mapData != {} ? props.mapData.selectedSource : 'collection')
   const [srcQuery, setSrcQuery] = useState(props.mapData && props.mapData != {} ? props.mapData.sourceQuery : '');
   const [isQuerySelected, setIsQuerySelected] = useState(false);
+
   //To check submit validity
   const [isMapNameTouched, setMapNameTouched] = useState(false);
   const [isDescriptionTouched, setDescriptionTouched] = useState(false);
@@ -28,7 +31,6 @@ const CreateEditMappingDialog = (props) => {
 
   const [deleteDialogVisible, setDeleteDialogVisible] = useState(false);
   const [tobeDisabled, setTobeDisabled] = useState(false);
-  const colList = ['Provider', 'Claims', 'Students', 'Customer']; //To be removed once integrated with EndPoints.
 
   useEffect(() => {
     if (props.mapData && JSON.stringify(props.mapData) != JSON.stringify({}) && props.title === 'Edit Mapping Step') {
@@ -63,7 +65,7 @@ const CreateEditMappingDialog = (props) => {
       setMapNameTouched(false);
       setCollections('');
       setDescription('');
-      setSrcQuery('')
+      setSrcQuery('');
       setIsNameDuplicate(false);
     }
 
@@ -78,19 +80,17 @@ const CreateEditMappingDialog = (props) => {
       setCollectionsTouched(false);
       setTobeDisabled(false);
       setIsNameDuplicate(false);
-    })
+    });
 
   }, [props.mapData, props.title, props.newMap]);
 
   const onCancel = () => {
-
     if (checkDeleteOpenEligibility()) {
       setDeleteDialogVisible(true);
     } else {
       props.setNewMap(false);
-
     }
-  }
+  };
 
   const checkDeleteOpenEligibility = () => {
     if (!isMapNameTouched
@@ -103,20 +103,24 @@ const CreateEditMappingDialog = (props) => {
     } else {
       return true;
     }
-  }
+  };
 
   const onOk = () => {
     props.setNewMap(false);
-  }
+  };
 
   const onDelOk = () => {
     props.setNewMap(false);
-    setDeleteDialogVisible(false)
-  }
+    setDeleteDialogVisible(false);
+    
+    setMapNameTouched(false);
+    setCollectionsTouched(false);
+    setSrcQueryTouched(false);
+  };
 
   const onDelCancel = () => {
-    setDeleteDialogVisible(false)
-  }
+    setDeleteDialogVisible(false);
+  };
 
   const deleteConfirmation = <Modal
     visible={deleteDialogVisible}
@@ -136,6 +140,25 @@ const CreateEditMappingDialog = (props) => {
   </Modal>;
 
   const handleSubmit = async (event: { preventDefault: () => void; }) => {
+    if (!mapName) {
+      // missing name
+      setMapNameTouched(true);
+    }
+    if (!collections && selectedSource === 'collection') {
+      // missing collections
+      setCollectionsTouched(true);
+    }
+    if (!srcQuery && selectedSource !== 'collection') {
+      // missing query
+      setSrcQueryTouched(true);
+    }
+    if (!mapName || (!collections && selectedSource === 'collection') || (!srcQuery && selectedSource !== 'collection')) {
+      // if missing flags are set, do not submit handle
+      event.preventDefault();
+      return;
+    }
+    // else: all required fields are set
+
     if (event) event.preventDefault();
     let dataPayload;
     if(selectedSource === 'collection') {
@@ -146,7 +169,7 @@ const CreateEditMappingDialog = (props) => {
         description: description,
         selectedSource: selectedSource,
         sourceQuery: sQuery
-      }
+      };
     } else {
         setIsQuerySelected(true); //to reset collection name
         dataPayload = {
@@ -155,9 +178,8 @@ const CreateEditMappingDialog = (props) => {
         description: description,
         selectedSource: selectedSource,
         sourceQuery: srcQuery
-      }
+      };
     }
-
 
     setIsValid(true);
 
@@ -169,9 +191,62 @@ const CreateEditMappingDialog = (props) => {
       props.setNewMap(false);
     } else if (status.code === 400) {
 
-      setErrorMessage(status.message)
+      setErrorMessage(status.message);
       setIsNameDuplicate(true);
       setIsValid(false);
+    }
+  }
+
+   const handleSearch = async (value: any) => {
+    let databaseName = 'staging';
+    if(props.sourceDatabase){
+      databaseName = props.sourceDatabase.split('-')[2].toLowerCase();
+    }
+    if(value && value.length > 2){
+      try {
+        let data = {
+            "referenceType": "collection",
+            "entityTypeId": " ",
+            "propertyPath": " ",
+            "limit": 10,
+            "dataType": "string",
+            "pattern": value,
+        }
+        const response = await axios.post(`/api/entitySearch/facet-values?database=${databaseName}`, data)
+        setCollectionOptions(response.data);
+      } catch (error) {
+        console.log(error)
+        handleError(error);
+    }
+
+    }else{
+      setCollectionOptions([]);
+    }
+  }
+
+  const handleFocus = () => {
+      setCollectionOptions([]);
+  }
+
+  const handleTypeaheadChange = (data: any) => {
+    if (data === ' ') {
+        setCollectionsTouched(false);
+    }
+    else {
+      setCollectionsTouched(true);
+      setCollections(data);
+      if (props.mapData && props.mapData.collection) {
+        if (props.mapData.collection === data) {
+          setCollectionsTouched(false);
+        }
+      }
+      if (data.length > 0) {
+        if (mapName) {
+         setIsValid(true);
+        }
+      } else {
+        setIsValid(false);
+      }
     }
   }
 
@@ -252,7 +327,7 @@ const CreateEditMappingDialog = (props) => {
         }
       }
     }
-  }
+  };
 /* // Handling multiple collections in a select tags list - Deprecated
   const handleCollList = (value) => {
     if (value === ' ') {
@@ -302,7 +377,7 @@ const CreateEditMappingDialog = (props) => {
         }
       }
     }
-  }
+  };
 
 
   const formItemLayout = {
@@ -320,7 +395,6 @@ const CreateEditMappingDialog = (props) => {
     { label: 'Collection', value: 'collection' },
     { label: 'Query', value: 'query' }
   ];
-  const collectionsList = colList.map(d => <Select.Option key={d}>{d}</Select.Option>);
   const { TextArea } = Input;
 
   return (<Modal visible={props.newMap}
@@ -377,8 +451,8 @@ const CreateEditMappingDialog = (props) => {
           Source Query:&nbsp;<span className={styles.asterisk}>*</span>
           &nbsp;
             </span>} labelAlign="left"
-            validateStatus={(collections || srcQuery || (!isSelectedSourceTouched && !isCollectionsTouched && !isSrcQueryTouched)) ? '' : 'error'}
-            help={(collections || srcQuery || (!isSelectedSourceTouched && !isCollectionsTouched && !isSrcQueryTouched)) ? '' : 'Collection or Query is required'}
+            validateStatus={((collections && selectedSource === 'collection') || (srcQuery && selectedSource !== 'collection') || (!isSelectedSourceTouched && !isCollectionsTouched && !isSrcQueryTouched)) ? '' : 'error'}
+            help={((collections && selectedSource === 'collection') || (srcQuery && selectedSource !== 'collection') || (!isSelectedSourceTouched && !isCollectionsTouched && !isSrcQueryTouched)) ? '' : 'Collection or Query is required'}
             >
           <Radio.Group
             id="srcType"
@@ -388,21 +462,26 @@ const CreateEditMappingDialog = (props) => {
             disabled={!props.canReadWrite}
           >
           </Radio.Group>
-          {selectedSource === 'collection' ? <div ><span className={styles.srcCollectionInput}><Input
+          {selectedSource === 'collection' ? <div ><span className={styles.srcCollectionInput}><AutoComplete
             id="collList"
             //mode="tags"
             className={styles.input}
-            placeholder="Please select"
+            dataSource={collectionOptions}
+            aria-label="collection-input"
+            placeholder= {<span>Enter collection name</span>}
             value={collections}
             disabled={!props.canReadWrite}
-            onChange={handleChange}
+            onSearch={handleSearch}
+            onFocus= {handleFocus}
+            onChange={handleTypeaheadChange}
           >
             {/* {collectionsList} */}
-          </Input>&nbsp;&nbsp;<MLTooltip title={NewMapTooltips.sourceQuery}>
-            <Icon type="question-circle" className={styles.questionCircle} theme="filled" />
+          </AutoComplete>&nbsp;&nbsp;{props.canReadWrite ? <Icon className={styles.searchIcon} type="search" theme="outlined"/> : ''}
+          <MLTooltip title={NewMapTooltips.sourceQuery}>
+            <Icon type="question-circle" className={styles.questionCircleColl} theme="filled" />
           </MLTooltip></span></div> : <span><TextArea
             id="srcQuery"
-            placeholder="Enter Source Query"
+            placeholder="Enter source query"
             value={srcQuery}
             onChange={handleChange}
             disabled={!props.canReadWrite}
@@ -415,16 +494,21 @@ const CreateEditMappingDialog = (props) => {
 
         <Form.Item className={styles.submitButtonsForm}>
           <div className={styles.submitButtons}>
-            <MLButton data-testid={`${mapName}-edit-cancel`} onClick={() => onCancel()}>Cancel</MLButton>
+            <MLButton data-testid="mapping-dialog-cancel"  onClick={() => onCancel()}>Cancel</MLButton>
             &nbsp;&nbsp;
-            <MLButton type="primary" htmlType="submit" disabled={!isValid || !props.canReadWrite} data-testid={`${mapName}-edit-save`} onClick={handleSubmit}>Save</MLButton>
+            <MLButton 
+              type="primary" 
+              htmlType="submit" 
+              disabled={!props.canReadWrite} 
+              data-testid="mapping-dialog-save" 
+              onClick={handleSubmit}
+            >Save</MLButton>
           </div>
         </Form.Item>
       </Form>
     </div>
     {deleteConfirmation}
-  </Modal>)
-}
+  </Modal>);
+};
 
 export default CreateEditMappingDialog;
-

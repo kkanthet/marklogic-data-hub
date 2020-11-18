@@ -2,13 +2,19 @@ package com.marklogic.hub.central;
 
 import com.marklogic.client.io.DocumentMetadataHandle;
 import com.marklogic.client.io.FileHandle;
+import com.marklogic.hub.EntityManager;
 import com.marklogic.hub.HubClient;
+import com.marklogic.hub.HubConfig;
 import com.marklogic.hub.HubProject;
+import com.marklogic.hub.deploy.commands.DeployHubDatabaseCommand;
+import com.marklogic.hub.impl.EntityManagerImpl;
 import com.marklogic.hub.impl.HubConfigImpl;
 import com.marklogic.hub.impl.HubProjectImpl;
 import com.marklogic.hub.test.AbstractHubTest;
 import com.marklogic.hub.test.ReferenceModelProject;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.core.io.ClassPathResource;
@@ -16,7 +22,12 @@ import org.springframework.test.context.TestPropertySource;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Properties;
 
 /**
  * Intended base class for any test that wishes to connect to MarkLogic. Tests that do not have any need to connect to
@@ -42,6 +53,10 @@ import java.util.HashMap;
  */
 @TestPropertySource("classpath:application-test.properties")
 @SpringBootTest(classes = {Application.class})
+// For some reason, the junit-platform.properties file that was in this subproject is ignored in favor of
+// the one in ./marklogic-data-hub. Parallel tests aren't supported yet on this subproject, so they're
+// explicitly disabled via this annotation.
+@Execution(ExecutionMode.SAME_THREAD)
 public abstract class AbstractHubCentralTest extends AbstractHubTest {
 
     protected TestConstants testConstants;
@@ -62,8 +77,8 @@ public abstract class AbstractHubCentralTest extends AbstractHubTest {
 
         testHubProject = new HubProjectImpl();
         testHubConfig = new HubConfigImpl(testHubProject);
-
         resetHubProject();
+        testHubConfig.applyProperties(new Properties());
 
         // Run as the least-privileged HC user
         runAsHubCentralUser();
@@ -111,16 +126,31 @@ public abstract class AbstractHubCentralTest extends AbstractHubTest {
      * @return
      */
     @Override
-    protected HubConfigImpl runAsUser(String username, String password) {
-        // Initialize a new HubConfigImpl
-        testHubConfig = hubCentral.newHubConfig(username, password);
-        testHubConfig.setHubProject(testHubProject);
+    protected HubClient runAsUser(String username, String password) {
+        // Need to create the project directory before applying properties
+        testHubConfig.createProject(testProjectDirectory);
+        testHubConfig.applyProperties(hubCentral.buildPropertySource(username, password));
 
         // Update the provider with a new HubClient
         hubClientProvider.setHubClientDelegate(testHubConfig.newHubClient());
 
         // And return this for the rest of the core test plumbing to use
-        return testHubConfig;
+        return getHubClient();
+    }
+
+    /**
+     * Updates the test hub config
+     *
+     * @param hubConfig
+     * @return
+     */
+    protected void setTestHubConfig(HubConfigImpl hubConfig) {
+        // Initialize a new HubConfigImpl
+        testHubConfig = hubConfig;
+        testHubConfig.setHubProject(testHubProject);
+
+        // Update the provider with a new HubClient
+        hubClientProvider.setHubClientDelegate(testHubConfig.newHubClient());
     }
 
     protected void addStagingDoc(String resource, String uri, String... collections) {
@@ -171,5 +201,31 @@ public abstract class AbstractHubCentralTest extends AbstractHubTest {
      */
     protected void installProjectInFolder(String folderInClasspath) {
         installProjectInFolder(folderInClasspath, false);
+    }
+
+    /**
+     * Deploys indexes related to entities.
+     *
+     */
+    protected void deployEntityIndexes() {
+        HubConfigImpl originalHubConfig = getHubConfig();
+        EntityManager entityManager = new EntityManagerImpl(originalHubConfig);
+        entityManager.saveDbIndexes();
+
+        runAsAdmin();
+        Path dir = getHubProject().getEntityDatabaseDir();
+        List<String> filePaths = Arrays.asList(HubConfig.FINAL_ENTITY_DATABASE_FILE, HubConfig.STAGING_ENTITY_DATABASE_FILE);
+        for (String filePath: filePaths) {
+            File dbFile = Paths.get(dir.toString(), filePath).toFile();
+            DeployHubDatabaseCommand dbCommand = new DeployHubDatabaseCommand(getHubConfig(), dbFile, dbFile.getName());
+            dbCommand.setMergeEntityConfigFiles(true);
+            dbCommand.setPostponeForestCreation(true);
+            dbCommand.execute(newCommandContext());
+        }
+
+        // set HubConfig back after deploying indexes
+        setTestHubConfig(originalHubConfig);
+        // Deploy Query Options
+        entityManager.deployQueryOptions();
     }
 }

@@ -22,38 +22,34 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.marklogic.client.DatabaseClient;
-import com.marklogic.client.ForbiddenUserException;
 import com.marklogic.client.MarkLogicServerException;
 import com.marklogic.client.ResourceNotFoundException;
-import com.marklogic.client.document.GenericDocumentManager;
 import com.marklogic.client.document.ServerTransform;
-import com.marklogic.client.io.DocumentMetadataHandle;
 import com.marklogic.client.io.Format;
-import com.marklogic.client.io.ReaderHandle;
 import com.marklogic.client.io.StringHandle;
 import com.marklogic.client.query.QueryManager;
 import com.marklogic.client.query.StructuredQueryBuilder;
 import com.marklogic.client.query.StructuredQueryDefinition;
-import com.marklogic.client.row.RowManager;
 import com.marklogic.hub.HubClient;
 import com.marklogic.hub.central.entities.search.impl.CollectionFacetHandler;
 import com.marklogic.hub.central.entities.search.impl.CreatedOnFacetHandler;
 import com.marklogic.hub.central.entities.search.impl.EntityPropertyFacetHandler;
 import com.marklogic.hub.central.entities.search.impl.JobRangeFacetHandler;
 import com.marklogic.hub.central.entities.search.models.DocSearchQueryInfo;
-import com.marklogic.hub.central.entities.search.models.Document;
 import com.marklogic.hub.central.entities.search.models.SearchQuery;
 import com.marklogic.hub.central.exceptions.DataHubException;
 import com.marklogic.hub.central.managers.ModelManager;
 import com.marklogic.hub.dataservices.EntitySearchService;
-import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.util.FileCopyUtils;
 
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.io.Reader;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -76,17 +72,31 @@ public class EntitySearchManager {
 
     public static String QUERY_OPTIONS = "exp-final-entity-options";
     private static Map<String, FacetHandler> facetHandlerMap;
-    private DatabaseClient finalDatabaseClient;
+    private DatabaseClient searchDatabaseClient;
+    private DatabaseClient savedQueryDatabaseClient;
     private ModelManager modelManager;
 
     public EntitySearchManager(HubClient hubClient) {
-        this.finalDatabaseClient = hubClient.getFinalClient();
+        this.searchDatabaseClient = hubClient.getFinalClient();
+        this.modelManager = new ModelManager(hubClient);
+        initializeFacetHandlerMap();
+    }
+
+    public EntitySearchManager(HubClient hubClient, String database) {
+        if("staging".equalsIgnoreCase(database)) {
+            this.searchDatabaseClient = hubClient.getStagingClient();
+            QUERY_OPTIONS = "exp-staging-entity-options";
+        } else {
+            this.searchDatabaseClient = hubClient.getFinalClient();
+            QUERY_OPTIONS = "exp-final-entity-options";
+        }
+        this.savedQueryDatabaseClient = hubClient.getFinalClient();
         this.modelManager = new ModelManager(hubClient);
         initializeFacetHandlerMap();
     }
 
     public StringHandle search(SearchQuery searchQuery) {
-        QueryManager queryMgr = finalDatabaseClient.newQueryManager();
+        QueryManager queryMgr = searchDatabaseClient.newQueryManager();
 
         // Setting criteria and searching
         StringHandle resultHandle = new StringHandle();
@@ -108,18 +118,14 @@ public class EntitySearchManager {
                 }
                 searchResultsTransform.put("propertiesToDisplay", searchQuery.getPropertiesToDisplay());
                 queryDefinition.setResponseTransform(searchResultsTransform);
+            } else {
+                ServerTransform searchResultsTransform = new ServerTransform("hubAllDataSearchTransform");
+                queryDefinition.setResponseTransform(searchResultsTransform);
             }
 
             return queryMgr.search(queryDefinition, resultHandle, searchQuery.getStart());
         } catch (MarkLogicServerException e) {
-            // If there are no entityModels to search, then we expect an error because no search options will exist
-            if (searchQuery.getQuery().getEntityTypeIds().isEmpty() || modelManager.getModels().size() == 0) {
-                logger.warn("No entityTypes present to perform search");
-                return new StringHandle("");
-            }
-
             logger.error(e.getLocalizedMessage());
-
             // Resorting to string contains check as there isn't any other discernible difference
             if (e.getLocalizedMessage().contains(QUERY_OPTIONS)) {
                 logger.error("If this is a configuration issue, fix the configuration issues as shown in"
@@ -131,31 +137,7 @@ public class EntitySearchManager {
                         + "time for the file to get generated. This file is required to enable "
                         + "various search features.");
             }
-
-            throw new DataHubException(e.getServerMessage(), e);
-        } catch (Exception e) { //other runtime exceptions
-            throw new DataHubException(e.getLocalizedMessage(), e);
-        }
-    }
-
-    public Optional<Document> getDocument(String docUri) {
-        GenericDocumentManager docMgr = finalDatabaseClient.newDocumentManager();
-        DocumentMetadataHandle documentMetadataReadHandle = new DocumentMetadataHandle();
-
-        // Fetching document content and meta-data
-        try {
-            String content = docMgr.readAs(docUri, documentMetadataReadHandle, String.class);
-            Map<String, String> metadata = documentMetadataReadHandle.getMetadataValues();
-            return Optional.ofNullable(new Document(content, metadata));
-        } catch (MarkLogicServerException e) {
-            if (e instanceof ResourceNotFoundException || e instanceof ForbiddenUserException) {
-                logger.warn(e.getLocalizedMessage());
-            } else { //FailedRequestException || ResourceNotResendableException
-                logger.error(e.getLocalizedMessage());
-            }
-            throw new DataHubException(e.getServerMessage(), e);
-        } catch (Exception e) { //other runtime exceptions
-            throw new DataHubException(e.getLocalizedMessage(), e);
+            throw e;
         }
     }
 
@@ -180,9 +162,6 @@ public class EntitySearchManager {
                             queryBuilder.collection(excludedCollections));
 
             queries.add(finalCollQuery);
-        } else { // If entity-model collections are empty, don't return any documents
-            StructuredQueryDefinition finalCollQuery = queryBuilder.and(queryBuilder.collection());
-            queries.add(finalCollQuery);
         }
 
         // Filtering by facets
@@ -197,8 +176,7 @@ public class EntitySearchManager {
         });
 
         // And between all the queries
-        return queryBuilder
-                .and(queries.toArray(new StructuredQueryDefinition[0]));
+        return queryBuilder.and(queries.toArray(new StructuredQueryDefinition[0]));
     }
 
     private void initializeFacetHandlerMap() {
@@ -220,7 +198,7 @@ public class EntitySearchManager {
     }
 
     public void exportById(String queryId, String fileType, Long limit, OutputStream out, HttpServletResponse response) {
-        JsonNode queryDocument = EntitySearchService.on(finalDatabaseClient).getSavedQuery(queryId);
+        JsonNode queryDocument = EntitySearchService.on(savedQueryDatabaseClient).getSavedQuery(queryId);
         exportByQuery(queryDocument, fileType, limit, out, response);
     }
 
@@ -234,7 +212,7 @@ public class EntitySearchManager {
     }
 
     public void exportRows(JsonNode queryDocument, Long limit, OutputStream out) {
-        QueryManager queryMgr = finalDatabaseClient.newQueryManager();
+        QueryManager queryMgr = searchDatabaseClient.newQueryManager();
         SearchQuery searchQuery = transformToSearchQuery(queryDocument);
         StructuredQueryDefinition structuredQueryDefinition = buildQuery(queryMgr, searchQuery);
 
@@ -246,17 +224,13 @@ public class EntitySearchManager {
         List<SearchQuery.SortOrder> sortOrder = searchQuery.getSortOrder().orElse(new ArrayList<>());
         ArrayNode sortOrderNode = sortOrderToArrayNode(sortOrder);
 
-
-        JsonNode opticPlanNode = EntitySearchService.on(finalDatabaseClient).getOpticPlan(structuredQuery, searchText, queryOptions, entityTypeId, entityTypeId, limit, sortOrderNode, columns.stream());
-        StringHandle stringHandle = new StringHandle(opticPlanNode.toString());
-        RowManager rowManager = finalDatabaseClient.newRowManager();
-        try (ReaderHandle readerHandle = new ReaderHandle()) {
-            rowManager.resultDoc(rowManager.newRawPlanDefinition(stringHandle), readerHandle.withMimetype(CSV_CONTENT_TYPE));
-            readerHandle.write(out);
+        EntitySearchService entitySearchService = EntitySearchService.on(searchDatabaseClient);
+        // Exporting directly from Data Service to avoid bug https://bugtrack.marklogic.com/55338 related to namespaced path range indexes
+        Reader export = entitySearchService.exportSearchAsCSV(structuredQuery, searchText, queryOptions, entityTypeId, entityTypeId, limit, sortOrderNode, columns.stream());
+        try {
+            FileCopyUtils.copy(export, new OutputStreamWriter(out));
         } catch (IOException e) {
             throw new RuntimeException(e);
-        } finally {
-            IOUtils.closeQuietly(out);
         }
     }
 
@@ -339,11 +313,11 @@ public class EntitySearchManager {
     protected String getQueryOptions(String queryOptionsName) {
         String queryOptions;
         try {
-            queryOptions = finalDatabaseClient.newServerConfigManager()
+            queryOptions = searchDatabaseClient.newServerConfigManager()
                     .newQueryOptionsManager()
                     .readOptionsAs(queryOptionsName, Format.XML, String.class);
         } catch (ResourceNotFoundException e) {
-            throw new DataHubException(String.format("Could not find search options: %s", queryOptionsName), e);
+            throw new RuntimeException(String.format("Could not find search options: %s", queryOptionsName), e);
         }
         return queryOptions;
     }

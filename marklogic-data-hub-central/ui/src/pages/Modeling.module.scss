@@ -5,11 +5,17 @@
   width: 100%;
   margin: 0;
   padding: 20px;
+  .intro {
+    width: 100%;
+    p {
+        padding: 10px 0 15px 0;
+    }
+  }
 }
 
 .header {
   display: flex;
-  margin: 5px auto 0 auto;
+  margin: 10px auto 0 auto;
   width: 100%;
   justify-content: space-between;
 }
@@ -26,13 +32,11 @@
   margin-right: 3px;
 }
 
-.publishIcon:before {       
-  content: "\70";      
-  font-family: MLCustomFont; 
+.publishIcon {
   font-size: 15px;
-  margin-right: 5px;
+  margin-right: 3px;
 }
 
 .disabledButton {
-  pointer-events: none;
+  cursor: not-allowed;
 }

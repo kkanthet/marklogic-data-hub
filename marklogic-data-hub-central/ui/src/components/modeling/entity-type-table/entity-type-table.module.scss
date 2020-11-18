@@ -13,34 +13,25 @@
 .iconRevertReadOnly, .iconTrashReadOnly {
   font-size: 21px;
   cursor: not-allowed;
-  pointer-events: none;
   margin-right: 8px;
   margin-bottom: 2px;
-  opacity: 0.5;
-  color: #5B69AF;
-}
-.iconTrashReadOnly {
-  color: #B32424;
+  color: #cccccc;
 }
 
-.iconSave:before {       
-  content: "\70";
-  cursor: pointer;      
-  font-family: MLCustomFont; 
+.iconSave {
+  cursor: pointer;
   color: #5B69AF;
   font-size: 22px;
-  padding: 8px;
+  margin-right: 8px;
+  margin-bottom: 2px;
 }
 
-.iconSaveReadOnly:before {       
-  content: "\70";
+.iconSaveReadOnly {
   cursor: not-allowed;
-  pointer-events: none;      
-  font-family: MLCustomFont; 
-  color: #5B69AF;
+  color: #cccccc;
   font-size: 22px;
-  padding: 8px;
-  opacity: 0.5;
+  margin-right: 8px;
+  margin-bottom: 2px;
 }
 th.actions,
 td.actions {

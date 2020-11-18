@@ -31,12 +31,11 @@ public class RunStepWithProcessorsTest extends AbstractHubCoreTest {
 
     @Test
     void overrideUriViaIngestionStep() {
-        makeInputFilePathsAbsoluteInFlow("stepProcessors");
         RunFlowResponse response = runFlow(new FlowInputs("stepProcessors", "4"));
         assertEquals(JobStatus.FINISHED.toString(), response.getJobStatus());
 
         final String expectedUri = "/overridden/1.json";
-        JSONDocumentManager mgr = adminHubConfig.newStagingClient().newJSONDocumentManager();
+        JSONDocumentManager mgr = getHubClient().getStagingClient().newJSONDocumentManager();
         assertNotNull(mgr.exists(expectedUri), "The URI should have been overridden by the step processor");
 
         JsonNode doc = mgr.read(expectedUri, new JacksonHandle()).get();
@@ -48,7 +47,7 @@ public class RunStepWithProcessorsTest extends AbstractHubCoreTest {
         RunFlowResponse response = runFlow(new FlowInputs("stepProcessors", "1"));
         assertEquals(JobStatus.FINISHED.toString(), response.getJobStatus());
 
-        JSONDocumentManager mgr = adminHubConfig.newFinalClient().newJSONDocumentManager();
+        JSONDocumentManager mgr = getHubClient().getFinalClient().newJSONDocumentManager();
         Stream.of(CUSTOMER1_URI, CUSTOMER2_URI).forEach(uri -> {
             JsonNode customer = mgr.read(uri, new JacksonHandle()).get();
             assertEquals("world", customer.get("envelope").get("headers").get("hello").asText(),
@@ -84,7 +83,7 @@ public class RunStepWithProcessorsTest extends AbstractHubCoreTest {
         RunFlowResponse response = runFlow(new FlowInputs("stepProcessors", "3"));
         assertEquals(JobStatus.FINISHED.toString(), response.getJobStatus());
 
-        JSONDocumentManager mgr = adminHubConfig.newFinalClient().newJSONDocumentManager();
+        JSONDocumentManager mgr = getHubClient().getFinalClient().newJSONDocumentManager();
         Stream.of(CUSTOMER1_URI, CUSTOMER2_URI).forEach(uri -> {
             JsonNode customer = mgr.read(uri, new JacksonHandle()).get();
             assertFalse(customer.get("envelope").get("headers").has("hello"),

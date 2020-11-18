@@ -1,7 +1,7 @@
 import React from 'react';
-import { render, fireEvent, wait } from '@testing-library/react'
-import '@testing-library/jest-dom/extend-expect'
-import axiosMock from 'axios'
+import { render, fireEvent, wait } from '@testing-library/react';
+import '@testing-library/jest-dom/extend-expect';
+import axiosMock from 'axios';
 import LoginForm from './login-form';
 
 jest.mock('axios');
@@ -23,11 +23,10 @@ describe('Login page test', () => {
     expect(userField).toBeInTheDocument();
     expect(passField).toBeInTheDocument();
     expect(loginBtn).toBeInTheDocument();
-    expect(loginBtn).toBeDisabled();
+    expect(loginBtn).toBeEnabled();
 
-    expect(loginBtn).toBeDisabled();
     fireEvent.change(userField, { target: {value: 'user'} });
-    expect(loginBtn).toBeDisabled();
+    expect(loginBtn).toBeEnabled();
     fireEvent.change(passField, { target: {value: 'pass'} });
     //Verifying that login button is enabled only when all three input fields are entered by user
     expect(loginBtn).toBeEnabled();
@@ -65,7 +64,7 @@ describe('Login page test', () => {
     await wait (()=> {
       fireEvent.submit(loginBtn);
     });
-    let url = "/api/login"
+    let url = "/api/login";
     let payload = {"password": "pass", "username": "validUser"};
     expect(axiosMock.post).toHaveBeenCalledWith(url, payload);
     expect(axiosMock.post).toHaveBeenCalledTimes(1);

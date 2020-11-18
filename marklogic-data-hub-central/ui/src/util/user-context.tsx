@@ -7,6 +7,7 @@ import {AuthoritiesContext} from './authorities';
 import {StompContext, STOMPState} from './stomp';
 import {resetEnvironment, setEnvironment} from '../util/environment';
 import {useInterval} from '../hooks/use-interval';
+import {MAX_SESSION_TIME} from "../config/application.config";
 
 const defaultUserData = {
   name: '',
@@ -17,8 +18,8 @@ const defaultUserData = {
     type: ''
   },
   pageRoute: '/tiles',
-  maxSessionTime: 300
-}
+  maxSessionTime: MAX_SESSION_TIME
+};
 
 export const UserContext = React.createContext<IUserContextInterface>({
   user: defaultUserData,
@@ -41,12 +42,12 @@ const UserProvider: React.FC<{ children: any }> = ({children}) => {
   const sessionUser = localStorage.getItem('dataHubUser');
   const authoritiesService = useContext(AuthoritiesContext);
   const stompService = useContext(StompContext);
-  const sessionCount = useRef<number>(300);
+  const sessionCount = useRef<number>(MAX_SESSION_TIME);
   let sessionTimer = true;
 
   const setSessionTime = (timeInSeconds) => {
     sessionCount.current = timeInSeconds;
-  }
+  };
 
   const resetSessionMonitor = () => {
     // unsubscribe from STOMP/WebSockets
@@ -111,7 +112,6 @@ const UserProvider: React.FC<{ children: any }> = ({children}) => {
 
     let userPreferences = getUserPreferences(username);
     if (userPreferences) {
-      let values = JSON.parse(userPreferences);
       setUser({
         ...user,
         name: username,
@@ -137,7 +137,6 @@ const UserProvider: React.FC<{ children: any }> = ({children}) => {
     localStorage.setItem('dataHubUser', username);
     let userPreferences = getUserPreferences(username);
     if (userPreferences) {
-      let values = JSON.parse(userPreferences);
       setUser({
         ...user,
         name: username,
@@ -152,6 +151,7 @@ const UserProvider: React.FC<{ children: any }> = ({children}) => {
   };
 
   const userNotAuthenticated = () => {
+    setUser({...user, name: '', authenticated: false});
     resetSessionMonitor().then(() => {
       localStorage.setItem('dataHubUser', '');
       localStorage.setItem('serviceName', '');
@@ -159,7 +159,6 @@ const UserProvider: React.FC<{ children: any }> = ({children}) => {
       localStorage.setItem('hubCentralSessionToken', '');
       authoritiesService.setAuthorities([]);
       resetEnvironment();
-      setUser({...user, name: '', authenticated: false}); //, redirect: true});
     });
   };
 
@@ -168,6 +167,7 @@ const UserProvider: React.FC<{ children: any }> = ({children}) => {
     switch (error.response.status) {
       case 401: {
         localStorage.setItem('dataHubUser', '');
+        localStorage.setItem('loginResp', '');
         setUser({ ...user, name: '', authenticated: false });
         break;
       }
@@ -243,15 +243,15 @@ const UserProvider: React.FC<{ children: any }> = ({children}) => {
         break;
       }
     }
-  }
+  };
 
   const clearErrorMessage = () => {
     setUser({ ...user, error : { title:'', message: '', type: '' }});
-  }
+  };
 
   const setPageRoute = (route: string) => {
     updateUserPreferences(user.name, { pageRoute: route });
-  }
+  };
 
   const setAlertMessage = (title: string, message: string) => {
     setUser({
@@ -262,20 +262,20 @@ const UserProvider: React.FC<{ children: any }> = ({children}) => {
         type: 'ALERT'
       }
     });
-  }
+  };
 
   const resetSessionTime = () => {
     setSessionTime(user.maxSessionTime);
-  }
+  };
 
   const getSessionTime = () =>{
       return sessionCount.current;
-  }
+  };
 
   useEffect(() => {
     if (sessionUser) {
       sessionAuthenticated(sessionUser);
-      let loginResponse = JSON.parse(localStorage.getItem('loginResp') || '{}')
+      let loginResponse = JSON.parse(localStorage.getItem('loginResp') || '{}');
       if(JSON.stringify(loginResponse) !== JSON.stringify({})){
         loginAuthenticated(sessionUser,loginResponse);
       }
@@ -303,7 +303,7 @@ const UserProvider: React.FC<{ children: any }> = ({children}) => {
     }}>
       {children}
     </UserContext.Provider>
-  )
-}
+  );
+};
 
 export default UserProvider;

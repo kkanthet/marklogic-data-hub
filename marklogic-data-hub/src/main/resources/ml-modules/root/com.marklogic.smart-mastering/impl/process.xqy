@@ -271,28 +271,31 @@ declare function proc-impl:record-match-provenance(
               map:new((
                 map:entry("$action", fn:string($merge-item/@action)),
                  for $match in $merge-item/matches/match
-                 let $node-name := fn:string($match/nodeName)
+                 let $ruleset-name := fn:string($match/rulesetName)
                  let $weight := fn:number($match/@weight)
-                 order by fn:number($match/@weight) descending, $node-name
+                 order by fn:number($match/@weight) descending, $ruleset-name
                  return
                     map:entry(
-                      $node-name,
+                        $ruleset-name,
                       map:map()
                         => map:with("weight", $weight)
-                        => map:with("matchedValues", json:to-array(
-                            for $value in fn:distinct-values(($match/value ! fn:string(.)))
-                            order by $value
-                            return $value)
-                          )
-                        => map:with("matchedAlgorithms", json:to-array(
-                            for $contribution in $match/contributions
-                            let $weight := fn:number($contribution/weight)
-                            let $algorithm := fn:string($contribution/algorithm)
-                            order by $weight descending, $node-name, $algorithm
-                            return map:map()
-                              => map:with("name", $algorithm)
-                              => map:with("weight", $weight)
-                          )
+                        => map:with("matchedRules", json:to-array(
+                              for $contribution in $match/contributions
+                              let $node-name := fn:string($contribution/nodeName)
+                              let $path := fn:string($contribution/path)
+                              let $algorithm := fn:string($contribution/algorithm)
+                              let $values :=
+                                  for $value in fn:distinct-values(($contribution/value ! fn:string(.)))
+                                  order by $value
+                                  return $value
+                              order by $node-name, $algorithm
+                              return
+                                map:map()
+                                  => map:with("nodeName", $node-name)
+                                  => map:with("path", $path)
+                                  => map:with("matchedAlgorithm", map:entry("name", $algorithm))
+                                  => map:with("matchedValues", json:to-array($values))
+                            )
                           )
                       )
                 )
@@ -358,12 +361,9 @@ declare function proc-impl:build-match-summary(
 (: increment usage count :)
   tel:increment(),
   let $start-elapsed := xdmp:elapsed-time()
-  let $matching-options :=
-    if ($match-options instance of object-node()) then
-      match-opt-impl:options-from-json($match-options)
-    else
-      $match-options
-  let $archived-collection := coll:archived-collections($matching-options)
+  let $compiled-matching-options := match-opt-impl:compile-match-options($match-options, ())
+  let $match-options-node := $compiled-matching-options => map:get("matchOptionsNode")
+  let $archived-collection := coll:archived-collections($match-options-node)
   let $normalized-input :=
     if ($input instance of xs:string*) then
       for $doc in cts:search(fn:doc(), cts:and-not-query(cts:document-query($input), cts:collection-query($archived-collection)), "unfiltered")
@@ -377,24 +377,22 @@ declare function proc-impl:build-match-summary(
   let $_ := if (xdmp:trace-enabled($const:TRACE-MATCH-RESULTS)) then
     xdmp:trace($const:TRACE-MATCH-RESULTS, "processing: " || fn:string-join($uris, ", "))
   else ()
-  let $actions := fn:distinct-values(($matching-options/matcher:actions/matcher:action/@name ! fn:string(.), $const:MERGE-ACTION, $const:NOTIFY-ACTION))
-  let $thresholds := $matching-options/matcher:thresholds/matcher:threshold[(@action|matcher:action) = $actions]
-  let $threshold-labels := $thresholds/(@label|matcher:label)
+  let $thresholds := map:get($compiled-matching-options, "orderedThresholds")
   let $minimum-threshold :=
     fn:min(
-      $thresholds[(@label|matcher:label) = $threshold-labels]/(@above|matcher:above) ! fn:number(.)
+      $thresholds/score ! fn:number(.)
     )
   let $merge-threshold :=
     fn:min((
-      $thresholds[(@action|matcher:action) = $const:MERGE-ACTION]/(@above|matcher:above) ! fn:number(.),
+      $thresholds[action = $const:MERGE-ACTION]/score ! fn:number(.),
       999
     ))
   let $_min-threshold-err :=
     if (fn:empty($minimum-threshold)) then
-      fn:error($const:NO-THRESHOLD-ACTION-FOUND, "No threshold actions to act on.", ($matching-options/matcher:thresholds))
+      fn:error($const:NO-THRESHOLD-ACTION-FOUND, "No threshold actions to act on.", ($thresholds))
     else ()
   let $max-scan := fn:head((
-    $matching-options//*:max-scan ! xs:integer(.),
+    $match-options-node//(*:max-scan|maxScan) ! xs:integer(.),
     500
   ))
   let $all-matches :=
@@ -406,7 +404,7 @@ declare function proc-impl:build-match-summary(
           (. => map:get("uri")),
           let $match-results := matcher:find-document-matches-by-options(
                 (. => map:get("value")),
-                $matching-options,
+                $match-options,
                 1,
                 $max-scan,
                 $minimum-threshold,
@@ -430,7 +428,7 @@ declare function proc-impl:build-match-summary(
   let $provenance-map := if ($fine-grain-provenance) then map:map() else ()
   let $consolidated-merges := xdmp:eager(
     proc-impl:consolidate-merges($all-matches,
-      $matching-options,
+      $match-options,
       $max-scan,
       $merge-threshold,
       $filter-query,
@@ -564,17 +562,16 @@ declare function proc-impl:build-match-summary(
     )
   let $action-map :=
     map:new((
-      let $custom-action-names := $matching-options/matcher:thresholds/matcher:threshold/(matcher:action|@action)[fn:not(. = $const:NOTIFY-ACTION or . = $const:MERGE-ACTION)]
-      for $custom-action-name in fn:distinct-values($custom-action-names)
-      let $action-xml := $matching-options/matcher:actions/matcher:action[@name = $custom-action-name]
+      let $custom-thresholds := $thresholds[action = "custom"]
+      for $custom-threshold in $custom-thresholds
       return
         map:entry(
-          $custom-action-name,
+          $custom-threshold/action,
           map:map()
-            => map:with("action", $custom-action-name)
-            => map:with("function", fn:string($action-xml/@function))
-            => map:with("namespace", fn:string($action-xml/@namespace))
-            => map:with("at", fn:string($action-xml/@at))
+            => map:with("action", $custom-threshold/action)
+            => map:with("function", fn:string($custom-threshold/actionModuleFunction))
+            => map:with("namespace", fn:string($custom-threshold/actionModuleNamespace))
+            => map:with("at", fn:string($custom-threshold/actionModulePath))
         )
     ))
   let $custom-action-details :=
@@ -627,7 +624,7 @@ declare function proc-impl:build-match-summary(
 declare function proc-impl:process-match-and-merge-with-options(
   $input as item()*,
   $merge-options as item(),
-  $match-options as item(),
+  $matching-options as item(),
   $filter-query as cts:query,
   $fine-grain-provenance as xs:boolean
 ) as json:array
@@ -635,11 +632,6 @@ declare function proc-impl:process-match-and-merge-with-options(
   (: increment usage count :)
   tel:increment(),
   let $start-elapsed := xdmp:elapsed-time()
-  let $matching-options :=
-    if ($match-options instance of object-node()) then
-      match-opt-impl:options-from-json($match-options)
-    else
-      $match-options
   let $archived-collection := coll:archived-collections($matching-options)
   let $normalized-input :=
     if ($input instance of xs:string*) then
@@ -651,11 +643,6 @@ declare function proc-impl:process-match-and-merge-with-options(
     else ()
   let $write-objects-by-uri := util-impl:add-all-write-objects($normalized-input)
   let $match-summary := proc-impl:build-match-summary($normalized-input, $matching-options, $filter-query, $fine-grain-provenance, fn:true())
-  let $merge-options :=
-    if ($merge-options instance of object-node()) then
-      merge-impl:options-from-json($merge-options)
-    else
-      $merge-options
   let $uris-to-process := $match-summary => map:get("matchSummary") => map:get("URIsToProcess") => json:array-values()
   return (
     proc-impl:build-content-objects-from-match-summary(
@@ -683,18 +670,16 @@ declare function proc-impl:build-content-objects-from-match-summary(
 ) as json:array
 {
   let $start-elapsed := xdmp:elapsed-time()
-  let $merge-options :=
-    if ($merge-options instance of object-node()) then
-      merge-impl:options-from-json($merge-options)
-    else
-      $merge-options
-  let $target-entity := $merge-options/merging:target-entity ! fn:string()
+  let $compiled-merge-options := merge-impl:compile-merge-options($merge-options)
+  let $target-entity := $compiled-merge-options => map:get("targetEntityType")
   (: get info on how collections should be applied to documents :)
-  let $on-no-match := $merge-options/merging:algorithms/merging:collections/merging:on-no-match
+  let $merge-options-node := $compiled-merge-options => map:get("mergeOptionsNode")
+  let $is-hub-central-format := fn:exists($merge-options-node/(mergeRule|targetCollections))
+  let $on-no-match := $compiled-merge-options => map:get("onNoMatch")
   let $on-no-match-fun := coll-impl:on-no-match(?, $on-no-match)
-  let $on-archive := $merge-options/merging:algorithms/merging:collections/merging:on-archive
+  let $on-archive := $compiled-merge-options => map:get("onArchive")
   let $on-archive-fun := coll-impl:on-archive(?, $on-archive)
-  let $on-merge := $merge-options/merging:algorithms/merging:collections/merging:on-merge
+  let $on-merge := $compiled-merge-options => map:get("onMerge")
   let $match-summary-root := $match-summary => map:get("matchSummary")
   let $all-action-details := $match-summary-root => map:get("actionDetails")
   let $custom-action-function-map := map:map()
@@ -750,7 +735,7 @@ declare function proc-impl:build-content-objects-from-match-summary(
                 let $uris := $action-details => map:get("uris") => json:array-values()
                 let $threshold := $action-details => map:get("threshold")
                 let $provenance := $action-details => map:get("provenance")
-                let $match-write-object := matcher:build-match-notification($threshold, $uris, $merge-options)
+                let $match-write-object := matcher:build-match-notification($threshold, $uris, $merge-options-node)
                 where fn:exists($match-write-object)
                 return
                   if (fn:exists($provenance)) then
@@ -796,10 +781,34 @@ declare function proc-impl:build-content-objects-from-match-summary(
                     let $custom-action-options := map:new(
                         if (fn:ends-with(xdmp:function-module($action-func), "js")) then (
                           map:entry("match-results",$match-results),
-                          map:entry("merge-options",merge-impl:options-to-json($merge-options))
+                          map:entry("merge-options",
+                              typeswitch($merge-options)
+                              case object-node() return
+                                xdmp:from-json($merge-options)
+                              case element() return
+                                merge-impl:options-to-json($merge-options)
+                              default return
+                                $merge-options
+                          )
                         ) else (
                           map:entry("match-results",proc-impl:matches-to-xml($match-results)),
-                          map:entry("merge-options",$merge-options)
+                          map:entry("merge-options",
+                              typeswitch($merge-options)
+                              case element() return
+                                $merge-options
+                              case object-node() return
+                                if ($is-hub-central-format) then
+                                  $merge-options
+                                else
+                                  merge-impl:options-from-json($merge-options)
+                              default return
+                                let $merge-node := xdmp:to-json($merge-options)
+                                return
+                                  if ($is-hub-central-format) then
+                                    $merge-node
+                                  else
+                                    merge-impl:options-from-json($merge-node)
+                          )
                         )
                     )
                     return $custom-action-options

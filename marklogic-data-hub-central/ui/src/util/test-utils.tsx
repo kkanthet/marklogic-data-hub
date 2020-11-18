@@ -24,25 +24,25 @@ const validateMappingTableRow = (dataTable, {...rowValue}, colName, srcData) => 
                 keyCol = row.val;
             }
         }
-        expect(keyCol).toBe(rowValue[rowKey])
+        expect(keyCol).toBe(rowValue[rowKey]);
         rowKey++;
     });
-}
+};
 
 const onClosestTableRow:any = command => command.closest('tr');
 const onClosestTableBody:any = command => command.closest('tbody');
 const onClosestTable:any = command => command.closest('table');
 const onClosestDiv:any = command => command.closest('div');
 
-const validateExplorerResultsTableRow = (dataTable, uris) => {
+const validateTableRow = (dataTable, uris) => {
     let rowKey = 0;
     
     dataTable.forEach(item => {
         let att: any = item.getAttribute('data-row-key') ? item.getAttribute('data-row-key') : '';    
-        expect(att).toBe(uris[rowKey])
+        expect(att).toBe(uris[rowKey]);
         rowKey++;
     });
-}
+};
 
 export {
     validateMappingTableRow,
@@ -50,5 +50,5 @@ export {
     onClosestTableBody,
     onClosestTable,
     onClosestDiv,
-    validateExplorerResultsTableRow
-}
+    validateTableRow
+};

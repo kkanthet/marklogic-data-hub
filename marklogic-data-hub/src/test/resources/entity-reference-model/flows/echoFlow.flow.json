@@ -2,8 +2,8 @@
   "name": "echoFlow",
   "steps": {
     "1": {
-      "name": "echoStep",
-      "stepDefinitionName": "echoStep",
+      "name": "runEchoStep",
+      "stepDefinitionName": "echo-step",
       "stepDefinitionType": "CUSTOM",
       "options": {
         "sourceQuery": "cts.collectionQuery('customer-input')",

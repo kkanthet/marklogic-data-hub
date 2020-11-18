@@ -26,6 +26,7 @@ interface Props {
     entityQueryUpdate: boolean;
     toggleEntityQueryUpdate: () => void;
     resetYesClicked: boolean
+    setColumnSelectorTouched: (state: boolean) => void;
 }
 
 const SaveChangesModal: React.FC<Props> = (props) => {
@@ -59,7 +60,7 @@ const SaveChangesModal: React.FC<Props> = (props) => {
 
     const onCancel = () => {
         props.setSaveChangesModalVisibility();
-    }
+    };
 
     // TO EXTRACT NAME AND DESCRIPTION FROM CURRENT QUERY
     useEffect(() => {
@@ -91,6 +92,7 @@ const SaveChangesModal: React.FC<Props> = (props) => {
                 props.toggleApplyClicked(true);
                 props.toggleApply(false);
         }
+        props.setColumnSelectorTouched(false);
         try {
             currentQuery.savedQuery.name = queryName.trim();
             currentQuery.savedQuery.description = queryDescription;
@@ -114,8 +116,9 @@ const SaveChangesModal: React.FC<Props> = (props) => {
                         propertiesToDisplay: searchOptions.selectedTableProperties,
                         zeroState: searchOptions.zeroState,
                         manageQueryModal: searchOptions.manageQueryModal,
-                        sortOrder: searchOptions?.sortOrder || []
-                    }
+                        sortOrder: searchOptions?.sortOrder || [],
+                        database: searchOptions.database,
+                    };
                     applySaveQuery(options);
                 }
                 if (props.nextQueryName && !props.entityQueryUpdate) {
@@ -132,7 +135,7 @@ const SaveChangesModal: React.FC<Props> = (props) => {
                     props.toggleEntityQueryUpdate();
                 }
                 if(props.resetYesClicked && !props.entityQueryUpdate){
-                    setZeroState(true)
+                    setZeroState(true);
                     let options: QueryOptions = {
                         searchText: '',
                         entityTypeIds: [],
@@ -141,8 +144,9 @@ const SaveChangesModal: React.FC<Props> = (props) => {
                         propertiesToDisplay: [],
                         zeroState: true,
                         manageQueryModal: false,
-                        sortOrder: []
-                    }
+                        sortOrder: [],
+                        database: 'final',
+                    };
                     applySaveQuery(options);
                 }
                 props.setCurrentQueryDescription(queryDescription);
@@ -159,7 +163,7 @@ const SaveChangesModal: React.FC<Props> = (props) => {
                 handleError(error);
             }
         }
-    }
+    };
 
     const handleChange = (event) => {
         if (event.target.id === 'save-changes-query-name') {
@@ -168,11 +172,11 @@ const SaveChangesModal: React.FC<Props> = (props) => {
         if (event.target.id === 'save-changes-query-description') {
             setQueryDescription(event.target.value);
         }
-    }
+    };
 
     const unAppliedFacets = (e) => {
-        setRadioOptionClicked(e.target.value)
-    }
+        setRadioOptionClicked(e.target.value);
+    };
 
     return (
         <Modal
@@ -240,8 +244,8 @@ const SaveChangesModal: React.FC<Props> = (props) => {
                 </Form.Item>
             </Form>
         </Modal>
-    )
-}
+    );
+};
 
 export default SaveChangesModal;
 

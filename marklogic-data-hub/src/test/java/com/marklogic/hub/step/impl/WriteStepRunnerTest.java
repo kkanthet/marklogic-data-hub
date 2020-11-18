@@ -31,7 +31,7 @@ public class WriteStepRunnerTest extends AbstractHubCoreTest {
     @BeforeEach
     public void setupEach() throws IOException {
         FileUtils.copyDirectory(getResourceFile("flow-runner-test/flows"), getHubConfig().getFlowsDir().toFile());
-        installUserModules(getDataHubAdminConfig(), true);
+        installUserModules(runAsFlowDeveloper(), true);
     }
 
     @Test
@@ -87,7 +87,7 @@ public class WriteStepRunnerTest extends AbstractHubCoreTest {
     }
 
     @Test
-    public void testLoadStepRunnerParameters() {
+    public void testOutputUriPrefix() {
         WriteStepRunner wsr = new WriteStepRunner(getHubConfig().newHubClient(), getHubConfig().getHubProject());
         Flow flow = flowManager.getFullFlow("testCsvLoadData");
         Map<String, Step> steps = flow.getSteps();
@@ -99,7 +99,25 @@ public class WriteStepRunnerTest extends AbstractHubCoreTest {
         Assertions.assertEquals("csv", wsr.inputFileType, "Input file type should be 'csv'");
         Assertions.assertEquals("json", wsr.outputFormat, "Output format should be 'json'");
         Assertions.assertEquals(".*/input,''", wsr.outputURIReplacement, "output URI replacement format should be '.*/input,'''");
+        //if 'outputURIReplacement' is set and 'outputURIPrefix' is not set, it will remain null
+        Assertions.assertEquals(null, wsr.outputURIPrefix, "output URI prefix format should be null");
         Assertions.assertEquals(",", wsr.separator, "separator should be ','");
+
+        Map<String, Object> stepConfig = new HashMap<>();
+        Map<String, Object> fileLocations = new HashMap<>();
+        fileLocations.put("outputURIReplacement", null);
+        fileLocations.put("outputURIPrefix", null);
+        stepConfig.put("fileLocations", fileLocations);
+
+        wsr.withStepDefinition(stepDef).withFlow(flow).withStep("1").withBatchSize(1).withStepConfig(stepConfig)
+            .withJobId(UUID.randomUUID().toString());
+        wsr.loadStepRunnerParameters();
+
+        Assertions.assertEquals(null, wsr.outputURIReplacement, "output URI replacement should be null");
+        //if 'outputURIReplacement' and 'outputURIPrefix' are not set, 'outputURIPrefix' will be set to ""
+        Assertions.assertEquals("", wsr.outputURIPrefix, "output URI prefix will be set to empty string as" +
+            "outputURIReplacement is null");
+
     }
 
     @Test
@@ -158,7 +176,9 @@ public class WriteStepRunnerTest extends AbstractHubCoreTest {
         wsr.outputURIPrefix = null;
         wsr.outputFormat = "json";
 
-        assertThat(wsr.generateUriForCsv("/abc", SystemUtils.OS_NAME.toLowerCase()), matchesPattern(expectedPattern("/abc", wsr)));
+        if(!SystemUtils.OS_NAME.toLowerCase().contains("windows")){
+            assertThat(wsr.generateUriForCsv("/abc", SystemUtils.OS_NAME.toLowerCase()), matchesPattern(expectedPattern("/abc", wsr)));
+        }
         assertThat(wsr.generateUriForCsv("C:\\abc\\def", "windows 10"), matchesPattern(expectedPattern("/C/abc/def", wsr)));
 
         wsr.outputURIReplacement = ".*abc,''";

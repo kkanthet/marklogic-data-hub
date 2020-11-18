@@ -11,32 +11,37 @@ buildscript {
 }
 
 plugins {
-    id "net.saliman.properties" version "1.5.1"
+    id "net.saliman.properties"
     id "java"
     id "nebula.ospackage" version "8.4.1"
+
+    id "io.snyk.gradle.plugin.snykplugin" version "0.4"
 }
 
 apply plugin: "org.springframework.boot"
-apply plugin: "maven-publish"
 apply plugin: "io.spring.dependency-management"
 apply plugin: "war"
 apply plugin: "com.github.node-gradle.node"
 apply plugin: "jsonschema2pojo"
 apply from: 'build-rpm.gradle'
 
-mainClassName = "com.marklogic.hub.central.Application"
-
 sourceCompatibility = "9"
 targetCompatibility = "9"
+
+// See https://github.com/snyk/gradle-plugin for docs
+snyk {
+    severity = 'medium'
+    api = snykToken
+    autoDownload = true
+    autoUpdate = true
+}
 
 ext {
     taskGroup = "Spring Boot UI"
 }
 
-ext.junit4Version = '4.12'
-ext.junitVintageVersion = '4.12.0-RC3'
-ext.junitPlatformVersion = '1.3.1'
-ext.junitJupiterVersion = '5.3.1'
+ext.junitPlatformVersion = '1.4.2'
+ext.junitJupiterVersion = '5.4.2'
 
 bootWar {
     baseName = springBootJarName
@@ -64,47 +69,60 @@ dependencies {
     // No idea why this is necessary, but when Gradle brings the core project over, it bumps the okhttp3 dependency
     // down from 4.4.0 to 3.x, which then breaks all kinds of stuff. So exclude the two okhttp3 dependencies and
     // then explicitly depending on the desired versions.
-    compile (project(":marklogic-data-hub")) {
+    implementation (project(":marklogic-data-hub")) {
         exclude group: "com.squareup.okhttp3", module: "okhttp"
         exclude group: "com.squareup.okhttp3", module: "logging-interceptor"
     }
-    runtime "com.squareup.okhttp3:okhttp:4.4.0"
-    runtime "com.squareup.okhttp3:logging-interceptor:4.4.0"
+
+    // Depend on the versions that ML Java Client 5.3.0 depends on
+    implementation "com.squareup.okhttp3:okhttp:4.7.2"
+    implementation "com.squareup.okhttp3:logging-interceptor:4.7.2"
+
+    // Excluding okhttp3 dependency as it bumps down the dependency from 4.4.0 to 3.x
+    implementation ('com.microsoft.azure:azure-keyvault-secrets-spring-boot-starter:2.2.4') {
+        exclude group: "com.squareup.okhttp3", module: "okhttp"
+    }
+    implementation 'com.azure:azure-storage-blob:12.8.0'
+    implementation 'com.amazonaws:aws-java-sdk-s3:1.11.847'
+    implementation 'com.amazonaws:aws-java-sdk-ssm:1.11.847'
+
 
     // Used to generate Swagger docs at /swagger-ui.html
-    compile "io.springfox:springfox-swagger2:2.9.2"
-    compile 'io.springfox:springfox-swagger-ui:2.9.2'
+    implementation "io.springfox:springfox-swagger2:2.9.2"
+    implementation 'io.springfox:springfox-swagger-ui:2.9.2'
 
     // Main dependency for a Spring Boot web application
-    compile "org.springframework.boot:spring-boot-starter-web:${springBootVersion}"
+    implementation "org.springframework.boot:spring-boot-starter-web:${springBootVersion}"
 
     // Dependency to serialize and deserialize XML. The default version for the current springBootVersion is referenced.
-    compile "com.fasterxml.jackson.dataformat:jackson-dataformat-xml"
+    implementation "com.fasterxml.jackson.dataformat:jackson-dataformat-xml"
 
     // Used for hosting static resources when running as an executable jar/war
-    runtime "org.springframework.boot:spring-boot-starter-thymeleaf:${springBootVersion}"
+    implementation "org.springframework.boot:spring-boot-starter-thymeleaf:${springBootVersion}"
 
     // Enables Spring Security - https://docs.spring.io/spring-security/site/docs/current/reference/html5/
-    compile "org.springframework.security:spring-security-web:${springSecurityVersion}"
-    compile "org.springframework.security:spring-security-config:${springSecurityVersion}"
+    implementation "org.springframework.security:spring-security-web:${springSecurityVersion}"
+    implementation "org.springframework.security:spring-security-config:${springSecurityVersion}"
 
     // Enables WebSocket - https://spring.io/guides/gs/messaging-stomp-websocket/
-    compile "org.springframework.boot:spring-boot-starter-websocket:${springBootVersion}"
+    implementation "org.springframework.boot:spring-boot-starter-websocket:${springBootVersion}"
 
     // Enables Spring Boot actuator - https://docs.spring.io/spring-boot/docs/current/reference/htmlsingle/#production-ready
-    runtime "org.springframework.boot:spring-boot-starter-actuator:${springBootVersion}"
+    implementation "org.springframework.boot:spring-boot-starter-actuator:${springBootVersion}"
 
     testImplementation(testFixtures(project(":marklogic-data-hub")))
 
-    testCompile "org.springframework.boot:spring-boot-starter-test:${springBootVersion}"
+    testImplementation "org.springframework.boot:spring-boot-starter-test:${springBootVersion}"
     testImplementation "org.springframework.security:spring-security-test:${springSecurityVersion}"
 
-    testCompile "org.junit.jupiter:junit-jupiter-api:${junitJupiterVersion}"
-    testRuntime "org.junit.jupiter:junit-jupiter-engine:${junitJupiterVersion}"
+    testImplementation "org.junit.jupiter:junit-jupiter-api:${junitJupiterVersion}"
+    testImplementation "org.junit.jupiter:junit-jupiter-engine:${junitJupiterVersion}"
 
-    testCompile "org.junit.platform:junit-platform-runner:${junitPlatformVersion}"
-    testCompile "org.mockito:mockito-core:3.0.0"
-    testCompile "org.mockito:mockito-junit-jupiter:3.0.0"
+    testImplementation "org.junit.platform:junit-platform-runner:${junitPlatformVersion}"
+    testImplementation "org.mockito:mockito-core:3.0.0"
+    testImplementation "org.mockito:mockito-junit-jupiter:3.0.0"
+
+    //testCompile files(project(':marklogic-data-hub').sourceSets.test.output)
 }
 
 // We need this to access test resources such as "entity-reference-model" project from core data hub project
@@ -112,6 +130,8 @@ sourceSets.test.resources.srcDir "../marklogic-data-hub/src/test/resources"
 
 // jsonSchema2Pojo is used to generate Java classes that are then used in Swagger annotations for documentation purposes
 // See more at https://github.com/joelittlejohn/jsonschema2pojo/tree/master/jsonschema2pojo-gradle-plugin
+// Note that when this plugin registers itself, it forces compileJava to depend on it. So anytime Java code is compiled,
+// this plugin will generate Java classes for our JSON schemas.
 jsonSchema2Pojo {
     source = files("../specs/models")
     targetDirectory = file("src/main/java")
@@ -174,28 +194,22 @@ task copyUiFiles(type: Copy, dependsOn: deleteSpringBootUiFiles, group: taskGrou
     into springBootUiPath
 }
 
-// Before the Spring Boot jar is built, build the UI files and copy them over
-if (!(
-    gradle.startParameter.taskNames*.toLowerCase().contains("publishplugins") ||
-        gradle.startParameter.taskNames*.toLowerCase().contains("bintrayUpload") ||
-        gradle.startParameter.taskNames*.toLowerCase().contains("javadoc") ||
-        // bootRun doesn't need the UI, as it's assumed that the UI is being run separately via npm start
-        gradle.startParameter.taskNames*.toLowerCase().contains("bootrun") ||
-        gradle.startParameter.taskNames*.toLowerCase().contains("generateschemapojos") ||
-        project.hasProperty('skipui')
-)
-) {
+// When creating the HC war file, need to build the UI files and add them to the classpath so that the war file includes them
+ext {
+    def taskNames = gradle.startParameter.taskNames*.toLowerCase()
+    shouldBuildUiFiles = taskNames.contains("build") || taskNames.contains("buildrpm") || taskNames.contains("bootwar")
+}
+if (shouldBuildUiFiles) {
+    println "Building UI!"
     tasks.processResources.dependsOn(buildUi, copyUiFiles)
 }
 
+
 test {
-	exclude 'com/marklogic/hub/curation/integrationtests/**'
-	exclude 'com/marklogic/hub/central/integrationtests/**'
-    exclude 'com/marklogic/hub/curation/controllers/fullcycle/**'
 	useJUnitPlatform()
 }
 
-tasks.buildRpm.dependsOn(buildUi, copyUiFiles, bootWar)
+tasks.buildRpm.dependsOn bootWar
 
 task testUI(type: NpmTask, dependsOn: installDependencies, group: taskGroup){
     description = "Runs the UI unit tests"
@@ -206,28 +220,3 @@ test.finalizedBy('testUI')
 
 build.dependsOn buildRpm
 
-/*task to publish war file to Maven repository, if project has property "mavenUser" then it will publish to nexus
- Use '-PskipWeb in your task to skip this task when publishing'*/
-publishing {
-    publications {
-        if(!project.hasProperty('skipWeb')) {
-            mavenWeb(MavenPublication) {
-                group = "com.marklogic"
-                version = "${version}"
-                from components.web
-                artifact bootWar
-            }
-        }
-    }
-    repositories {
-        maven {
-            if(project.hasProperty("mavenUser")) {
-                credentials {
-                    username mavenUser
-                    password mavenPassword
-                }
-            }
-            url publishUrl
-        }
-    }
-}

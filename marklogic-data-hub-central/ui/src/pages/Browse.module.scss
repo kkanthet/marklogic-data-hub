@@ -26,26 +26,21 @@
   margin-right: 12px;
 }
 
+.viewContainer {
+  padding-top: 5px;
+}
+
+.snippetViewResult {
+  border-top: 1px solid #d0d1d5;
+  border-bottom: 1px solid #d0d1d5;
+  max-height: 55vh;
+  overflow: auto;
+}
+
 .switchViews {
   width: 100%;
   display: flex;
   justify-content: flex-end;
-}
-
-.toggleView {
-  float: right;
-  padding: 8px;
-  border: 1px solid #666;
-  cursor: pointer;
-}
-
-.toggled {
-  background-color: #44499c;
-  float: right;
-  padding: 8px;
-  border: 1px solid #666;
-  cursor: pointer;
-  color: white;
 }
 
 .sideBarExpanded {

@@ -23,6 +23,8 @@ import com.marklogic.hub.util.FileUtil;
 import org.apache.commons.io.FileUtils;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.TestFactory;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.io.FileInputStream;
@@ -35,6 +37,8 @@ import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+// TestFactory doesn't play nice with support for parallel tests yet, so forcing same thread execution
+@Execution(ExecutionMode.SAME_THREAD)
 public class ScaffoldingE2E extends AbstractHubCoreTest {
 
     @Autowired
@@ -52,7 +56,7 @@ public class ScaffoldingE2E extends AbstractHubCoreTest {
         FileUtil.copy(getResourceStream("scaffolding-test/employee.entity.json"), entityDir.resolve("employee.entity.json").toFile());
         FileUtil.copy(getResourceStream("scaffolding-test/" + entityName + ".json"), entityDir.resolve(entityName + ".entity.json").toFile());
 
-        installUserModules(getDataHubAdminConfig(), true);
+        installUserModules(runAsFlowDeveloper(), true);
 
     }
     private void createFlow(CodeFormat codeFormat, DataFormat dataFormat, FlowType flowType, boolean useEsModel) {

@@ -24,6 +24,7 @@ import com.marklogic.hub.legacy.flow.DataFormat;
 import com.marklogic.hub.legacy.flow.FlowType;
 import com.marklogic.hub.legacy.flow.LegacyFlow;
 import com.marklogic.hub.scaffold.Scaffolding;
+import com.marklogic.hub.web.AbstractWebTest;
 import com.marklogic.hub.web.model.TraceQuery;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -31,7 +32,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.HashMap;
 
-class TraceServiceTest extends AbstractServiceTest {
+class TraceServiceTest extends AbstractWebTest {
 
     private DatabaseClient traceClient;
     private static String ENTITY = "test-entity";
@@ -52,10 +53,9 @@ class TraceServiceTest extends AbstractServiceTest {
         scaffolding.createLegacyFlow(ENTITY, "xqy-xml-harmonize-flow", FlowType.HARMONIZE,
             CodeFormat.XQUERY, DataFormat.XML, false);
 
-        installUserModules(getDataHubAdminConfig(), true);
-        clearDatabases(HubConfig.DEFAULT_STAGING_NAME, HubConfig.DEFAULT_FINAL_NAME, HubConfig.DEFAULT_JOB_NAME);
+        installUserModules(runAsFlowDeveloper(), true);
 
-        traceClient = getDataHubAdminConfig().newJobDbClient();
+        traceClient = getHubClient().getJobsClient();
         final String FLOW_NAME = "sjs-json-harmonize-flow";
         LegacyFlow flow = flowMgrService.getServerFlow(ENTITY, FLOW_NAME, FlowType.HARMONIZE);
         flowMgrService.runFlow(flow, 1, 1, new HashMap<String, Object>(), (jobId, percentComplete, message) -> { });

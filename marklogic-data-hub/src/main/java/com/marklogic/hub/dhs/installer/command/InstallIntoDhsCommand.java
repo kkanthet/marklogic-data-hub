@@ -44,7 +44,7 @@ public class InstallIntoDhsCommand extends AbstractInstallerCommand {
             // Update the servers in the Curator group
             groupName = "Curator";
             modifyHubConfigForDhs(groupName);
-            DhsDeployServersCommand dhsDeployServersCommand = new DhsDeployServersCommand();
+            DhsDeployServersCommand dhsDeployServersCommand = new DhsDeployServersCommand(hubConfig);
             dhsDeployServersCommand.setServerVersion(serverVersion);
             deployer.setCommands(Arrays.asList(dhsDeployServersCommand));
             deployer.deploy(hubConfig.getAppConfig());
@@ -80,7 +80,7 @@ public class InstallIntoDhsCommand extends AbstractInstallerCommand {
         commands.add(new DeployAmpsCommand());
         commands.add(dbCommand);
 
-        DhsDeployServersCommand ddsc = new DhsDeployServersCommand();
+        DhsDeployServersCommand ddsc = new DhsDeployServersCommand(hubConfig);
         ddsc.setServerVersion(serverVersion);
         commands.add(ddsc);
 
@@ -94,7 +94,7 @@ public class InstallIntoDhsCommand extends AbstractInstallerCommand {
 
         // DHS is known to be compatible with entity-services-based mapping. Setting this field avoids the need to make
         // another DatabaseClient, which the Versions class will do.
-        GenerateFunctionMetadataCommand generateFunctionMetadataCommand = new GenerateFunctionMetadataCommand(hubConfig, true);
+        GenerateFunctionMetadataCommand generateFunctionMetadataCommand = new GenerateFunctionMetadataCommand(hubConfig);
         generateFunctionMetadataCommand.setCatchExceptionsForUserModules(true);
         commands.add(generateFunctionMetadataCommand);
 

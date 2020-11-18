@@ -21,6 +21,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.marklogic.client.datamovement.JobTicket;
 import com.marklogic.client.document.DocumentRecord;
+import com.marklogic.client.document.GenericDocumentManager;
 import com.marklogic.client.io.DocumentMetadataHandle;
 import com.marklogic.client.io.JacksonHandle;
 import com.marklogic.hub.HubConfig;
@@ -29,6 +30,7 @@ import com.marklogic.hub.legacy.LegacyFlowManager;
 import com.marklogic.hub.legacy.flow.*;
 import com.marklogic.hub.scaffold.Scaffolding;
 import com.marklogic.hub.util.FileUtil;
+import com.marklogic.hub.web.AbstractWebTest;
 import org.apache.commons.io.IOUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -43,7 +45,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
-public class LegacyFlowManagerServiceTest extends AbstractServiceTest {
+public class LegacyFlowManagerServiceTest extends AbstractWebTest {
 
     private static String ENTITY = "test-entity";
 
@@ -129,19 +131,19 @@ public class LegacyFlowManagerServiceTest extends AbstractServiceTest {
         FileUtil.copy(inputStream, harmonizeDir.resolve("sjs-json-harmonization-flow/headers.sjs").toFile());
         IOUtils.closeQuietly(inputStream);
 
-        installUserModules(getDataHubAdminConfig(), true);
+        installUserModules(runAsFlowDeveloper(), true);
     }
 
     @Test
     public void getFlowMlcpOptionsFromFile() throws Exception {
         Map<String, Object> options = fm.getFlowMlcpOptionsFromFile("test-entity", "test-flow");
-        JSONAssert.assertEquals("{ \"input_file_path\": " + getHubProject().getProjectDirString() + " }", new ObjectMapper().writeValueAsString(options), true);
+        String expected = "{\"input_file_path\":\"" + getHubProject().getProjectDirString() + "\"}";
+        String actual = new ObjectMapper().writeValueAsString(options);
+        JSONAssert.assertEquals("Options differ; expected: " + expected + "; actual: " + actual, expected, actual, true);
     }
 
     @Test
     public void runHarmonizationFlow() throws InterruptedException {
-        clearDatabases(HubConfig.DEFAULT_STAGING_NAME, HubConfig.DEFAULT_FINAL_NAME, HubConfig.DEFAULT_JOB_NAME);
-
         int finalCount = getFinalDocCount();
 
         DocumentMetadataHandle meta = new DocumentMetadataHandle();
@@ -175,8 +177,6 @@ public class LegacyFlowManagerServiceTest extends AbstractServiceTest {
 
     @Test
     public void runHarmonizationFlowWithOptions() throws InterruptedException {
-        clearDatabases(HubConfig.DEFAULT_STAGING_NAME, HubConfig.DEFAULT_FINAL_NAME, HubConfig.DEFAULT_JOB_NAME);
-
         DocumentMetadataHandle meta = new DocumentMetadataHandle();
         meta.getCollections().add(ENTITY);
         installStagingDoc("/staged.json", meta, "legacy-flow-manager/staged.json");
@@ -207,6 +207,7 @@ public class LegacyFlowManagerServiceTest extends AbstractServiceTest {
             monitor.wait();
         }
 
+        GenericDocumentManager finalDocMgr = getHubClient().getFinalClient().newDocumentManager();
         DocumentRecord doc = finalDocMgr.read("/staged.json").next();
         JsonNode root = doc.getContent(new JacksonHandle()).get();
         JsonNode optionNode = root.path("envelope").path("headers").path("test-option");

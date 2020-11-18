@@ -19,7 +19,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.marklogic.bootstrap.Installer;
 import com.marklogic.client.DatabaseClient;
 import com.marklogic.client.datamovement.DataMovementManager;
 import com.marklogic.client.datamovement.JobTicket;
@@ -39,10 +38,11 @@ import com.marklogic.hub.mapping.Mapping;
 import com.marklogic.hub.scaffold.Scaffolding;
 import com.marklogic.hub.util.FileUtil;
 import org.apache.commons.io.IOUtils;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.TestFactory;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.w3c.dom.Document;
 
@@ -64,6 +64,8 @@ import java.util.concurrent.TimeUnit;
 import static org.custommonkey.xmlunit.XMLAssert.assertXMLEqual;
 import static org.junit.jupiter.api.Assertions.*;
 
+// TestFactory doesn't play nice with support for parallel tests yet, so forcing same thread execution
+@Execution(ExecutionMode.SAME_THREAD)
 public class MappingE2E extends AbstractHubCoreTest {
 
     private static final String ENTITY = "e2eentity";
@@ -84,15 +86,15 @@ public class MappingE2E extends AbstractHubCoreTest {
     @Autowired
     MappingManager mappingManager;
 
-    @AfterAll
-    public static void teardown() {
-        new Installer().teardownProject();
-    }
-
     private static boolean isSetup = false;
+    private DatabaseClient flowRunnerClient;
 
     @BeforeEach
     public void setupEach() {
+        runAsFlowOperator();
+        flowRunnerClient = getHubClient().getStagingClient();
+        runAsFlowDeveloper();
+
         enableTracing();
         enableDebugging();
         if (!isSetup) {
@@ -100,12 +102,12 @@ public class MappingE2E extends AbstractHubCoreTest {
             scaffolding.createEntity(ENTITY);
             Path entityDir = getHubProject().getProjectDir().resolve("entities");
             copyFile("e2e-test/" + ENTITY + ".entity.json", entityDir.resolve(ENTITY + ".entity.json"));
-            installUserModules(getDataHubAdminConfig(), true);
+            installUserModules(runAsFlowDeveloper(), true);
             if (modelProperties == null) {
     	        ObjectMapper objectMapper = new ObjectMapper();
     	     	JsonNode rootNode = null;
     			try {
-    				rootNode = objectMapper.readTree(getDataHubAdminConfig().getHubEntitiesDir().resolve(ENTITY+".entity.json").toFile());
+    				rootNode = objectMapper.readTree(getHubProject().getHubEntitiesDir().resolve(ENTITY+".entity.json").toFile());
     			} catch (JsonProcessingException e) {
     			      throw new RuntimeException(e);
     			} catch (IOException e) {
@@ -120,7 +122,7 @@ public class MappingE2E extends AbstractHubCoreTest {
             createMappings();
 
             copyFile("e2e-test/" + ENTITY + ".entity.json", entityDir.resolve(ENTITY + ".entity.json"));
-            installUserModules(getDataHubAdminConfig(), true);
+            installUserModules(getHubConfig(), true);
             allCombos((codeFormat, dataFormat, flowType, useEs) -> {
             	if(flowType.equals(FlowType.HARMONIZE)) {
             		for(String mapping:getMappings()) {
@@ -135,7 +137,7 @@ public class MappingE2E extends AbstractHubCoreTest {
             //Flows with xml docs having processing instructions/comments
             createFlow("extranodes", CodeFormat.XQUERY, DataFormat.XML, FlowType.HARMONIZE, true,"validPath1-threeProp", 1, (CreateFlowListener)null);
             createFlow("extranodes", CodeFormat.JAVASCRIPT, DataFormat.XML, FlowType.HARMONIZE, true, "validPath1-threeProp", 1, (CreateFlowListener)null);
-            installUserModules(getDataHubAdminConfig(), true);
+            installUserModules(getHubConfig(), true);
         }
     }
 
@@ -185,7 +187,7 @@ public class MappingE2E extends AbstractHubCoreTest {
     }
 
     private List<String> getMappings() {
-    	Path mappingDir = getDataHubAdminConfig().getHubMappingsDir();
+    	Path mappingDir = getHubProject().getHubMappingsDir();
     	List<String> allMappings = new ArrayList<>();
     	try {
     		Files.walk(mappingDir).filter(f->Files.isDirectory(f)).forEach(f -> allMappings.add(f.getFileName().toString()));
@@ -255,7 +257,7 @@ public class MappingE2E extends AbstractHubCoreTest {
         createMapping("validPath1-threeProp", "//*:validtest/*:","http://marklogic.com/example/Schema-0.0.1/e2eentity", true, "empid,fullname,monthlysalary".split(","));
         allMappings.addAll(Arrays.asList("nonExistentPath,inCorrectPath,empty-sourceContext,default-without-sourcedFrom,default-no-properties,diff-entity-validPath".split(",")));
 
-        installUserModules(getDataHubAdminConfig(), true);
+        installUserModules(runAsFlowDeveloper(), true);
     }
 
     private void createMapping(String name, String sourceContext, String targetEntityType,  String ... properties) {
@@ -343,7 +345,8 @@ public class MappingE2E extends AbstractHubCoreTest {
         DatabaseClient srcClient, String destDb,
         boolean waitForCompletion)
     {
-        clearDatabases(HubConfig.DEFAULT_STAGING_NAME, HubConfig.DEFAULT_FINAL_NAME, HubConfig.DEFAULT_JOB_NAME);
+        resetDatabases();
+        runAsFlowDeveloper();
 
         installDocs(flowName, dataFormat, ENTITY, srcClient);
         runAsFlowOperator();
@@ -374,7 +377,7 @@ public class MappingE2E extends AbstractHubCoreTest {
                 throw new RuntimeException(e);
             }
         }
-        getDataHubAdminConfig();
+        runAsFlowDeveloper();
         return new Tuple<>(flowRunner, jobTicket);
     }
 
@@ -383,7 +386,9 @@ public class MappingE2E extends AbstractHubCoreTest {
         Map<String, Object> options, DatabaseClient srcClient, String destDb,
         FinalCounts finalCounts, boolean waitForCompletion, String mapping, int version) throws InterruptedException {
 
-        clearDatabases(HubConfig.DEFAULT_STAGING_NAME, HubConfig.DEFAULT_FINAL_NAME, HubConfig.DEFAULT_JOB_NAME);
+        resetDatabases();
+        runAsFlowDeveloper();
+
         String flowName = getFlowName(prefix, codeFormat, dataFormat, FlowType.HARMONIZE, mapping, version);
 
         Vector<String> completed = new Vector<>();
@@ -397,7 +402,7 @@ public class MappingE2E extends AbstractHubCoreTest {
 
         if (waitForCompletion) {
             // takes a little time to run.
-            Thread.sleep(2000);
+            sleep(2000);
 
             assertEquals(finalCounts.stagingCount + originalStagingCount, getStagingDocCount());
             assertEquals(finalCounts.finalCount + originalFinalCount, getFinalDocCount());
@@ -406,10 +411,9 @@ public class MappingE2E extends AbstractHubCoreTest {
             assertEquals(finalCounts.completedCount, completed.size());
             assertEquals(finalCounts.failedCount, failed.size());
 
-            GenericDocumentManager mgr = finalDocMgr;
-            if (destDb.equals(HubConfig.DEFAULT_STAGING_NAME)) {
-                mgr = stagingDocMgr;
-            }
+            GenericDocumentManager mgr = destDb.equals(HubConfig.DEFAULT_STAGING_NAME) ?
+                getHubClient().getStagingClient().newDocumentManager() :
+                getHubClient().getFinalClient().newDocumentManager();
 
             String filename = null;
 
@@ -448,7 +452,7 @@ public class MappingE2E extends AbstractHubCoreTest {
 	            }
             }
             // inspect the job json
-            JsonNode node = jobDocMgr.read("/jobs/" + tuple.y.getJobId() + ".json").next().getContent(new JacksonHandle()).get();
+            JsonNode node = getHubClient().getJobsClient().newDocumentManager().read("/jobs/" + tuple.y.getJobId() + ".json").next().getContent(new JacksonHandle()).get();
             assertEquals(tuple.y.getJobId(), node.get("jobId").asText());
             assertEquals(finalCounts.jobSuccessfulEvents, node.get("successfulEvents").asInt());
             assertEquals(finalCounts.jobFailedEvents, node.get("failedEvents").asInt());

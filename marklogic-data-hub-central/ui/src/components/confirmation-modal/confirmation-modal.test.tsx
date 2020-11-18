@@ -1,9 +1,9 @@
 import React from 'react';
-import { render, getByLabelText } from '@testing-library/react';
+import { render } from '@testing-library/react';
 import userEvent from "@testing-library/user-event";
 
 import ConfirmationModal from './confirmation-modal';
-import { ConfirmationType } from '../../types/modeling-types';
+import { ConfirmationType } from '../../types/common-types';
 
 describe('Confirmation Modal Component', () => {
 
@@ -50,7 +50,7 @@ describe('Confirmation Modal Component', () => {
     let toggleModal = jest.fn();
     let confirmAction = jest.fn();
 
-    const { queryByLabelText, getByText, getAllByText, rerender } =  render(
+    const { queryByLabelText, getByText, rerender } =  render(
       <ConfirmationModal 
         isVisible={false}
         type={ConfirmationType.DeleteEntity}
@@ -117,7 +117,7 @@ describe('Confirmation Modal Component', () => {
 
   test('can render delete type step warn confirmation', () => {
     let entityName = 'PersonXML';
-    let stepValues = ['Person-Mapping-XML']
+    let stepValues = ['Person-Mapping-XML'];
     let toggleModal = jest.fn();
     let confirmAction = jest.fn();
 
@@ -163,7 +163,7 @@ describe('Confirmation Modal Component', () => {
 
   test('can render delete type entity relation with outstanding edit warn confirmation', () => {
     let entityName = 'PersonXML';
-    let arrayValues = ['Person-Mapping-XML']
+    let arrayValues = ['Person-Mapping-XML'];
     let toggleModal = jest.fn();
     let confirmAction = jest.fn();
 
@@ -202,7 +202,7 @@ describe('Confirmation Modal Component', () => {
 
   test('can render delete type outstanding edit warn confirmation', () => {
     let entityName = 'PersonXML';
-    let arrayValues = ['Person-Mapping-XML']
+    let arrayValues = ['Person-Mapping-XML'];
     let toggleModal = jest.fn();
     let confirmAction = jest.fn();
 
@@ -245,7 +245,7 @@ describe('Confirmation Modal Component', () => {
     let toggleModal = jest.fn();
     let confirmAction = jest.fn();
 
-    const { queryByLabelText, getByText, getAllByText, rerender } =  render(
+    const { queryByLabelText, getByText, rerender } =  render(
       <ConfirmationModal 
         isVisible={false}
         type={ConfirmationType.SaveEntity}
@@ -380,7 +380,7 @@ describe('Confirmation Modal Component', () => {
     let toggleModal = jest.fn();
     let confirmAction = jest.fn();
 
-    const { queryByLabelText, getByText, rerender, getByLabelText } =  render(
+    const { queryByLabelText, getByText, rerender } =  render(
       <ConfirmationModal
         isVisible={false}
         type={ConfirmationType.NavigationWarn}
@@ -402,6 +402,75 @@ describe('Confirmation Modal Component', () => {
 
     expect(getByText('Unsaved Changes')).toBeInTheDocument();
     expect(getByText('You have made changes to the properties of one or more entity types. If you exit now, you will lose those changes.')).toBeInTheDocument();
+
+    userEvent.click(getByText('No'));
+    expect(toggleModal).toBeCalledTimes(1);
+
+    userEvent.click(getByText('Yes'));
+    expect(confirmAction).toBeCalledTimes(1);
+  });
+
+  test('can render add step to flow confirmation', () => {
+    let boldTextArray = ['match-customer', 'customer-flow']
+    let toggleModal = jest.fn();
+    let confirmAction = jest.fn();
+
+    const { queryByLabelText, getByText, rerender, getByLabelText } =  render(
+      <ConfirmationModal
+        isVisible={false}
+        type={ConfirmationType.AddStepToFlow}
+        boldTextArray={boldTextArray}
+        toggleModal={toggleModal}
+        confirmAction={confirmAction}
+      />
+    );
+
+    expect(queryByLabelText('add-step-to-flow-text')).toBeNull();
+
+    rerender(<ConfirmationModal
+      isVisible={true}
+      type={ConfirmationType.AddStepToFlow}
+      boldTextArray={boldTextArray}
+      toggleModal={toggleModal}
+      confirmAction={confirmAction}
+    />);
+
+    expect(getByLabelText('add-step-to-flow-text')).toBeInTheDocument();
+    expect(getByText(boldTextArray[0])).toBeInTheDocument();
+    expect(getByText(boldTextArray[1])).toBeInTheDocument();
+
+    userEvent.click(getByText('No'));
+    expect(toggleModal).toBeCalledTimes(1);
+
+    userEvent.click(getByText('Yes'));
+    expect(confirmAction).toBeCalledTimes(1);
+  });
+
+  test('can render discard change confirmation', () => {
+    let toggleModal = jest.fn();
+    let confirmAction = jest.fn();
+
+    const { queryByLabelText, getByText, rerender } =  render(
+      <ConfirmationModal
+        isVisible={false}
+        type={ConfirmationType.DiscardChanges}
+        boldTextArray={[]}
+        toggleModal={toggleModal}
+        confirmAction={confirmAction}
+      />
+    );
+
+    expect(queryByLabelText('iscard-changes-text')).toBeNull();
+
+    rerender(<ConfirmationModal
+      isVisible={true}
+      type={ConfirmationType.DiscardChanges}
+      boldTextArray={[]}
+      toggleModal={toggleModal}
+      confirmAction={confirmAction}
+    />);
+
+    expect(getByText('Discard Changes?')).toBeInTheDocument();
 
     userEvent.click(getByText('No'));
     expect(toggleModal).toBeCalledTimes(1);

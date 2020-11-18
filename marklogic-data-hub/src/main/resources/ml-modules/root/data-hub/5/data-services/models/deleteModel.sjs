@@ -17,25 +17,25 @@
 
 xdmp.securityAssert("http://marklogic.com/data-hub/privileges/write-entity-model", "execute");
 
-const ds = require("/data-hub/5/data-services/ds-utils.sjs");
+const httpUtils = require("/data-hub/5/impl/http-utils.sjs");
 const entityLib = require("/data-hub/5/impl/entity-lib.sjs");
 
 var entityName;
 if (!entityName) {
-  ds.throwBadRequest("Must specify a name in order to delete an entity model");
+  httpUtils.throwBadRequest("Must specify a name in order to delete an entity model");
 }
 
 const entityModel = entityLib.findModelByEntityName(entityName);
 if (!entityModel) {
-  ds.throwServerError(`Could not find entity model with name: ${entityName}`);
+  httpUtils.throwNotFound(`Could not find entity model with name: ${entityName}`);
 }
 
 const entityTypeId = entityLib.getEntityTypeId(entityModel, entityName);
 const entityModelUri = entityLib.getModelUri(entityName);
 
-const stepAndMappingNames = entityLib.findModelReferencesInSteps(entityName, entityTypeId);
-if (stepAndMappingNames.length) {
-  ds.throwServerError(`Cannot delete the entity type '${entityName}' because it is referenced by the following step and/or mapping names: ${stepAndMappingNames}`);
+const stepNames = entityLib.findModelReferencesInSteps(entityName, entityTypeId);
+if (stepNames.length) {
+  httpUtils.throwBadRequest(`Cannot delete the entity type '${entityName}' because it is referenced by the following step names: ${stepNames}`);
 }
 
 entityLib.deleteModel(entityName);

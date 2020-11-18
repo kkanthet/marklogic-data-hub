@@ -16,7 +16,7 @@
 'use strict';
 
 const Artifacts = require('/data-hub/5/artifacts/core.sjs');
-const ds = require("/data-hub/5/data-services/ds-utils.sjs");
+const httpUtils = require("/data-hub/5/impl/http-utils.sjs");
 
 var artifactType, artifactName, artifact;
 
@@ -24,10 +24,14 @@ if ("ingestion" === artifactType) {
   xdmp.securityAssert("http://marklogic.com/data-hub/privileges/write-ingestion", "execute");
 } else if ("mapping" === artifactType) {
   xdmp.securityAssert("http://marklogic.com/data-hub/privileges/write-mapping", "execute");
+} else if ("matching" === artifactType || "merging" === artifactType) {
+  xdmp.securityAssert("http://marklogic.com/data-hub/privileges/write-match-merge", "execute");
+} else if ("custom" === artifactType) {
+  xdmp.securityAssert("http://marklogic.com/data-hub/privileges/write-custom", "execute");
 } else if ("flow" === artifactType || "stepDefinition" === artifactType) {
   xdmp.securityAssert("http://marklogic.com/data-hub/privileges/write-flow", "execute");
 } else {
-  ds.throwBadRequest("Unsupported artifact type: " + artifactType);
+  httpUtils.throwBadRequest("Unsupported artifact type: " + artifactType);
 }
 
 Artifacts.setArtifact(artifactType, artifactName, artifact.toObject());

@@ -1,0 +1,25 @@
+{
+  "envelope": {
+    "headers": {
+      "sources": [{
+        "name": "testSourceForCustomer",
+        "datahubSourceType": "testSourceType"
+      }]
+    },
+    "instance": {
+      "info": {
+        "title": "Customer",
+        "version": "0.0.1",
+        "baseUri": "http://example.org/"
+      },
+      "Customer": {
+        "customerId": 101,
+        "name": "Jane Foster",
+        "nicknames": [
+          "jane",
+          "foster"
+        ]
+      }
+    }
+  }
+}

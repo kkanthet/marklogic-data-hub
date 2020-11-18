@@ -17,7 +17,7 @@
 const FlowUtils = require("/data-hub/5/impl/flow-utils.sjs");
 const Step = require("/data-hub/5/impl/step.sjs");
 const jobsMod = require("/data-hub/5/impl/jobs.sjs");
-const ds = require("/data-hub/5/data-services/ds-utils.sjs");
+const httpUtils = require("/data-hub/5/impl/http-utils.sjs");
 
 // define constants for caching expensive operations
 const cachedFlows = {};
@@ -125,12 +125,12 @@ class Flow {
 
     const flowStep = flow.steps[stepNumber];
     if (!flowStep) {
-      ds.throwServerError(`Could not find step '${stepNumber}' in flow '${flowName}'`);
+      httpUtils.throwBadRequest(`Could not find step '${stepNumber}' in flow '${flowName}'`);
     }
 
     const stepDefinition = this.step.getStepByNameAndType(flowStep.stepDefinitionName, flowStep.stepDefinitionType);
     if (!stepDefinition) {
-      ds.throwServerError(`Could not find a step definition with name '${flowStep.stepDefinitionName}' and type '${flowStep.stepDefinitionType}' for step '${stepNumber}' in flow '${flowName}'`);
+      httpUtils.throwBadRequest(`Could not find a step definition with name '${flowStep.stepDefinitionName}' and type '${flowStep.stepDefinitionType}' for step '${stepNumber}' in flow '${flowName}'`);
     }
 
     const combinedOptions = Object.assign({}, stepDefinition.options || {}, flow.options || {}, flowStep.options || {}, options);
@@ -139,6 +139,16 @@ class Flow {
     let uris = null;
     if (options.uris) {
       uris = this.datahub.hubUtils.normalizeToArray(options.uris);
+
+      if (options.excludeAlreadyProcessed && xs.boolean(options.excludeAlreadyProcessed)) {
+        const stepId = flowStep.stepId ? flowStep.stepId : flowStep.name + "-" + flowStep.stepDefinitionType;
+        const filteredItems = this.filterItemsAlreadyProcessedByStep(uris, flowName, stepId);
+        if (filteredItems.length != uris.length) {
+          xdmp.trace(datahub.consts.TRACE_RUN_STEP, 'excludeAlreadyProcessed filtered out some items; previous count: ' + uris.length + '; new count: ' + filteredItems.length);
+        }
+        uris = filteredItems;
+      }
+
       if (options.sourceQueryIsScript) {
         // When the source query is a script, map each item to a content object with the "uri" property containing the item value
         return uris.map(uri => {return {uri}});
@@ -161,6 +171,36 @@ class Flow {
   }
 
   /**
+   * Filters out each item from the items array that was already processed by the given flowName and stepId.
+   * The determination is based on Batch documents in the jobs database.
+   *
+   * @param items the array of items to process; this is referred to as "uris" outside the context of this function,
+   * but since these values are not necessarily URIs starting in 5.3.0, the term "items" is used here instead
+   * @param flowName
+   * @param stepId
+   * @returns an array of items that should still be processed
+   */
+  filterItemsAlreadyProcessedByStep(items, flowName, stepId) {
+    // A map is used in this script to avoid N calls to array.includes
+    const script = "var items; var flowName; var stepId; " +
+      "const itemHashes = items.map(item => xdmp.hash64(item)); " +
+      "const processedItemHashesMap = cts.values(cts.jsonPropertyReference('processedItemHashes'), null, ['map'], cts.andQuery([" +
+      "  cts.collectionQuery('Batch'), " +
+      "  cts.jsonPropertyValueQuery('flowName', flowName), " +
+      "  cts.jsonPropertyValueQuery('stepId', stepId, ['case-insensitive']), " +
+      "  cts.jsonPropertyValueQuery('batchStatus', 'finished'), " +
+      "  cts.jsonPropertyRangeQuery('processedItemHashes', '=', itemHashes)" +
+      "])); " +
+      "items.filter(item => !processedItemHashesMap[xdmp.hash64(item)]);";
+
+    // xdmp.invokeFunction returns nothing, so using xdmp.eval
+    return fn.head(xdmp.eval(script,
+      {items, flowName, stepId},
+      {database: xdmp.database(this.config.JOBDATABASE)}
+    ));
+  }
+
+  /**
    * It's unlikely that this actually runs a "flow", unless the flow consists of one step and only one transaction is
    * needed to run the step. More likely, this is really "process a batch of items for a step".
    *
@@ -174,6 +214,7 @@ class Flow {
    */
   runFlow(flowName, jobId, content = [], options, stepNumber) {
     let items = content.map((contentItem) => contentItem.uri);
+
     let flow = this.getFlow(flowName);
     if(!flow) {
       this.datahub.debug.log({message: 'The flow with the name '+flowName+' could not be found.', type: 'error'});
@@ -219,7 +260,7 @@ class Flow {
     this.globalContext.sourceDatabase = combinedOptions.sourceDatabase || this.globalContext.sourceDatabase;
 
     if (!(combinedOptions.noBatchWrite || combinedOptions.disableJobOutput)) {
-      let batchDoc = this.datahub.jobs.createBatch(jobDoc.jobId, flowStep, stepNumber);
+      let batchDoc = this.datahub.jobs.createBatch(jobDoc, flowStep, stepNumber);
       this.globalContext.batchId = batchDoc.batch.batchId;
     }
 

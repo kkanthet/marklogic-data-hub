@@ -19,6 +19,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.marklogic.client.DatabaseClient;
+import com.marklogic.client.ext.helper.LoggingObject;
 import com.marklogic.client.extensions.ResourceManager;
 import com.marklogic.client.extensions.ResourceServices;
 import com.marklogic.client.io.StringHandle;
@@ -52,24 +53,18 @@ import java.util.HashMap;
 import java.util.Map;
 
 @Component
-public class ScaffoldingImpl implements Scaffolding {
+public class ScaffoldingImpl extends LoggingObject implements Scaffolding {
 
     @Autowired
     HubConfig hubConfig;
 
     Versions versions;
 
-    @Autowired
-    private ScaffoldingValidator validator;
-
-    protected final Logger logger = LoggerFactory.getLogger(this.getClass());
-
     public ScaffoldingImpl() {}
 
     public ScaffoldingImpl(HubConfig hubConfig) {
         this();
         this.hubConfig = hubConfig;
-        this.validator = new ScaffoldingValidator(hubConfig.getHubProject());
     }
 
     public static String getAbsolutePath(String first, String... more) {
@@ -96,10 +91,6 @@ public class ScaffoldingImpl implements Scaffolding {
         StepDefinitionManager stepDefinitionManager = new StepDefinitionManagerImpl(hubConfig);
         StepDefinitionType stepDefType = StepDefinitionType.getStepDefinitionType(stepType);
         Assert.notNull(stepDefType, "Unrecognized step type: " + stepType);
-        Assert.isTrue(stepDefType.equals(StepDefinitionType.INGESTION) || stepDefType.equals(StepDefinitionType.MAPPING) ||
-                stepDefType.equals(StepDefinitionType.CUSTOM),
-            "Can only create a step of type 'ingestion', 'mapping' or 'custom'");
-
 
         StepDefinition stepDefinition = null;
         JsonNode step;
@@ -125,15 +116,17 @@ public class ScaffoldingImpl implements Scaffolding {
             }
         }
 
-        if (StepDefinitionType.INGESTION.equals(stepDefType)) {
+        if ("ingestion".equalsIgnoreCase(stepType)) {
             stepPayLoad.put("sourceFormat", "json");
             stepPayLoad.put("targetFormat", "json");
         }
         else {
             stepPayLoad.put("selectedSource", "query");
-            stepPayLoad.put("sourceQuery", "cts.collectionQuery('changeme')");
-            if(entityType != null){
-                stepPayLoad.put("entityType", entityType);
+            if("custom".equalsIgnoreCase(stepType) || "mapping".equalsIgnoreCase(stepType)){
+                stepPayLoad.put("sourceQuery", "cts.collectionQuery('changeme')");
+                if(entityType != null){
+                    stepPayLoad.put("entityType", entityType);
+                }
             }
         }
 
@@ -147,7 +140,7 @@ public class ScaffoldingImpl implements Scaffolding {
                 + "/custom-modules/" + stepType.toLowerCase() + "/" + stepDefName + "/main.sjs" + ". \n");
             messageBuilder.append("It is recommended to run './gradlew -i mlWatch' so that as you modify the module, it will be automatically loaded into your application's modules database.\n");
         }
-        messageBuilder.append("Created step '" + stepName + "' of type '" + stepType + "' with default properties. It will need to be modified before usage.");
+        messageBuilder.append("Created step '" + stepName + "' of type '" + stepType + "' with default properties. The step has been deployed to staging and final databases.");
         DatabaseClient stagingClient = hubConfig.newHubClient().getStagingClient();
         try {
             if(stepDefinition != null) {
@@ -160,7 +153,8 @@ public class ScaffoldingImpl implements Scaffolding {
 
         try {
             StepService stepService = StepService.on(stagingClient);
-            step = stepService.saveStep(stepType, stepPayLoad);
+            //We don't update step using this command, hence 'overwrite' is set to false
+            step = stepService.saveStep(stepType, stepPayLoad, false);
         } catch (Exception e) {
             throw new RuntimeException("Unable to write step to database; cause: " + e.getMessage(), e);
         }
@@ -258,10 +252,8 @@ public class ScaffoldingImpl implements Scaffolding {
             customTokens.put("%%mlFinalDbName%%", hubConfig.getDbName(DatabaseKind.FINAL));
             customTokens.put("%%mlFlowName%%", flowName);
 
-            boolean supportsEntityServicesMapping = getVersions().isVersionCompatibleWithES();
-
             try {
-                String fileContents = buildFlowFromDefaultFlow(customTokens, supportsEntityServicesMapping);
+                String fileContents = buildFlowFromDefaultFlow(customTokens);
                 try (FileWriter writer = new FileWriter(flowFile)) {
                     writer.write(fileContents);
                 }
@@ -273,7 +265,7 @@ public class ScaffoldingImpl implements Scaffolding {
         return flowFile;
     }
 
-    protected String buildFlowFromDefaultFlow(Map<String, String> customTokens, boolean supportsEntityServicesMapping) throws IOException {
+    protected String buildFlowFromDefaultFlow(Map<String, String> customTokens) throws IOException {
         String flowSrcFile = "scaffolding/defaultFlow.flow.json";
         String fileContents = null;
         try (InputStream inputStream = ScaffoldingImpl.class.getClassLoader().getResourceAsStream(flowSrcFile)) {
@@ -286,11 +278,6 @@ public class ScaffoldingImpl implements Scaffolding {
                 }
             }
         }
-
-        if (!supportsEntityServicesMapping) {
-            fileContents = fileContents.replaceAll("entity-services-mapping", "default-mapping");
-        }
-
         return fileContents;
     }
 
@@ -390,7 +377,7 @@ public class ScaffoldingImpl implements Scaffolding {
                                               FlowType flowType, CodeFormat codeFormat) throws ScaffoldingValidationException {
         logger.info(extensionName);
 
-        if(!validator.isUniqueRestServiceExtension(extensionName)) {
+        if(!new ScaffoldingValidator(hubConfig.getHubProject()).isUniqueRestServiceExtension(extensionName)) {
             throw new ScaffoldingValidationException("A rest service extension with the same name as " + extensionName + " already exists.");
         }
         String scaffoldRestServicesPath = "scaffolding/rest/services/";
@@ -403,7 +390,7 @@ public class ScaffoldingImpl implements Scaffolding {
     @Override public void createRestTransform(String entityName, String transformName,
                                               FlowType flowType, CodeFormat codeFormat) throws ScaffoldingValidationException {
         logger.info(transformName);
-        if(!validator.isUniqueRestTransform(transformName)) {
+        if(!new ScaffoldingValidator(hubConfig.getHubProject()).isUniqueRestTransform(transformName)) {
             throw new ScaffoldingValidationException("A rest transform with the same name as " + transformName + " already exists.");
         }
         String scaffoldRestTransformsPath = "scaffolding/rest/transforms/";

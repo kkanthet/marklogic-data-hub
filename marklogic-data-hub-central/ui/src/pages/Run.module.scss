@@ -5,6 +5,13 @@
     width: 100%;
     margin: 0;
     padding: 20px;
+    .intro {
+        width: 100%;
+        p {
+            padding: 10px 0 0 0;
+            margin-bottom: 0;
+        }
+    }
 }
 
 .errorHeader, .errorLabel {
@@ -31,11 +38,11 @@
 
 @font-face {
     font-family: 'ExploreIcon';
-    src: url(../fonts/ML_IconFont.ttf)
+    src: url(../fonts/ML_IconFont_explore.ttf)
     format('truetype');
 }
 
-.exploreCuratedData {
+.exploreCuratedData, .exploreLoadedData {
     margin-top: -96px;
     float: right;
     cursor: pointer;

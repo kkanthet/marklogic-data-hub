@@ -5,6 +5,8 @@ import com.marklogic.hub.central.AbstractMvcTest;
 import com.marklogic.hub.central.controllers.steps.MappingStepControllerTest;
 import com.marklogic.hub.dataservices.StepService;
 import com.marklogic.hub.flow.FlowRunner;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mock.web.MockMultipartFile;
@@ -14,8 +16,7 @@ import javax.ws.rs.core.MediaType;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -26,6 +27,13 @@ public class FlowControllerTest extends AbstractMvcTest {
 
     private final static String PATH = "/api/flows";
     private int initialFlowCount;
+
+    @BeforeEach
+    void beforeEach() {
+        Assumptions.assumeTrue(isVersionCompatibleWith520Roles(),
+            "A bug in ML 9 prevents amps from working on exported SJS functions correctly, " +
+                "such that job/batch documents cannot be updated unless the user has flow-operator-role or greater");
+    }
 
     @Test
     void test() throws Exception {
@@ -80,7 +88,7 @@ public class FlowControllerTest extends AbstractMvcTest {
         // Create a mapping step to add to the flow
         final String stepDefinitionType = "mapping";
         MappingStepControllerTest.MappingStep mappingInfo = MappingStepControllerTest.newDefaultMappingStep("myMapper");
-        StepService.on(getHubClient().getStagingClient()).saveStep(stepDefinitionType, objectMapper.valueToTree(mappingInfo));
+        StepService.on(getHubClient().getStagingClient()).saveStep(stepDefinitionType, objectMapper.valueToTree(mappingInfo), false);
 
         // Add the mapping step to the flow
         postJson(flowPath + "/steps", new FlowController.AddStepInfo(mappingInfo.name, stepDefinitionType))
@@ -117,8 +125,9 @@ public class FlowControllerTest extends AbstractMvcTest {
                 .andExpect(status().isOk())
                 .andDo(result -> {
                     JsonNode response = parseJsonResponse(result);
-                    assertEquals(mappingInfo.targetEntityType, response.path("stepResponses").path("1").path("targetEntityType").asText(), "Info for the step should specify the Target Entity Type; response: " + response);
-                });
+                assertEquals(mappingInfo.targetEntityType, response.path("stepResponses").path("1").path("targetEntityType").asText(), "Info for the step should specify the Target Entity Type; response: " + response);
+                assertEquals("final", response.path("stepResponses").path("1").path("targetDatabase").asText(), "Step response should specify the target database since the step options contain the targetDatabase; response: " + response);
+            });
 
         // Remove the step
         delete(flowPath + "/steps/1")
@@ -163,16 +172,16 @@ public class FlowControllerTest extends AbstractMvcTest {
         mockMvc.perform(multipart(PATH + "/{flowName}/steps/{stepNumber}", flowName, "1")
                 .file(file1)
                 .file(file2)
-                .session(mockHttpSession))
-                .andExpect(status().isOk());
+            .session(mockHttpSession))
+            .andExpect(status().isOk());
 
         final String[] jobIds = new String[1];
         postJson(flowPath + "/steps/2", "{}")
-                .andExpect(status().isOk())
-                .andDo(result -> {
-                    JsonNode response = parseJsonResponse(result);
-                    assertTrue(response.has("jobId"), "Running a step should result in a response with a jobId so that the " +
-                            "client can then query for job status; response: " + response);
+            .andExpect(status().isOk())
+            .andDo(result -> {
+                JsonNode response = parseJsonResponse(result);
+                assertTrue(response.has("jobId"), "Running a step should result in a response with a jobId so that the " +
+                    "client can then query for job status; response: " + response);
                     jobIds[0] = response.get("jobId").asText();
                 });
         // Check on the Job
@@ -180,8 +189,8 @@ public class FlowControllerTest extends AbstractMvcTest {
                 .andExpect(status().isOk())
                 .andDo(result -> {
                     JsonNode response = parseJsonResponse(result);
-                    assertEquals("finished", response.path("jobStatus").asText(), "The job response should indicate the steps ran successfully: " + response);
-                });
+                assertEquals("finished", response.path("jobStatus").asText(), "The job response should indicate the steps ran successfully: " + response);
+            });
         assertTrue(getFinalDoc("/data/file1.json").path("processed").asBoolean(false), "Document should have processed attribute set to true");
     }
 
@@ -201,11 +210,11 @@ public class FlowControllerTest extends AbstractMvcTest {
         mockMvc.perform(multipart(PATH + "/{flowName}/steps/{stepNumber}", flowName, "1")
                 .file(file1)
                 .session(mockHttpSession))
-                .andExpect(status().isOk())
-                .andDo(result -> {
-                    JsonNode response = parseJsonResponse(result);
-                    assertTrue(response.has("jobId"), "Running a step should result in a response with a jobId so that the " +
-                            "client can then query for job status; response: " + response);
+            .andExpect(status().isOk())
+            .andDo(result -> {
+                JsonNode response = parseJsonResponse(result);
+                assertTrue(response.has("jobId"), "Running a step should result in a response with a jobId so that the " +
+                    "client can then query for job status; response: " + response);
                     jobIds[0] = response.get("jobId").asText();
                 });
         // Check on the Job
@@ -213,8 +222,8 @@ public class FlowControllerTest extends AbstractMvcTest {
                 .andExpect(status().isOk())
                 .andDo(result -> {
                     JsonNode response = parseJsonResponse(result);
-                    assertEquals("finished", response.path("jobStatus").asText(), "The job response should indicate the steps ran successfully: " + response);
-                });
+                assertEquals("finished", response.path("jobStatus").asText(), "The job response should indicate the steps ran successfully: " + response);
+            });
     }
 
     @Test
@@ -229,11 +238,11 @@ public class FlowControllerTest extends AbstractMvcTest {
         final String flowPath = PATH + "/ingestToFinal";
         // run ingestion step
         postJson(flowPath + "/steps/1", "{}")
-                .andExpect(status().isOk());
+            .andExpect(status().isOk());
 
         // run mapping step
         postJson(flowPath + "/steps/2", "{}")
-                .andExpect(status().isOk());
+            .andExpect(status().isOk());
     }
 
     @Test
@@ -245,7 +254,7 @@ public class FlowControllerTest extends AbstractMvcTest {
         final String flowPath = PATH + "/ingestToFinal";
         // run step
         postJson(flowPath + "/steps/1", "{}")
-                .andExpect(status().isForbidden());
+            .andExpect(status().isForbidden());
 
     }
 
@@ -270,6 +279,15 @@ public class FlowControllerTest extends AbstractMvcTest {
         rawDoc = getFinalDoc("/customers/file2.json");
         assertEquals("John", rawDoc.get("envelope").get("instance").get("name").asText(),
             "Verifying that 2 docs were ingested into the final database");
+
+        mockMvc.perform(multipart(PATH + "/{flowName}/steps/{stepNumber}", "ingestToFinal", "2")
+            .session(mockHttpSession))
+            .andExpect(status().isOk());
+
+        JsonNode mappedDoc = getStagingDoc("/customers/file1.json");
+        assertNotNull(mappedDoc);
+        mappedDoc = getStagingDoc("/customers/file2.json");
+        assertNotNull(mappedDoc);
     }
 
     private FlowController.FlowsWithStepDetails parseFlowsWithStepDetails(MvcResult result) throws Exception {

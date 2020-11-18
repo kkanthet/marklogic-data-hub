@@ -26,6 +26,7 @@ import com.marklogic.hub.legacy.flow.DataFormat;
 import com.marklogic.hub.legacy.flow.FlowType;
 import com.marklogic.hub.scaffold.Scaffolding;
 import com.marklogic.hub.util.FileUtil;
+import com.marklogic.hub.web.AbstractWebTest;
 import com.marklogic.hub.web.model.FlowModel;
 import com.marklogic.hub.web.model.entity_services.EntityModel;
 import org.junit.jupiter.api.Assertions;
@@ -41,7 +42,7 @@ import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-public class EntityManagerServiceTest extends AbstractServiceTest {
+public class EntityManagerServiceTest extends AbstractWebTest {
 
     private static String ENTITY = "test-entity";
     private static String ENTITY2 = "test-entity2";
@@ -67,7 +68,7 @@ public class EntityManagerServiceTest extends AbstractServiceTest {
 
         String entityFilename = ENTITY + EntityManagerService.ENTITY_FILE_EXTENSION;
         FileUtil.copy(getResourceStream(entityFilename), entityDir.resolve(entityFilename).toFile());
-        installUserModules(getDataHubAdminConfig(), true);
+        installUserModules(runAsFlowDeveloper(), true);
 
         scaffolding.createLegacyFlow(ENTITY, "sjs-json-input-flow", FlowType.INPUT,
             CodeFormat.JAVASCRIPT, DataFormat.JSON);
@@ -97,7 +98,7 @@ public class EntityManagerServiceTest extends AbstractServiceTest {
         FileUtil.copy(getResourceStream("legacy-flow-manager/xqy-flow/content-input.xqy"), inputDir.resolve("xqy-xml-input-flow/content.xqy").toFile());
         FileUtil.copy(getResourceStream("legacy-flow-manager/xqy-flow/triples.xqy"), inputDir.resolve("xqy-xml-input-flow/triples.xqy").toFile());
 
-        installUserModules(getDataHubAdminConfig(), true);
+        installUserModules(runAsFlowDeveloper(), true);
     }
 
     @Test
@@ -130,7 +131,7 @@ public class EntityManagerServiceTest extends AbstractServiceTest {
     }
 
     @Test
-    public void deleteEntity() throws IOException, InterruptedException {
+    public void deleteEntity() throws IOException {
         List<EntityModel> entities = entityMgrService.getEntities();
         assertEquals(1, entities.size());
 
@@ -139,12 +140,9 @@ public class EntityManagerServiceTest extends AbstractServiceTest {
         entities = entityMgrService.getEntities();
         assertEquals(0, entities.size());
 
-        // Adding sleep to delete artifacts from the db via async call
-        Thread.sleep(1000);
-
-        DocumentPage doc = finalDocMgr.read("/entities/" + ENTITY + ".entity.json");
+        DocumentPage doc = getHubClient().getFinalClient().newDocumentManager().read("/entities/" + ENTITY + ".entity.json");
         assertFalse(doc.hasNext());
-        doc = stagingDocMgr.read("/entities/" + ENTITY + ".entity.json");
+        doc = getHubClient().getStagingClient().newDocumentManager().read("/entities/" + ENTITY + ".entity.json");
         assertFalse(doc.hasNext());
     }
 
@@ -233,9 +231,5 @@ public class EntityManagerServiceTest extends AbstractServiceTest {
         assertEquals(RENAMED_ENTITY, inputFlows.get(0).entityName);
         assertTrue(flowNameList.contains(FLOW_NAME));
         assertEquals(FlowType.INPUT, inputFlows.get(0).flowType);
-
-        //cleanup.
-        entityMgrService.deleteEntity(RENAMED_ENTITY);
-        entityMgrService.deleteEntity(ENTITY);
     }
 }

@@ -8,8 +8,46 @@ class CuratePage {
         cy.waitUntil(() => cy.findByTestId(entityTypeId)).click();
     }
 
+    getEntityTypePanel(entityTypeId: string) {
+        return cy.findByTestId(entityTypeId);
+    }
+
     noEntityType() {
         return cy.findByTestId('noEntityType');
+    }
+
+    /**
+     * Get Mapping step by entity and step name
+     * @param entityTypeId
+     * @example Order
+     * @param stepName
+     * @example map-orders
+     */
+    getEntityMappingStep(entityTypeId: string, stepName: string) {
+        return cy.findByTestId(`${entityTypeId}-${stepName}-step`);
+    }
+
+    openSourceToEntityMap(entityTypeId: string, stepName: string) {
+      this.getEntityMappingStep(entityTypeId, stepName).trigger('mouseover');
+      cy.waitUntil(() => cy.findByTestId(`${stepName}-stepDetails`)).click();
+    }
+
+    addToNewFlow(entityTypeId: string, stepName: string) {
+      this.getEntityMappingStep(entityTypeId, stepName).trigger('mouseover');
+      cy.waitUntil(() => cy.findByTestId(`${stepName}-toNewFlow`)).click();
+    }
+
+    openExistingFlowDropdown(entityTypeId: string, stepName: string) {
+      this.getEntityMappingStep(entityTypeId, stepName).trigger('mouseover');
+      cy.findByTestId(`${stepName}-flowsList`).click();
+    }
+
+    /**
+     * Depends on openExistingFlowDropdown() being called first
+     * @param flowName 
+     */
+    getExistingFlowFromDropdown(flowName: string) {
+      return cy.findByLabelText(`${flowName}-option`);
     }
 
     /**
@@ -20,10 +58,18 @@ class CuratePage {
      */
     verifyTabs(entityTypeId: string, mapTabShould: string, customTabShould: string) {
         cy.findByTestId(`${entityTypeId}-Map`).should(mapTabShould);
-        cy.findByTestId(`${entityTypeId}-Cusstom`).should(customTabShould);
+        cy.findByTestId(`${entityTypeId}-Custom`).should(customTabShould);
     }
 
-    addNewMapStep() {
+    selectMergeTab(entityTypeId: string) {
+        cy.findByTestId(`${entityTypeId}-Merge`).click();
+    }
+
+    selectMatchTab(entityTypeId: string) {
+      cy.findByTestId(`${entityTypeId}-Match`).click();
+    }
+
+    addNewStep() {
         return cy.findByLabelText('icon: plus-circle');
     }
 
@@ -43,21 +89,62 @@ class CuratePage {
         return cy.findByTestId(`${stepName}-edit`);
     }
 
+    runStepInCardView(stepName: string) {
+        return cy.findByTestId(`${stepName}-run`);
+    }
+
+    runInNewFlow(stepName: string) {
+        return cy.findByTestId(`${stepName}-run-toNewFlow`);
+    };
+
+    runExistingFlowsList(stepName: string) {
+        return cy.findByTestId(`${stepName}-run-flowsList`);
+    }
+
+    runStepInExistingFlow(stepName: string, flowName: string) {
+        this.runExistingFlowsList(stepName).click({force: true});
+        cy.findByLabelText(`${flowName}-run-option`).click({force:true});
+    }
+
     verifyStepNameIsVisible(stepName: string) {
         cy.get('#name').should('be.visible');
         cy.findByText(stepName).should('be.visible');
     }
 
-    saveEdit(stepName: string) {
-        return cy.findByTestId(`${stepName}-edit-save`)
+    saveEdit() {
+        return cy.findByTestId('mapping-dialog-save');
     }
 
-    cancelEdit(stepName: string) {
-        return cy.findByTestId(`${stepName}-edit-cancel`)
+    cancelEdit() {
+        return cy.findByTestId('mapping-dialog-cancel');
+    }
+
+    deleteMappingStepButton(stepName: string) {
+        return cy.findByTestId(`${stepName}-delete`);
     }
 
     deleteDisabled() {
         return cy.get('[role="disabled-delete-mapping button"]');
+    }
+
+    addStepToFlowConfirmationMessage() {
+        return cy.findByLabelText('step-not-in-flow');
+    }
+
+    addStepToFlowRunConfirmationMessage() {
+        return cy.findByLabelText('step-not-in-flow-run');
+    }
+
+    addStepExistingToFlowConfirmationMessage() {
+        return cy.findByLabelText('step-in-flow');
+    }
+
+    addStepExistingToFlowRunConfirmationMessage() {
+        return cy.findByLabelText('step-in-flow-run');
+    }
+
+    confirmAddStepToFlow(stepName: string, flowName: string) {
+      cy.findByTestId(`${stepName}-to-${flowName}-Confirm`).click();
     }
 }
 

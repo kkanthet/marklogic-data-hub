@@ -1,0 +1,16 @@
+{
+  "info": {
+    "title": "TestEntity-NoConfig",
+    "version": "0.0.1",
+    "baseUri": "http://example.org/"
+  },
+  "definitions": {
+    "TestEntity-NoConfig": {
+      "properties": {
+        "prop1": {
+          "datatype": "string"
+        }
+      }
+    }
+  }
+}

@@ -379,7 +379,7 @@ function runMapping(mapping, uri, propMapping={"targetEntityType":mapping.target
         paths.pop();
       }
       else {
-         propMapping = addNode(propMapping, paths, mappedProperty,  false);
+        propMapping = addNode(propMapping, paths, mappedProperty,  false);
       }
     }
     if(mappedProperty && !mappedProperty.errorMessage && ! mappedProperty.hasOwnProperty("targetEntityType") && sourcedFrom.length > 0){
@@ -454,25 +454,6 @@ function getErrorMessage(e) {
   return errorMessage;
 }
 
-function versionIsCompatibleWithES(version = xdmp.version()) {
-  let numberSensitiveCollation = 'http://marklogic.com/collation//MO';
-  let isNightly = /^[0-9]+\.[0-9]+-[0-9]{8}$/.test(version);
-  if (isNightly) {
-    var nightlyDate = /^[0-9]+\.[0-9]+-([0-9]{8})$/.exec(version)[1];
-    return fn.compare(nightlyDate, '20190824', numberSensitiveCollation) >= 0;
-  }
-  else {
-    var major = /^([0-9]+)\..*$/.exec(version)[1];
-    if (major === "9") {
-      return fn.compare(version, '9.0-11', numberSensitiveCollation) >= 0;
-    }
-    else if (major === "10"){
-      return fn.compare(version, '10.0-2', numberSensitiveCollation) >= 0;
-    }
-  }
-  return false;
-}
-
 function extractInstance(docNode) {
   let instance = docNode.xpath('/*:envelope/(object-node("instance")|*:instance/(element() except *:info))');
   if (fn.empty(instance)) {
@@ -495,22 +476,28 @@ function getMarkLogicMappingFunctions() {
   return fn.head(datahub.hubUtils.queryLatest(function() {
     let fnMetadata = fn.collection("http://marklogic.com/entity-services/function-metadata")
     let ns = {"m":"http://marklogic.com/entity-services/mapping"};
-    let output = {};
+    const functionMap = new Map();
+    let output = [];
 
     for (const metaData of fnMetadata){
       if(metaData.xpath("/m:function-defs",ns)) {
         let j = 1;
         let fnLocation = metaData.xpath("/m:function-defs/@location",ns)
         for (const mlFunction of metaData.xpath("/m:function-defs/m:function-def",ns )){
-          let funcName = metaData.xpath("/m:function-defs/m:function-def["+j+"]/@name", ns);
+          let funcName = String(metaData.xpath("/m:function-defs/m:function-def["+j+"]/@name", ns));
           let params = String(metaData.xpath("/m:function-defs/m:function-def["+j+"]/m:parameters/m:parameter/@name",ns)).replace("\n",",");
           j++;
+
           let singleFunction ={};
-          singleFunction["category"] = (String(fnLocation).includes("/data-hub/5/mapping-functions")) ? "builtin" : "custom";
+          singleFunction["functionName"] = funcName;
           singleFunction["signature"] = funcName +"("+params+")";
-          output[funcName] = singleFunction;
+          singleFunction["category"] = (String(fnLocation).includes("/data-hub/5/mapping-functions")) ? "builtin" : "custom";
+          functionMap.set(funcName, singleFunction);
         }
       }
+    }
+    for (let value of functionMap.values()){
+      output.push(value);
     }
     return output;
   }, datahub.config.MODULESDATABASE));
@@ -544,7 +531,9 @@ function getXpathMappingFunctions() {
 }
 
 function getFunctionsWithSignatures(xpathFunctions, excludeFunctions) {
-  const response = {};
+  const response = [];
+  //used to prevent duplicates(overloaded functions) in the response
+  const functionMap = new Map();
   for (let i = 0; i < xpathFunctions.length; i++) {
     if (String(xpathFunctions[i]).includes("fn:")) {
       let signature = xdmp.functionSignature(xpathFunctions[i]).replace("function", xdmp.functionName(xpathFunctions[i]));
@@ -552,11 +541,15 @@ function getFunctionsWithSignatures(xpathFunctions, excludeFunctions) {
       let fn = String(xdmp.functionName(xpathFunctions[i])).replace("fn:", "");
       if (!excludeFunctions.includes(fn)) {
         let xpathFunction = {};
-        xpathFunction["category"] = "xpath";
+        xpathFunction["functionName"] = fn;
         xpathFunction["signature"] = signature;
-        response[fn] = xpathFunction;
+        xpathFunction["category"] = "xpath";
+        functionMap.set(fn, xpathFunction);
       }
     }
+  }
+  for (let value of functionMap.values()){
+    response.push(value);
   }
   return response;
 }
@@ -575,7 +568,6 @@ module.exports = {
   getXpathMappingFunctions,
   // Exporting retrieveFunctionImports for unit test
   retrieveFunctionImports,
-  versionIsCompatibleWithES,
   validateMapping,
   validateAndRunMapping
 };

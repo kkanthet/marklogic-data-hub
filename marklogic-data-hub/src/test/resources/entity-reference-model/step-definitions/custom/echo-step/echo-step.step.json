@@ -1,0 +1,9 @@
+{
+  "lang": "zxx",
+  "name": "echo-step",
+  "type": "CUSTOM",
+  "options": {
+    "outputFormat": "json"
+  },
+  "modulePath": "/custom-modules/custom/echo-step/echo-step.sjs"
+}

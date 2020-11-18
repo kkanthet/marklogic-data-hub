@@ -1,14 +1,13 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect} from 'react';
 import { Link, withRouter, RouteComponentProps } from 'react-router-dom';
 import styles from './search-result.module.scss';
 import ReactHtmlParser from 'react-html-parser';
 import { UserContext } from '../../util/user-context';
 import { dateConverter } from '../../util/date-conversion';
-import { xmlParser } from '../../util/xml-parser';
 import ExpandableTableView from "../expandable-table-view/expandable-table-view";
-import { Icon, Tooltip } from "antd";
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faExternalLinkAlt, faCode } from '@fortawesome/free-solid-svg-icons'
+import { Icon } from "antd";
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faExternalLinkAlt, faCode } from '@fortawesome/free-solid-svg-icons';
 import { MLTooltip } from '@marklogic/design-system';
 import {SearchContext} from "../../util/search-context";
 
@@ -17,7 +16,7 @@ interface Props extends RouteComponentProps {
     item: any;
     entityDefArray: any[];
     tableView: boolean;
-};
+}
 
 const SearchResult: React.FC<Props> = (props) => {
     const { setAlertMessage } = useContext(UserContext);
@@ -31,15 +30,16 @@ const SearchResult: React.FC<Props> = (props) => {
     let primaryKeyValue: any = '-';
     let createdOnVal: string = '';
     let sourcesVal: string = '';
-    let detailPath: any = '-'
     let fileTypeVal: string = props.item.format;
-    let uri: string = encodeURIComponent(props.item.uri);
 
-    if (Object.keys(props.item.primaryKey).length) {
+    useEffect(() => {
+        toggleShow(false);
+    }, [searchOptions.pageNumber, searchOptions.entityTypeIds]);
+
+    if (props.item.primaryKey && Object.keys(props.item.primaryKey).length) {
         primaryKeyValue = props.item.primaryKey.propertyValue;
         primaryKey = props.item.primaryKey.propertyPath;
     }
-
 
     if (props.item.hasOwnProperty("entityName")) {
         itemEntityName = props.item.entityName;
@@ -49,60 +49,26 @@ const SearchResult: React.FC<Props> = (props) => {
         createdOnVal = props.item.createdOn;
     }
 
-    if (props.item.format === 'json' && props.item.hasOwnProperty('extracted')) {
-        if (props.item.extracted.content.length <= 1) {
-            // content data does not exist in payload
-            setAlertMessage('Error', 'No instance information in payload');
-        } else {
-            props.item.extracted.content.forEach(contentObject => {
-                if (Object.keys(contentObject)[0] === 'headers') {
-                    const headerValues = Object.values<any>(contentObject);
-                    if (headerValues[0].hasOwnProperty('sources')) {
-                        if (Array.isArray(headerValues[0].sources)) {
-                            sourcesVal = headerValues[0].sources.map(src => {
-                                return src.name;
-                            }).join(', ');
-                        } else {
-                            sourcesVal = headerValues[0].sources.name;
-                        }
-                    }
-                }
-            });
-        }
-    } else if (props.item.format === 'xml' && props.item.hasOwnProperty('extracted')) {
-        props.item.extracted.content.forEach(contentObject => {
-            let obj = xmlParser(contentObject);
-            if (obj.hasOwnProperty('headers') || obj.hasOwnProperty('es:headers')) {
-                const headerValues = Object.values<any>(obj);
-                if (headerValues[0].hasOwnProperty('sources')) {
-                    if (Array.isArray(headerValues[0].sources)) {
-                        sourcesVal = headerValues[0].sources.map(src => {
-                            return src.name;
-                        }).join(', ');
-                    } else {
-                        sourcesVal = headerValues[0].sources.name;
-                    }
-                }
-            }
-        });
+    if ((props.item.format === 'json' || props.item.format === 'xml') && props.item.hasOwnProperty('sources')) {
+        sourcesVal = props.item.sources.map(src => {
+            return src.name;
+        }).join(', ');
     }
-
 
     function getSnippet() {
         let str = '';
         props.item.matches.forEach(item => {
             item['match-text'].forEach(element => {
                 if (typeof element === 'object') {
-                    str = str.concat('<b>').concat(element.highlight).concat('</b>')
+                    str = str.concat('<b>').concat(element.highlight).concat('</b>');
                 } else {
-                    str = str.concat(element)
+                    str = str.concat(element);
                 }
             });
-            str = str.concat('...')
-        })
+            str = str.concat('...');
+        });
         return <p>{ReactHtmlParser(str)}</p>;
     }
-
 
     const snippet = getSnippet();
 
@@ -110,40 +76,46 @@ const SearchResult: React.FC<Props> = (props) => {
         toggleShow(!show);
     }
 
-    // detailPath is the identifier used to route to detail view
-    if (primaryKey !== "uri") {
-        detailPath = encodeURIComponent(primaryKeyValue)
-    }
-
     return (
         <div style={{ width: '100%' }}>
             <div className={styles.title} onClick={() => showTableEntityProperties()}>
-                <Icon className={styles.expandableIcon} data-cy='expandable-icon' type='right' rotate={show ? 90 : undefined} />
+                <Icon className={styles.expandableIcon} data-cy='expandable-icon' data-testid="expandable-icon" type='right' rotate={show ? 90 : undefined} />
                 <div className={styles.redirectIcons}>
-                    <Link to={{pathname: `/tiles/explore/detail/${detailPath}/${uri}`,state: {selectedValue:'instance',
+                    <Link to={{pathname: "/tiles/explore/detail",state: {selectedValue:'instance',
                             entity : searchOptions.entityTypeIds ,
                             pageNumber : searchOptions.pageNumber,
                             start : searchOptions.start,
                             searchFacets : searchOptions.selectedFacets,
                             query: searchOptions.query,
                             tableView: props.tableView,
-                            sortOrder: searchOptions.sortOrder
+                            sortOrder: searchOptions.sortOrder,
+                            sources: props.item.sources,
+                            primaryKey: primaryKeyValue,
+                            uri: props.item.uri,
+                            entityInstance: props.item.entityInstance,
+                            targetDatabase: searchOptions.database
                         }}} id={'instance'} data-cy='instance' >
-                        <MLTooltip title={'Show the processed data'}><FontAwesomeIcon  icon={faExternalLinkAlt} size="sm" data-testid='instance-icon'/></MLTooltip>
+                        <MLTooltip title={'Show the processed data'} placement="topRight"><FontAwesomeIcon  icon={faExternalLinkAlt} size="sm" data-testid='instance-icon'/></MLTooltip>
                     </Link>
-                    <Link to={{pathname: `/tiles/explore/detail/${detailPath}/${uri}`,state: {selectedValue:'source',
+                    <Link to={{pathname: "/tiles/explore/detail",state: {selectedValue:'source',
                             entity : searchOptions.entityTypeIds ,
                             pageNumber : searchOptions.pageNumber,
                             start : searchOptions.start,
                             searchFacets : searchOptions.selectedFacets,
                             query: searchOptions.query,
-                            tableView: props.tableView
+                            tableView: props.tableView,
+                            sortOrder: searchOptions.sortOrder,
+                            sources: props.item.sources,
+                            primaryKey: primaryKeyValue,
+                            uri: props.item.uri,
+                            entityInstance: props.item.entityInstance,
+                            targetDatabase: searchOptions.database
                         }}} id={'source'} data-cy='source' >
-                        <MLTooltip title={'Show the complete ' + fileTypeVal.toUpperCase()}><FontAwesomeIcon  icon={faCode} size="sm" data-testid='source-icon'/></MLTooltip>
+                        <MLTooltip title={'Show the complete ' + fileTypeVal.toUpperCase()} placement="topRight"><FontAwesomeIcon  icon={faCode} size="sm" data-testid='source-icon'/></MLTooltip>
                     </Link>
                 </div>
-                <span className={styles.entityName} data-cy='entity-name'>{itemEntityName}</span>
-                {primaryKey && <span data-cy='primary-key' className={styles.primaryKey}>{primaryKey}:</span>}
+                <span className={styles.entityName} data-cy='entity-name' data-testid={'entity-name'}>{itemEntityName}</span>
+                {primaryKey && <span data-cy='primary-key' data-testid={'primary-key'} className={styles.primaryKey}>{primaryKey}:</span>}
                 <span data-cy='primary-key-value'> {primaryKeyValue}</span>
             </div>
             <div className={styles.snippet} data-cy='snippet'>
@@ -153,19 +125,19 @@ const SearchResult: React.FC<Props> = (props) => {
                 {createdOnVal && (
                     <div className={styles.metaItem}>
                         <span className={styles.metaLabel}>Created On</span>
-                        <span className={styles.metaValue} data-cy='created-on'>{dateConverter(createdOnVal)}</span>
+                        <span className={styles.metaValue} data-cy='created-on' data-testid={'created-on'}>{dateConverter(createdOnVal)}</span>
                     </div>
                 )}
                 {sourcesVal && (
                     <div className={styles.metaItem}>
                         <span className={styles.metaLabel}>Sources</span>
-                        <span className={styles.metaValue} data-cy='sources'>{sourcesVal}</span>
+                        <span className={styles.metaValue} data-cy='sources' data-testid={'sources'}>{sourcesVal}</span>
                     </div>
                 )}
                 {fileTypeVal && (
                     <div className={styles.metaItem}>
                         <span className={styles.metaLabel}>File Type</span>
-                        <span className={styles.format} data-cy='file-type'>{fileTypeVal}</span>
+                        <span className={styles.format} data-cy='file-type' data-testid={'file-type'}>{fileTypeVal}</span>
                     </div>
                 )}
             </div>
@@ -173,7 +145,7 @@ const SearchResult: React.FC<Props> = (props) => {
                 <ExpandableTableView item={props.item} entityDefArray={props.entityDefArray} tableView={props.tableView}/>
             </div>
         </div>
-    )
-}
+    );
+};
 
 export default withRouter(SearchResult);

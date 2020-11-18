@@ -1,6 +1,5 @@
 import React, {useContext} from 'react';
-import { Table, Tooltip } from 'antd';
-import { xmlParser } from "../../util/xml-parser";
+import { Table } from 'antd';
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faExternalLinkAlt } from "@fortawesome/free-solid-svg-icons";
 import { Link } from "react-router-dom";
@@ -11,7 +10,7 @@ interface Props {
   item: any;
   entityDefArray: any[];
   tableView: boolean;
-};
+}
 
 
 const ExpandableTableView: React.FC<Props> = (props) => {
@@ -21,18 +20,11 @@ const ExpandableTableView: React.FC<Props> = (props) => {
   } = useContext(SearchContext);
 
   let primaryKeyValue: any = '-';
-  let primaryKey: any = '-';
-  let detailPath: any = '-'
-  let uri: string = encodeURIComponent(props.item.uri);
+  // let primaryKey: any = '-';
 
-  if (Object.keys(props.item.primaryKey).length !== 0) {
+  if (props.item.primaryKey && Object.keys(props.item.primaryKey).length !== 0) {
       primaryKeyValue = props.item.primaryKey.propertyValue;
-      primaryKey = props.item.primaryKey.propertyPath;
-  }
-
-  // detailPath is the identifier used to route to detail view
-  if (primaryKey !== "uri") {
-      detailPath = primaryKeyValue
+      // primaryKey = props.item.primaryKey.propertyPath;
   }
 
   let data = new Array();
@@ -45,13 +37,18 @@ const ExpandableTableView: React.FC<Props> = (props) => {
           key: counter++,
           property: i,
           children: parseJson(obj[i]),
-          view: <Link to={{pathname: `/tiles/explore/detail/${detailPath}/${uri}`,state: {id:obj[i],
+          view: <Link to={{pathname: "/tiles/explore/detail",state: {id:obj[i],
                   entity : searchOptions.entityTypeIds,
                   pageNumber : searchOptions.pageNumber,
                   start : searchOptions.start,
                   searchFacets : searchOptions.selectedFacets,
                   query: searchOptions.query,
-                  tableView: props.tableView
+                  tableView: props.tableView,
+                  sortOrder: searchOptions.sortOrder,
+                  sources: props.item.sources,
+                  primaryKey: primaryKeyValue,
+                  uri: props.item.uri,
+                  entityInstance: props.item.entityInstance
               }}} data-cy='nested-instance'>
             <MLTooltip title={'Show nested detail on a separate page'}><FontAwesomeIcon icon={faExternalLinkAlt}
                                                                                size="sm"/></MLTooltip>
@@ -67,25 +64,9 @@ const ExpandableTableView: React.FC<Props> = (props) => {
       }
     }
     return parsedData;
-  }
+  };
 
-  if (props.item.format === 'json' && props.item.hasOwnProperty('extracted')) {
-    (props.item.extracted.content).forEach(contentObject => {
-      Object.values(props.item.extracted.content[1]).forEach((content: any) => {
-        data = parseJson(content);
-      });
-    })
-  } else if (props.item.format === 'xml' && props.item.hasOwnProperty('extracted')) {
-    (props.item.extracted.content).forEach(contentObject => {
-      let obj = xmlParser(contentObject);
-      let mappedObj = xmlParser(Object.values(props.item.extracted.content)[1]);
-      let propertyValues = Object.values<any>(mappedObj);
-      propertyValues.forEach((item: Object) => {
-        data = parseJson(item);
-      })
-    })
-  }
-
+  data = parseJson(props.item.entityInstance);
 
   const columns = [
     {
@@ -114,6 +95,6 @@ const ExpandableTableView: React.FC<Props> = (props) => {
           data-cy="expandable-table-view"
       />
   );
-}
+};
 
 export default ExpandableTableView;

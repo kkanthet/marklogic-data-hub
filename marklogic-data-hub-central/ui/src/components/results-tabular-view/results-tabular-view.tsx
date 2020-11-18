@@ -20,6 +20,7 @@ interface Props {
     hasStructured: boolean;
     tableView: boolean;
     entityDefArray: any[];
+    database: string;
 }
 
 const DEFAULT_ALL_ENTITIES_HEADER = [
@@ -92,12 +93,12 @@ const ResultsTabularView = (props) => {
                         dataObj[subItem.propertyPath] = dataObjArr;
                     }
                 } else {
-                    return generateTableDataWithSelectedColumns(subItem)
+                    return generateTableDataWithSelectedColumns(subItem);
                 }
             }
             return dataObj;
         }
-    }
+    };
 
     let dataWithSelectedTableColumns = generateTableDataWithSelectedColumns(props.selectedPropertyDefinitions);
 
@@ -116,28 +117,30 @@ const ResultsTabularView = (props) => {
                                 whiteSpace: 'nowrap',
                                 maxWidth: 150,
                             }
-                        }
+                        };
                     },
                     ...setSortOptions(item),
                     render: (value) => {
                         if (Array.isArray(value)) {
                             let values = new Array();
                             value.forEach(item => {
-                                if (item) {
-                                    let title = item.toString();
-                                    if (title && title.length > 0) {
+                                let val = item === null ? 'null' : item === "" ? '""' : item;
+                                if (val !== undefined) {
+                                    let title = val.toString();
+                                    if (title) {
                                         values.push(
                                             <MLTooltip
+                                                key={title}
                                                 title={title}>
-                                                <div style={{ textOverflow: 'ellipsis', overflow: 'hidden' }}>{item}</div>
+                                                <div style={{ textOverflow: 'ellipsis', overflow: 'hidden' }}>{title}</div>
                                             </MLTooltip>
-                                        )
+                                        );
                                     }
                                 }
-                            })
+                            });
                             return {
                                 children: values
-                            }
+                            };
                         } else {
                             if (value) {
                                 return {
@@ -147,11 +150,11 @@ const ResultsTabularView = (props) => {
                                             <div style={{ textOverflow: 'ellipsis', overflow: 'hidden' }}>{value}</div>
                                         </MLTooltip>
                                     )
-                                }
+                                };
                             }
                         }
                     },
-                }
+                };
             } else {
                 return {
                     dataIndex: item.propertyPath,
@@ -160,29 +163,29 @@ const ResultsTabularView = (props) => {
                     type: item.datatype,
                     ...setSortOptions(item),
                     columns: tableHeaderRender(item.properties)
-                }
+                };
             }
-        })
+        });
         return columns;
-    }
+    };
 
     const handleChange = (sorter) => {
         if(searchOptions.sortOrder.length && searchOptions.sortOrder[0].sortDirection == 'descending')
-            setSortOrder(searchOptions.sortOrder[0].propertyName,null)
-    }
+            setSortOrder(searchOptions.sortOrder[0].propertyName,null);
+    };
 
     const setSortOptions = (item) => (
         item.sortable ?
         {
         sorter: (a: any, b: any, sortOrder) => {
             if(!sortingOrder) {
-                setSortOrder(item.propertyLabel,sortOrder)
+                setSortOrder(item.propertyLabel,sortOrder);
                 sortingOrder = true;
             }
         },
          sortOrder : (searchOptions.sortOrder.length && (searchOptions.sortOrder[0].propertyName === item.propertyLabel)
              && searchOptions.sortOrder[0].hasOwnProperty('sortDirection') ) ? (searchOptions.sortOrder[0].sortDirection === 'ascending') ?'ascend':'descend' : null,
-    } : "")
+    } : "");
 
     const updatedTableHeader = () => {
         let header = tableHeaderRender(selectedTableColumns);
@@ -190,10 +193,10 @@ const ResultsTabularView = (props) => {
             title: 'Detail View',
             dataIndex: 'detailView',
             key: '0-d'
-        }
+        };
         header.length > 0 && header.push(detailView);
         return header;
-    }
+    };
 
     const tableHeaders = props.selectedEntities?.length === 0 ? DEFAULT_ALL_ENTITIES_HEADER : updatedTableHeader();
 
@@ -201,8 +204,10 @@ const ResultsTabularView = (props) => {
         let dataObj = {};
         let primaryKeyValue = item.primaryKey?.propertyValue;
         let isUri = item.primaryKey?.propertyPath === 'uri';
-        let uri = encodeURIComponent(item.uri);
-        let path = { pathname: `/tiles/explore/detail/${isUri ? '-' : encodeURIComponent(primaryKeyValue)}/${uri}` };
+        let path = {
+            pathname: "/tiles/explore/detail", 
+            primaryKey: isUri ? '' : primaryKeyValue
+        };
         let options = {};
         let detailView =
             <div className={styles.redirectIcons}>
@@ -215,11 +220,16 @@ const ResultsTabularView = (props) => {
                         searchFacets: searchOptions.selectedFacets,
                         query: searchOptions.query,
                         tableView: props.tableView,
-                        sortOrder: searchOptions.sortOrder
+                        sortOrder: searchOptions.sortOrder,
+                        sources: item.sources,
+                        primaryKey: path.primaryKey,
+                        uri: item.uri,
+                        entityInstance: item.entityInstance,
+                        database: searchOptions.database
                     }
                 }} id={'instance'}
                     data-cy='instance'>
-                    <Tooltip title={'Show the processed data'}><FontAwesomeIcon icon={faExternalLinkAlt} size="sm" data-testid={`${primaryKeyValue}-detailOnSeparatePage`} /></Tooltip>
+                    <Tooltip title={'Show the processed data'} placement="topRight"><FontAwesomeIcon icon={faExternalLinkAlt} size="sm" data-testid={`${primaryKeyValue}-detailOnSeparatePage`} /></Tooltip>
                 </Link>
                 <Link to={{
                     pathname: `${path.pathname}`,
@@ -231,13 +241,18 @@ const ResultsTabularView = (props) => {
                         searchFacets: searchOptions.selectedFacets,
                         query: searchOptions.query,
                         tableView: props.tableView,
-                        sortOrder: searchOptions.sortOrder
+                        sortOrder: searchOptions.sortOrder,
+                        sources: item.sources,
+                        primaryKey: path.primaryKey,
+                        uri: item.uri,
+                        entityInstance: item.entityInstance,
+                        database: searchOptions.database
                     }
                 }} id={'source'}
                     data-cy='source'>
-                    <Tooltip title={'Show the complete ' + item.format.toUpperCase()}><FontAwesomeIcon icon={faCode} size="sm" data-testid={`${primaryKeyValue}-sourceOnSeparatePage`} /></Tooltip>
+                    <Tooltip title={'Show the complete ' + item.format.toUpperCase()} placement="topRight"><FontAwesomeIcon icon={faCode} size="sm" data-testid={`${primaryKeyValue}-sourceOnSeparatePage`} /></Tooltip>
                 </Link>
-            </div>
+            </div>;
         if (props.selectedEntities?.length === 0) {
             let itemIdentifier = item.identifier?.propertyValue;
             let itemEntityName = item.entityName;
@@ -251,28 +266,33 @@ const ResultsTabularView = (props) => {
                 createdOn: dateConverter(createdOn),
                 uri: item.uri,
                 primaryKeyPath: path,
-                detailView: detailView
-            }
+                sources: item.sources,
+                entityInstance: item.entityInstance,
+                detailView: detailView,
+                database: searchOptions.database
+            };
         } else {
             options = {
                 primaryKey: primaryKeyValue,
                 uri: item.uri,
                 primaryKeyPath: path,
-                detailView: detailView
-            }
+                sources: item.sources,
+                entityInstance: item.entityInstance,
+                detailView: detailView,
+                database: searchOptions.database
+            };
         }
-
         dataObj = { ...dataObj, ...options };
         if (item?.hasOwnProperty('entityProperties')) {
             if (JSON.stringify(item.entityProperties) !== JSON.stringify([])) {
-                generateTableData(item.entityProperties, dataObj)
+                generateTableData(item.entityProperties, dataObj);
             } else {
                 dataObj = { ...dataObj, ...dataWithSelectedTableColumns };
             }
         }
 
         return dataObj;
-    }
+    };
 
     const generateTableData = (item, dataObj = {}) => {
         if (item) {
@@ -282,20 +302,20 @@ const ResultsTabularView = (props) => {
                         dataObj[subItem.propertyPath] = subItem.propertyValue;
                     } else {
                         let dataObjArr: any[] = [];
-                        for (let el of subItem.propertyValue) {
+                        subItem.propertyValue.forEach((el, index) => {
                             if (el) {
-                                dataObjArr.push(generateTableData(el));
+                                dataObjArr.push(generateTableData(el, {key: index}));
                             }
-                        }
+                        });
                         dataObj[subItem.propertyPath] = dataObjArr;
                     }
                 } else {
-                    return generateTableData(subItem)
+                    return generateTableData(subItem);
                 }
             }
             return dataObj;
         }
-    }
+    };
 
     const dataSource = props.data.map((item) => {
         return tableDataRender(item);
@@ -303,20 +323,19 @@ const ResultsTabularView = (props) => {
 
     useEffect(() => {
         if (props.columns && props.columns.length > 0 && searchOptions.selectedTableProperties.length === 0) {
-            setSelectedTableProperties(props.columns)
+            setSelectedTableProperties(props.columns);
         }
-    }, [props.columns])
+    }, [props.columns]);
 
     useEffect(() => {
         props.selectedEntities && props.selectedEntities.length && props.entityDefArray && props.entityDefArray.forEach((entity => {
             if (entity.name === props.selectedEntities[0]) {
                 entity.primaryKey && setPrimaryKey(entity.primaryKey);
             }
-        }))
-    }, [props.selectedEntities])
+        }));
+    }, [props.selectedEntities, searchOptions.selectedTableProperties]);
 
     const expandedRowRender = (rowId) => {
-
         const nestedColumns = [
             { title: 'Property', dataIndex: 'property', width: '33%' },
             { title: 'Value', dataIndex: 'value', width: '34%' },
@@ -340,7 +359,12 @@ const ResultsTabularView = (props) => {
                                 start: searchOptions.start,
                                 searchFacets: searchOptions.selectedFacets,
                                 query: searchOptions.query,
-                                tableView: props.tableView
+                                tableView: props.tableView,
+                                sortOrder: searchOptions.sortOrder,
+                                sources: rowId.sources,
+                                primaryKey: rowId.primaryKeyPath.primaryKey,
+                                uri: rowId.uri,
+                                entityInstance: rowId.entityInstance
                             }
                         }}
                             data-cy='nested-instance'>
@@ -358,7 +382,7 @@ const ResultsTabularView = (props) => {
                 }
             }
             return parsedData;
-        }
+        };
 
         let index: string = '';
         for (let i in props.data) {
@@ -375,8 +399,8 @@ const ResultsTabularView = (props) => {
             dataSource={nestedData}
             pagination={false}
             className={styles.nestedTable}
-        />
-    }
+        />;
+    };
 
     return (
         <>
@@ -402,7 +426,7 @@ const ResultsTabularView = (props) => {
                 />
             </div>
         </>
-    )
-}
+    );
+};
 
-export default ResultsTabularView
+export default ResultsTabularView;

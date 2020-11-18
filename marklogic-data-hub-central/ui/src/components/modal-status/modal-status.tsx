@@ -6,20 +6,21 @@ import axios from "axios";
 import { UserContext } from '../../util/user-context';
 import { ModelingContext} from '../../util/modeling-context';
 import { useInterval } from '../../hooks/use-interval';
-import { SESSION_WARNING_COUNTDOWN } from '../../config/application.config';
+import {MAX_SESSION_TIME, SESSION_WARNING_COUNTDOWN} from '../../config/application.config';
+import { getSystemInfo } from '../../api/environment';
 
 interface Props extends RouteComponentProps<any>{
-};
+}
 
 const SESSION_BTN_TEXT = {
   ok: 'Continue Session',
   cancel: 'Log Out'
-}
+};
 
 const ERROR_BTN_TEXT = {
   ok: 'OK',
   cancel: 'Cancel'
-}
+};
 
 const ModalStatus: React.FC<Props> = (props) => {
   const {
@@ -38,7 +39,7 @@ const ModalStatus: React.FC<Props> = (props) => {
   const [sessionWarning, setSessionWarning] = useState(false);
   const location = useLocation();
   const history = useHistory();
-  let sessionCount = 300;
+  let sessionCount = MAX_SESSION_TIME;
 
   useEffect(() => {
     if (user.error.type === 'MODAL') {
@@ -55,7 +56,7 @@ const ModalStatus: React.FC<Props> = (props) => {
             toggleModal(true); // For testing
             history.push('/noresponse');
           }
-        })
+        });
     } else if (sessionWarning && 
                // Ignore session warning if in no-response state
                location.pathname !== '/noresponse') { 
@@ -96,7 +97,7 @@ const ModalStatus: React.FC<Props> = (props) => {
     } else if (sessionWarning) {
       // refresh session
       try {
-        await axios.get('/api/environment/systemInfo');
+        await getSystemInfo();
       } catch (error) {
         if (error.response) {
           handleError(error);
@@ -104,7 +105,6 @@ const ModalStatus: React.FC<Props> = (props) => {
           history.push('/noresponse');
         }
       } finally {
-        resetSessionTime();
         setSessionTime(SESSION_WARNING_COUNTDOWN);
         setSessionWarning(false);
         toggleModal(false);
@@ -153,8 +153,8 @@ const ModalStatus: React.FC<Props> = (props) => {
       {sessionWarning && user.error.type !== 'MODAL' && <p>Due to Inactivity, you will be logged out in <b>{sessionTime} seconds</b></p>}
       {user.error.type === 'MODAL' && <p>{user.error.message}</p>}
     </Modal>
-  )
-}
+  );
+};
 
 export default withRouter(ModalStatus);
 

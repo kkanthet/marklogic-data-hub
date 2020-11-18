@@ -197,29 +197,53 @@ declare %private function hent:fix-options-for-explorer(
               <search:facet-option>descending</search:facet-option>
             </search:range>
           </search:constraint>,
+          <search:constraint name="sourceName">
+            <search:range>
+              <search:field name="datahubSourceName"/>
+              <search:facet-option>limit=25</search:facet-option>
+              <search:facet-option>frequency-order</search:facet-option>
+              <search:facet-option>descending</search:facet-option>
+            </search:range>
+          </search:constraint>,
+          <search:constraint name="sourceType">
+            <search:range>
+              <search:field name="datahubSourceType"/>
+              <search:facet-option>limit=25</search:facet-option>
+              <search:facet-option>frequency-order</search:facet-option>
+              <search:facet-option>descending</search:facet-option>
+            </search:range>
+          </search:constraint>,
           hent:build-sort-operator($sortable-properties, $entity-namespace-map),
-          hent:fix-options-for-explorer($n/node(), $sortable-properties, $entity-namespace-map)
+          hent:fix-options-for-explorer($n/node(), $sortable-properties, $entity-namespace-map),
+          <search:transform-results apply="snippet">
+            <per-match-tokens>30</per-match-tokens>
+            <max-matches>4</max-matches>
+            <max-snippet-chars>200</max-snippet-chars>
+          </search:transform-results>
         }
       case element(search:constraint) return
-        element { fn:node-name($n) } {
-          $n/@*,
-          let $path-expression := fix-path-expression(fn:string($n/search:range/search:path-index))
-          let $search-range-node := $n/search:range
-          let $is-sortable-only :=
-            let $sort-info := map:get($sortable-properties, $path-expression)
+        let $container-for-entity-property-generated-by-es := $n/search:container
+        where fn:not($container-for-entity-property-generated-by-es)
+        return
+          element {fn:node-name($n)} {
+            $n/@*,
+            let $path-expression := fix-path-expression(fn:string($n/search:range/search:path-index))
+            let $search-range-node := $n/search:range
+            let $is-sortable-only :=
+              let $sort-info := map:get($sortable-properties, $path-expression)
+              return
+                if (fn:exists($sort-info)) then map:get($sort-info, "is-sortable-only") = fn:true()
+                else fn:false()
             return
-              if (fn:exists($sort-info)) then map:get($sort-info, "is-sortable-only") = fn:true()
-              else fn:false()
-          return
-            if (fn:empty($search-range-node) or fn:not($is-sortable-only)) then
-              hent:fix-options-for-explorer($n/node(), $sortable-properties, $entity-namespace-map)
-            else
-              element {fn:node-name($search-range-node)} {
-                $search-range-node/attribute()[not(name()='facet')],
-                attribute facet {"false"},
-                hent:fix-options-for-explorer($search-range-node, $sortable-properties, $entity-namespace-map)/node()
-              }
-        }
+              if (fn:empty($search-range-node) or fn:not($is-sortable-only)) then
+                hent:fix-options-for-explorer($n/node(), $sortable-properties, $entity-namespace-map)
+              else
+                element {fn:node-name($search-range-node)} {
+                  $search-range-node/attribute()[not(name() = 'facet')],
+                  attribute facet {"false"},
+                  hent:fix-options-for-explorer($search-range-node, $sortable-properties, $entity-namespace-map)/node()
+                }
+          }
       case element(search:additional-query) return ()
       case element(search:return-facets) return <search:return-facets>true</search:return-facets>
       case element(search:extract-document-data) return
@@ -255,14 +279,13 @@ declare %private function hent:build-sort-operator(
 {
   let $states :=
     for $path-expression in map:keys($sortable-properties)
-    let $state-name-prefix :=
-      let $sort-info := map:get($sortable-properties, $path-expression)
-      return fn:concat(map:get($sort-info, "entity-title"), "_", map:get($sort-info, "property-name"))
-
+    let $sort-info := map:get($sortable-properties, $path-expression)
+    let $indexable-datatype := hent:get-indexable-datatype(map:get($sort-info, "property-datatype"))
+    let $state-name-prefix := fn:concat(map:get($sort-info, "entity-title"), "_", map:get($sort-info, "property-name"))
     for $direction in ("ascending", "descending")
     return
       <search:state name="{fn:concat($state-name-prefix, xdmp:initcap($direction))}">
-        <search:sort-order direction="{$direction}">
+        <search:sort-order type="{fn:concat("xs:", $indexable-datatype)}" direction="{$direction}">
           {
             element search:path-index {
               attribute {"xmlns:es"} {"http://marklogic.com/entity-services"},
@@ -275,6 +298,26 @@ declare %private function hent:build-sort-operator(
       </search:state>
   where $states
   return <search:operator name="sort">{$states}</search:operator>
+};
+
+(:
+Returns an indexable scalar data type for ES logical datatype.
+:)
+declare function hent:get-indexable-datatype($datatype as xs:string) as xs:string
+{
+    switch ($datatype)
+    case "boolean" return "string"
+    case "iri" return "string"
+    case "byte" return "int"
+    case "short" return "int"
+    case "unsignedShort" return "unsignedInt"
+    case "unsignedByte" return "unsignedInt"
+    case "integer" return "decimal"
+    case "negativeInteger" return "decimal"
+    case "nonNegativeInteger" return "decimal"
+    case "positiveInteger" return "decimal"
+    case "nonPositiveInteger" return "decimal"
+    default return $datatype
 };
 
 (:
@@ -543,8 +586,8 @@ declare function hent:fix-tde($nodes as node()*, $entity-model-contexts as xs:st
                     return
                       element tde:column {
                         $column/@*,
+                        hent:fix-tde($column/(tde:name|tde:scalar-type), $entity-model-contexts, $uber-definitions),
                         if (fn:starts-with($column/tde:name, $join-prefix)) then (
-                          hent:fix-tde($column/(tde:name|tde:scalar-type), $entity-model-contexts, $uber-definitions),
                           let $tde-val := fn:string($column/tde:val)
                           let $primary-key := $uber-definitions => map:get($tde-val) => map:get("primaryKey")
                           return
@@ -553,12 +596,12 @@ declare function hent:fix-tde($nodes as node()*, $entity-model-contexts as xs:st
                                 $generated-primary-key-expression
                               else
                                 $tde-val || "/" || $primary-key
-                            },
-                          $default-nullable,
-                          $default-invalid-values,
-                          hent:fix-tde($column/(tde:default|tde:reindexing|tde:collation), $entity-model-contexts, $uber-definitions)
+                            }
                         ) else
-                          hent:fix-tde($column/node(), $entity-model-contexts, $uber-definitions)
+                          hent:fix-tde($column/tde:val, $entity-model-contexts, $uber-definitions),
+                        $default-nullable,
+                        $default-invalid-values,
+                        hent:fix-tde($column/(tde:default|tde:reindexing|tde:collation), $entity-model-contexts, $uber-definitions)
                       }
                   }
                 }
@@ -697,12 +740,20 @@ declare %private function hent:add-indexes-for-entity-properties($entities as js
                     fn:concat("/es:envelope/es:instance/", $namespace-prefix, ":", $entity-title, "/", $namespace-prefix, ":", $entity-type-property)
                   else
                     fn:concat("/(es:envelope|envelope)/(es:instance|instance)/", $entity-title, "/", $entity-type-property)
+                let $property-datatype :=
+                    let $items := map:get($entity-type-properties, $entity-type-property)=>map:get("items")
+                    return
+                      if(fn:empty($items)) then
+                        map:get($entity-type-properties, $entity-type-property)=>map:get("datatype")
+                      else
+                        map:get($items, "datatype")
                 (: If something is only sortable, we need a path range index for it, but we need to ensure that a facet
                 is not configured for it :)
                 let $sort-info := map:new((
                   map:entry("is-sortable-only", $is-sortable and fn:not($is-facetable)),
                   map:entry("entity-title", $entity-title),
-                  map:entry("property-name", $entity-type-property)
+                  map:entry("property-name", $entity-type-property),
+                  map:entry("property-datatype", $property-datatype)
                 ))
                 return map:put($sortable-properties, $path-expression, $sort-info)
               else ()

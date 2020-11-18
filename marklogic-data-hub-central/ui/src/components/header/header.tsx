@@ -1,7 +1,7 @@
 import React, { useContext, useState } from 'react';
 import { RouteComponentProps, withRouter, useHistory } from 'react-router-dom';
 import axios from 'axios';
-import { Layout, Icon, Avatar, Menu, Tooltip, Dropdown } from 'antd';
+import { Layout, Icon, Avatar, Menu, Dropdown } from 'antd';
 import { UserContext } from '../../util/user-context';
 import { ModelingContext} from '../../util/modeling-context';
 import logo from './logo.svg';
@@ -10,7 +10,7 @@ import { Application } from '../../config/application.config';
 import { MLButton, MLTooltip } from '@marklogic/design-system';
 import SystemInfo from './system-info';
 import ConfirmationModal from '../confirmation-modal/confirmation-modal';
-import { ConfirmationType } from '../../types/modeling-types';
+import { ConfirmationType } from '../../types/common-types';
 
 interface Props extends RouteComponentProps<any> {
   environment: any
@@ -43,7 +43,7 @@ const Header:React.FC<Props> = (props) => {
     }
     clearEntityModified();
     toggleConfirmModal(false);
-  }
+  };
 
   const handleSystemInfoDisplay = () => {
     axios.get('/api/environment/systemInfo')
@@ -57,13 +57,13 @@ const Header:React.FC<Props> = (props) => {
             } else {
               history.push('/noresponse');
             }
-        })
-  }
+        });
+  };
 
   const getVersionLink = () => {
     let versionNum = parseVersion(props.environment.dataHubVersion);
     return 'https://docs.marklogic.com/datahub/' + versionNum;
-  }
+  };
 
   const parseVersion = (value) => {
     if(value == ''){
@@ -83,7 +83,7 @@ const Header:React.FC<Props> = (props) => {
       }
       return version;
     }
-  }
+  };
 
   let userMenu = <div className={styles.userMenu}>
     <div className={styles.username}>{localStorage.getItem('dataHubUser')}</div>
@@ -137,7 +137,7 @@ const Header:React.FC<Props> = (props) => {
           <MLTooltip title="Help"><a id="help-link" href='https://docs.marklogic.com/datahub/' target="_blank"><Icon type="question-circle"/></a></MLTooltip>
         </Menu.Item>
       </Menu>
-    </div>
+    </div>;
   }
 
   const handleHomeClick = () => {
@@ -171,7 +171,7 @@ const Header:React.FC<Props> = (props) => {
           confirmAction={confirmLogout}
       />
     </>
-  )
-}
+  );
+};
 
 export default withRouter(Header);

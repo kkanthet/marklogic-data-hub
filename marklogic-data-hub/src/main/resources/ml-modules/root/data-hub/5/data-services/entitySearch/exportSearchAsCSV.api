@@ -1,0 +1,47 @@
+{
+    "functionName": "exportSearchAsCSV",
+    "description": "Export the results of a saved query as CSV",
+    "params": [
+        {
+            "name": "structuredQuery",
+            "datatype": "string"
+        },
+        {
+            "name": "searchText",
+            "datatype": "string",
+            "nullable" : true
+        },
+        {
+            "name": "queryOptions",
+            "datatype": "string"
+        },
+        {
+            "name": "schemaName",
+            "datatype": "string"
+        },
+        {
+            "name": "viewName",
+            "datatype": "string"
+        },
+        {
+            "name": "limit",
+            "datatype": "long",
+            "nullable" : true
+        },
+        {
+            "name": "sortOrder",
+            "datatype": "array",
+            "$javaClass": "com.fasterxml.jackson.databind.node.ArrayNode"
+        },
+        {
+            "name": "columns",
+            "datatype": "string",
+            "multiple" : true
+        }
+    ],
+    "return": {
+        "datatype": "textDocument",
+        "$javaClass": "java.io.Reader",
+        "description": "Returns the CSV results of Optic API search"
+    }
+}

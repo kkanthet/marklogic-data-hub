@@ -1,10 +1,10 @@
 import React from 'react';
 import { BrowserRouter as Router } from 'react-router-dom';
-import {fireEvent, render} from '@testing-library/react';
+import {fireEvent, getByLabelText, render} from '@testing-library/react';
 
 import EntityTiles from './entity-tiles';
-import axiosMock from 'axios'
-import data from "../../assets/mock-data/flows.data";
+import axiosMock from 'axios';
+import data from "../../assets/mock-data/curation/flows.data";
 import {act} from "react-dom/test-utils";
 
 jest.mock('axios');
@@ -26,7 +26,7 @@ describe("Entity Tiles component", () => {
         default:
           return Promise.reject(new Error('not found'));
       }
-    })
+    });
   });
 
   afterEach(() => {
@@ -112,7 +112,7 @@ describe("Entity Tiles component", () => {
       });
       let flows = [];
       let [canReadMatchMerge, canWriteMatchMerge,canWriteMapping, canReadMapping, canReadCustom] = [false, false, false, true, true];
-      let queryAllByText, getByText;
+      let queryAllByText, getByText, getByLabelText;
       await act(async () => {
           const renderResults = render(
               <Router>
@@ -131,6 +131,7 @@ describe("Entity Tiles component", () => {
               </Router>,
           );
           getByText = renderResults.getByText;
+          getByLabelText = renderResults.getByLabelText;
           queryAllByText = renderResults.queryAllByText;
       });
       let customerPanel = getByText('Customer');
@@ -142,7 +143,8 @@ describe("Entity Tiles component", () => {
       await fireEvent.click(customerPanel);
       // Check for Mapping tab
       expect(getByText('Map')).toBeInTheDocument();
-      expect(getByText('Custom')).toBeInTheDocument();
+      await fireEvent.click(getByText('Custom'));
+      expect(getByLabelText('customEntityTitle')).toBeInTheDocument();
       // Check for Matching tab
       expect(queryAllByText('Match')).toHaveLength(0);
       await fireEvent.click(customerPanel);
@@ -150,5 +152,6 @@ describe("Entity Tiles component", () => {
       await fireEvent.click(NoEntityTypePanel);
       //Custom card 'customXML' should be selected by default
       expect(getByText('customXML')).toBeInTheDocument();
+      expect(getByLabelText('customNoEntityTitle')).toBeInTheDocument();
   });
-})
+});
